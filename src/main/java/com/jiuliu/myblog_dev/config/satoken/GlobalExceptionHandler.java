@@ -1,11 +1,13 @@
 package com.jiuliu.myblog_dev.config.satoken;
 
+import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
-import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.util.SaResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -18,16 +20,36 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
-     * 处理鉴权异常
+     * 处理参数校验失败（@Valid 触发）
      */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
     @SuppressWarnings("unused")
-    @ExceptionHandler(value = {NotLoginException.class, NotRoleException.class, NotPermissionException.class})
+    public SaResult handleValidationException(MethodArgumentNotValidException e) {
+        FieldError firstError = e.getBindingResult().getFieldError();
+        String message = (firstError != null) ? firstError.getDefaultMessage() : "请求参数格式错误";
+        log.warn("参数校验失败: {}", message);
+        return SaResult.error(message).setCode(400);
+    }
+
+    /**
+     * 处理业务逻辑中的非法参数（如密码错误、用户不存在等）
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @SuppressWarnings("unused")
+    public SaResult handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("业务参数错误: {}", e.getMessage());
+        return SaResult.error(e.getMessage()).setCode(400);
+    }
+
+    /**
+     * 处理 Sa-Token 鉴权异常
+     */
+    @ExceptionHandler({NotLoginException.class, NotRoleException.class, NotPermissionException.class})
+    @SuppressWarnings("unused")
     public SaResult handleAuthException(Exception e) {
-
         log.warn("鉴权异常: {}", e.getClass().getSimpleName());
-        log.info("鉴权异常详情: {}", e.getMessage()); // 不记录堆栈，避免日志过大
+        // 不记录 e.toString() 或堆栈，避免泄露内部信息
 
-        //  返回标准化错误信息（不包含异常详情）
         if (e instanceof NotLoginException) {
             return SaResult.error("未登录，请先登录").setCode(401);
         } else if (e instanceof NotRoleException) {
@@ -35,20 +57,20 @@ public class GlobalExceptionHandler {
         } else if (e instanceof NotPermissionException) {
             return SaResult.error("没有权限").setCode(403);
         }
-        return SaResult.error("系统错误").setCode(500);
+        return SaResult.error("鉴权失败").setCode(403);
     }
 
     /**
-     * 处理其他系统异常
+     * 处理其他未预期的系统异常
      */
+    @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
-    @ExceptionHandler
-    public SaResult handleException(Exception e) {
-        // 1. 严格安全记录：只记录异常类型和关键信息
+    public SaResult handleGeneralException(Exception e) {
+        // 记录异常类型和消息（不记录堆栈，除非调试）
         log.error("系统异常: {}", e.getClass().getSimpleName());
-        log.error("系统异常详情: {}", e.getMessage());
+        log.error("异常消息: {}", e.getMessage());
 
-        // 2. 返回统一错误信息（避免暴露实现细节）
-        return SaResult.error("系统错误").setCode(500);
+        // 返回通用错误
+        return SaResult.error("当前服务暂时不可用，请稍后再试").setCode(500);
     }
 }
