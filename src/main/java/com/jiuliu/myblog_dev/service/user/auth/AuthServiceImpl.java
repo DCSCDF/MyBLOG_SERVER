@@ -2,6 +2,7 @@ package com.jiuliu.myblog_dev.service.user.auth;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
@@ -9,6 +10,7 @@ import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.Validation.ValidationHelper;
+import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+
+import static cn.dev33.satoken.SaManager.log;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -32,73 +36,77 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
+    @Autowired
+    private TempLoginTokenService tempLoginTokenService;
+
     @Override
     public SaResult getPublicKey() {
         Map<String, Object> data = new HashMap<>();
         data.put("publicKey", rsaKeyConfig.getPublicKeyBase64());
+
+        // 生成一个未绑定用户的临时 Token（60秒有效）
+        String tempToken = tempLoginTokenService.generateTempToken();
+        data.put("tempToken", tempToken);
+
         return SaResult.data(data);
     }
 
     @Override
     public SaResult login(LoginDTO dto) {
+        // 校验临时 Token
+        String tempToken = dto.getTempToken();
+        String tokenValue = tempLoginTokenService.consumeToken(tempToken);
+
+        if (!"unbound".equals(tokenValue)) {
+            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+        }
+
+
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
 
-        if (!StringUtils.hasText(username)) {
-            throw new IllegalArgumentException("用户名不能为空");
-        }
         if (!ValidationHelper.validateUsername(username)) {
-            throw new IllegalArgumentException("用户名格式错误");
+            return SaResult.error("用户名格式错误").setCode(400);
         }
-        if (!StringUtils.hasText(encryptedPassword)) {
-            throw new IllegalArgumentException("密码不能为空");
-        }
+
 
         String rawPassword;
-        try {
-            rawPassword = RsaUtils.decryptByPrivateKey(encryptedPassword, rsaKeyConfig.getPrivateKeyBase64());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("密码格式错误");
+
+        rawPassword = RsaUtils.decryptByPrivateKey(encryptedPassword, rsaKeyConfig.getPrivateKeyBase64());
+        if (!StringUtils.hasText(rawPassword)) {
+            return SaResult.error("密码格式错误").setCode(400);
         }
 
+
+//        if (!ValidationHelper.validatePassword(rawPassword)) {
+//            return SaResult.error("密码格式不符合要求").setCode(400);
+//        }
+
+
+        // 查询用户并统一认证失败提示
         SysUser user = sysUserMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<SysUser>()
-                        .eq("username", username.trim())
+                new QueryWrapper<SysUser>().eq("username", username.trim())
         );
 
-        if (user == null) {
-            throw new IllegalArgumentException("用户名不存在");
+        if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
+            return SaResult.error("用户名或密码错误").setCode(400);
         }
 
-        if (ValidationHelper.validatePassword(rawPassword)) {
-            throw new IllegalArgumentException("密码格式错误");
-        }
-
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new IllegalArgumentException("密码错误");
-        }
-
+        // 登录成功
         StpUtil.login(user.getId());
 
         Map<String, Object> data = new HashMap<>();
         data.put("token", StpUtil.getTokenValue());
-        data.put("username", user.getUsername());
-        data.put("nickname", user.getNickname());
-        data.put("updateTime", user.getUpdateTime());
-
         return SaResult.data(data);
     }
 
-
     @Override
     public SaResult getUserProfile(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("用户 ID 不能为空");
-        }
+
 
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            return SaResult.error("用户不存在").setCode(400);
         }
 
         Map<String, Object> profile = new HashMap<>();
@@ -115,9 +123,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult logout() {
-        if (!StpUtil.isLogin()) {
-            throw new IllegalArgumentException("用户未登录");
-        }
+
 
         try {
             StpUtil.logout();
@@ -126,21 +132,19 @@ public class AuthServiceImpl implements AuthService {
             data.put("logoutTime", System.currentTimeMillis());
             return SaResult.data(data);
         } catch (Exception e) {
-            throw new RuntimeException("登出失败", e);
+            return SaResult.error("登出失败").setCode(400);
         }
     }
 
     @Override
     public SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {
-        if (currentUserId == null) {
-            throw new IllegalArgumentException("当前用户未登录");
-        }
+
 
         String encryptedOldPassword = dto.getOld_password();
         String encryptedNewPassword = dto.getNew_password();
 
         if (!StringUtils.hasText(encryptedOldPassword) || !StringUtils.hasText(encryptedNewPassword)) {
-            throw new IllegalArgumentException("原密码或新密码不能为空");
+            return SaResult.error("原密码或新密码不能为空").setCode(400);
         }
 
         String rawOldPassword, rawNewPassword;
@@ -148,27 +152,27 @@ public class AuthServiceImpl implements AuthService {
             rawOldPassword = RsaUtils.decryptByPrivateKey(encryptedOldPassword, rsaKeyConfig.getPrivateKeyBase64());
             rawNewPassword = RsaUtils.decryptByPrivateKey(encryptedNewPassword, rsaKeyConfig.getPrivateKeyBase64());
             if (!StringUtils.hasText(rawOldPassword) || !StringUtils.hasText(rawNewPassword)) {
-                throw new IllegalArgumentException("密码格式错误");
+                return SaResult.error("密码格式错误").setCode(400);
             }
         } catch (Exception e) {
-            throw new IllegalArgumentException("密码格式错误");
+            return SaResult.error("密码格式错误").setCode(400);
         }
 
         if (ValidationHelper.validatePassword(rawNewPassword)) {
-            throw new IllegalArgumentException("新密码格式不符合要求");
+            return SaResult.error("新密码格式不符合要求").setCode(400);
         }
 
         if (rawOldPassword.equals(rawNewPassword)) {
-            throw new IllegalArgumentException("新密码不能与原密码相同");
+            return SaResult.error("新密码不能与原密码相同").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            return SaResult.error("用户不存在").setCode(400);
         }
 
         if (!passwordEncoder.matches(rawOldPassword, user.getPassword())) {
-            throw new IllegalArgumentException("原密码错误");
+            return SaResult.error("原密码错误").setCode(400);
         }
 
         String encodedNewPassword = passwordEncoder.encode(rawNewPassword);
@@ -182,7 +186,7 @@ public class AuthServiceImpl implements AuthService {
 
         int rows = sysUserMapper.updateById(user);
         if (rows != 1) {
-            throw new RuntimeException("密码修改失败，请重试");
+            return SaResult.error("密码修改失败，请重试").setCode(400);
         }
 
         StpUtil.logout(currentUserId);

@@ -80,3 +80,11 @@ public class AdminController {
 }
 ```
 
+### AJ-Captcha 自动注册了以下接口（基于 /captcha 前缀）：
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/captcha/get` | POST | 获取验证码（滑动 or 点选） |
+| `/captcha/check` | POST | 核对用户操作结果 |
+| `/captcha/verify` | POST | 二次校验（用于登录等）|
+

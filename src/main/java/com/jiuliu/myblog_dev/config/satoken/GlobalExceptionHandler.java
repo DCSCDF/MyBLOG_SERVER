@@ -4,6 +4,7 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.FieldError;
@@ -59,7 +60,15 @@ public class GlobalExceptionHandler {
         }
         return SaResult.error("鉴权失败").setCode(403);
     }
-
+    /**
+     * 处理限流异常
+     */
+    @ExceptionHandler(RateLimitException.class)
+    @SuppressWarnings("unused")
+    public SaResult handleRateLimitException(RateLimitException e) {
+        log.warn("触发限流: {}", e.getMessage());
+        return SaResult.error(e.getMessage()).setCode(429); // HTTP 429 Too Many Requests
+    }
     /**
      * 处理其他未预期的系统异常
      */

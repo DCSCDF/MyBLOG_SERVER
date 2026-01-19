@@ -19,24 +19,26 @@ public class AuthController {
     private AuthService authService;
 
     @GetMapping("/public-key")
+    @RateLimit(count = 6, period = 15)
     public SaResult getPublicKey() {
         return authService.getPublicKey();
     }
 
     @PostMapping("/login")
+    @RateLimit(count = 6, period = 15)
     public SaResult login(@Valid @RequestBody LoginDTO dto) {
         return authService.login(dto);
     }
 
     @GetMapping("/profile")
-    @RateLimit(count = 40, period = 15)
+    @RateLimit(count = 80, period = 4)
     public SaResult getUserProfile() {
         Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供，若未登录会抛 NotLoginException
         return authService.getUserProfile(userId);
     }
 
     @PostMapping("/logout")
-    @RateLimit(count = 10, period = 15)
+    @RateLimit(count = 80, period = 4)
     public SaResult logout() {
         return authService.logout();
     }
@@ -54,3 +56,4 @@ public class AuthController {
         return SaResult.error("功能暂未开放").setCode(501);
     }
 }
+

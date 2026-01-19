@@ -15,9 +15,9 @@ public @interface RateLimit {
     int count() default 5;
 
     /**
-     * 时间窗口，单位：秒（默认 60 秒）
+     * 时间窗口，单位：秒（默认 2min）
      */
-    int period() default 60;
+    int period() default 2;
 
     /**
      * 限流 key 前缀（可选，默认使用方法签名）
