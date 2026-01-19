@@ -1,7 +1,7 @@
 
 
 <h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">重构的 JAVA 后端</h1>
-<br>
+
 
 <h4 align="center">MyBLOG的 SpringBoot 后端服务器，采用更安全的实现方法。</h4>
 <div align="center">
