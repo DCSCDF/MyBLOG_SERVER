@@ -1,5 +1,5 @@
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">重构的 JAVA 后端</h1>
-<h4 align="center">MyBLOG的 SpringBoot 后端服务器，采用更安全的实现方法。</h4>
+<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">MyBlog 后端应用</h1>
+<h4 align="center">使用 SpringBoot 框架，方法实现采用更安全的方式。</h4>
 <div align="center">
 
 [![My Skills](https://skillicons.dev/icons?i=java,spring,mysql,git&theme=light)](https://skillicons.dev)
