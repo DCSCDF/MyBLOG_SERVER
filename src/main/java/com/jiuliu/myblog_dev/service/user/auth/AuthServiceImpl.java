@@ -2,6 +2,7 @@ package com.jiuliu.myblog_dev.service.user.auth;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
+import com.anji.captcha.model.vo.CaptchaVO;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
@@ -22,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import com.anji.captcha.service.CaptchaService;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -41,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private TempLoginTokenService tempLoginTokenService;
 
+    @Autowired
+    private CaptchaService captchaService;
 
 //        400: '请求参数错误',
 //        401: '未授权，请重新登录',
@@ -72,7 +75,42 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public SaResult login(LoginDTO dto) {
         log.info("用户尝试登录，用户名: {}", dto.getUsername());
+        CaptchaVO captchaVO = new CaptchaVO();
+        captchaVO.setCaptchaVerification(dto.getCaptchaVerification());
+        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
 
+        if (!response.isSuccess()) {
+            String repCode = response.getRepCode();
+            String message;
+            int httpCode = 400;
+
+            // 根据 repCode 映射更友好的提示（可选）
+            switch (repCode) {
+                case "6110":
+                    message = "验证码已失效，请重新获取";
+                    break;
+                case "6111":
+                    message = "验证码验证失败";
+                    break;
+                case "6206":
+                    message = "无效验证码请求，请重新获取";
+                    break;
+                case "6202":
+                    message = "验证码验证失败次数过多，请稍后再试";
+                    httpCode = 429; // 请求过于频繁
+                    break;
+                case "6201":
+                case "6204":
+                    message = "请求过于频繁，请稍后再试";
+                    httpCode = 429;
+                    break;
+                default:
+                    message = "验证码校验异常，请重试";
+            }
+
+            log.warn("登录失败：验证码校验未通过，repCode={}, username={}", repCode, dto.getUsername());
+            return SaResult.error(message).setCode(httpCode);
+        }
         // 校验临时 Token
         String tempToken = dto.getTempToken();
         String tokenValue = tempLoginTokenService.consumeToken(tempToken);

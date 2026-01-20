@@ -80,7 +80,7 @@ public class AdminController {
 }
 ```
 
-### AJ-Captcha 自动注册了以下接口（基于 /captcha 前缀）：
+### AJ-Captcha 自动注册了以下接口（基于 /api/captcha 前缀）：
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
