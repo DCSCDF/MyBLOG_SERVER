@@ -73,14 +73,14 @@ public class AuthServiceImpl implements AuthService {
     public SaResult login(LoginDTO dto) {
         log.info("用户尝试登录，用户名: {}", dto.getUsername());
 
-//        // 校验临时 Token
-//        String tempToken = dto.getTempToken();
-//        String tokenValue = tempLoginTokenService.consumeToken(tempToken);
-//
-//        if (!"unbound".equals(tokenValue)) {
-//            log.warn("登录失败：临时 Token 无效或已过期，token={}", tempToken);
-//            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
-//        }
+        // 校验临时 Token
+        String tempToken = dto.getTempToken();
+        String tokenValue = tempLoginTokenService.consumeToken(tempToken);
+
+        if (!"unbound".equals(tokenValue)) {
+            log.warn("登录失败：临时 Token 无效或已过期，token={}", tempToken);
+            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+        }
 
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
