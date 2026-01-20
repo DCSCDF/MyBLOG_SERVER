@@ -72,17 +72,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public SaResult login(LoginDTO dto) {
         log.info("用户尝试登录，用户名: {}", dto.getUsername());
-        // 校验临时 Token
-        String tempToken = dto.getTempToken();
-        String tokenValue = tempLoginTokenService.consumeToken(tempToken);
 
-        if (!"unbound".equals(tokenValue)) {
-            log.warn("登录失败：临时 Token 无效或已过期，token={}", tempToken);
-            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
-        }
+//        // 校验临时 Token
+//        String tempToken = dto.getTempToken();
+//        String tokenValue = tempLoginTokenService.consumeToken(tempToken);
+//
+//        if (!"unbound".equals(tokenValue)) {
+//            log.warn("登录失败：临时 Token 无效或已过期，token={}", tempToken);
+//            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+//        }
 
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
+
+        boolean rememberMe = Boolean.TRUE.equals(dto.getRememberMe()); // 安全地处理 null
 
         if (!ValidationHelper.validateUsername(username)) {
             log.warn("登录失败：用户名格式错误，username={}", username);
@@ -101,10 +104,6 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-//        if (!ValidationHelper.validatePassword(rawPassword)) {
-//            return SaResult.error("密码格式不符合要求").setCode(400);
-//        }
-
         // 查询用户并统一认证失败提示
         SysUser user = sysUserMapper.selectOne(
                 new QueryWrapper<SysUser>().eq("username", username.trim())
@@ -115,9 +114,11 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("用户名或密码错误").setCode(400);
         }
 
-        // 登录成功
-        StpUtil.login(user.getId(),true);
-        log.info("用户登录成功，userId={}", user.getId());
+        // 登录成功：根据 rememberMe 决定是否持久化
+        StpUtil.login(user.getId(), rememberMe);
+
+        String loginType = rememberMe ? "持久 Cookie（7天）" : "会话 Cookie";
+        log.info("用户登录成功，userId={}，登录类型：{}", user.getId(), loginType);
 
         Map<String, Object> data = new HashMap<>();
         data.put("token", StpUtil.getTokenValue());
