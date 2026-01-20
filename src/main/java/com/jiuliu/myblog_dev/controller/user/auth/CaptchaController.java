@@ -4,7 +4,6 @@ package com.jiuliu.myblog_dev.controller.user.auth;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,8 +13,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/captcha")
 public class CaptchaController {
 
-    @Autowired
-    private CaptchaService captchaService;
+    private final CaptchaService captchaService;
+
+    // 构造函数注入
+    public CaptchaController(CaptchaService captchaService) {
+        this.captchaService = captchaService;
+    }
 
     /**
      * 获取验证码

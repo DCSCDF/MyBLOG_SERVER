@@ -1,6 +1,5 @@
 package com.jiuliu.myblog_dev.dto.user.auth;
 
-import com.anji.captcha.model.vo.CaptchaVO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

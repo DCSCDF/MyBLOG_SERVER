@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
 //        400: '请求参数错误',
 //        401: '未授权，请重新登录',
 //        403: '拒绝访问',
-//        404: '请求的资源不存在',
+//        404: '请求的资源不存在', 
 //        408: '请求超时',
 //        429: '请求过于频繁',
 //        500: '服务器内部错误',
@@ -70,6 +70,7 @@ public class GlobalExceptionHandler {
         }
         return SaResult.error("鉴权失败").setCode(403);
     }
+
     /**
      * 处理限流异常
      */
@@ -79,6 +80,7 @@ public class GlobalExceptionHandler {
         log.warn("触发限流: {}", e.getMessage());
         return SaResult.error(e.getMessage()).setCode(429); // HTTP 429 Too Many Requests
     }
+
     /**
      * 处理其他未预期的系统异常
      */

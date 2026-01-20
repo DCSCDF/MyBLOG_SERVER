@@ -2,7 +2,6 @@ package com.jiuliu.myblog_dev.utils.user.auth;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.util.SaFoxUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,8 +12,12 @@ public class TempLoginTokenService {
     private static final String TOKEN_PREFIX = "temp_login_token:";
     private static final long EXPIRE_SECONDS = 60;
 
-    @Autowired
-    private SaTokenDao saTokenDao;
+    private final SaTokenDao saTokenDao;
+
+    // 构造函数注入
+    public TempLoginTokenService(SaTokenDao saTokenDao) {
+        this.saTokenDao = saTokenDao;
+    }
 
     /**
      * 生成一个未绑定用户的临时登录 Token

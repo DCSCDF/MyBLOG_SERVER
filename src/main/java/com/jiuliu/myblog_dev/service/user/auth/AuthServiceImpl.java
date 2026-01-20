@@ -3,47 +3,52 @@ package com.jiuliu.myblog_dev.service.user.auth;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.anji.captcha.model.vo.CaptchaVO;
+import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
-import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.Validation.ValidationHelper;
+import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.anji.captcha.service.CaptchaService;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
-    @Autowired
-    private SysUserMapper sysUserMapper;
+    private final SysUserMapper sysUserMapper;
+    private final RsaKeyConfig rsaKeyConfig;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final TempLoginTokenService tempLoginTokenService;
+    private final CaptchaService captchaService;
 
-    @Autowired
-    private RsaKeyConfig rsaKeyConfig;
-
-    @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
-
-    @Autowired
-    private TempLoginTokenService tempLoginTokenService;
-
-    @Autowired
-    private CaptchaService captchaService;
+    // 构造函数注入
+    public AuthServiceImpl(
+            SysUserMapper sysUserMapper,
+            RsaKeyConfig rsaKeyConfig,
+            BCryptPasswordEncoder passwordEncoder,
+            TempLoginTokenService tempLoginTokenService,
+            CaptchaService captchaService) {
+        this.sysUserMapper = sysUserMapper;
+        this.rsaKeyConfig = rsaKeyConfig;
+        this.passwordEncoder = passwordEncoder;
+        this.tempLoginTokenService = tempLoginTokenService;
+        this.captchaService = captchaService;
+    }
 
 //        400: '请求参数错误',
 //        401: '未授权，请重新登录',
@@ -55,7 +60,6 @@ public class AuthServiceImpl implements AuthService {
 //        502: '网关错误',
 //        503: '服务不可用',
 //        504: '网关超时'
-
 
 
     @Override

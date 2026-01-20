@@ -2,14 +2,13 @@ package com.jiuliu.myblog_dev.utils;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
-import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
-import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -25,14 +24,18 @@ public class DefaultAdminInitializer implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DefaultAdminInitializer.class);
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    @Autowired
-    private SysUserMapper sysUserMapper;
+    private final SysUserMapper sysUserMapper;
+    private final SysUserRoleMapper sysUserRoleMapper;
+    private final SysRoleMapper sysRoleMapper;
 
-    @Autowired
-    private SysUserRoleMapper sysUserRoleMapper;
-
-    @Autowired
-    private SysRoleMapper sysRoleMapper;
+    // 构造器注入
+    public DefaultAdminInitializer(SysUserMapper sysUserMapper,
+                                   SysUserRoleMapper sysUserRoleMapper,
+                                   SysRoleMapper sysRoleMapper) {
+        this.sysUserMapper = sysUserMapper;
+        this.sysUserRoleMapper = sysUserRoleMapper;
+        this.sysRoleMapper = sysRoleMapper;
+    }
 
     @Override
     @Transactional

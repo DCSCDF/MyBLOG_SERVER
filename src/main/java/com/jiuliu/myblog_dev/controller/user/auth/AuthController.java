@@ -2,10 +2,10 @@ package com.jiuliu.myblog_dev.controller.user.auth;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
-import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +29,7 @@ public class AuthController {
     public SaResult login(@Valid @RequestBody LoginDTO dto) {
         return authService.login(dto);
     }
-
+ 
     @GetMapping("/profile")
     @RateLimit(count = 80, period = 4)
     public SaResult getUserProfile() {
