@@ -50,11 +50,21 @@ public class GlobalExceptionHandler {
     public SaResult handleAuthException(Exception e) {
         log.warn("鉴权异常: {}", e.getClass().getSimpleName());
         // 不记录 e.toString() 或堆栈，避免泄露内部信息
+//        400: '请求参数错误',
+//        401: '未授权，请重新登录',
+//        403: '拒绝访问',
+//        404: '请求的资源不存在',
+//        408: '请求超时',
+//        429: '请求过于频繁',
+//        500: '服务器内部错误',
+//        502: '网关错误',
+//        503: '服务不可用',
+//        504: '网关超时'
 
         if (e instanceof NotLoginException) {
-            return SaResult.error("未登录，请先登录").setCode(401);
+            return SaResult.error("未授权，请先登录").setCode(401);
         } else if (e instanceof NotRoleException) {
-            return SaResult.error("没有角色权限").setCode(403);
+            return SaResult.error("没有权限").setCode(403);
         } else if (e instanceof NotPermissionException) {
             return SaResult.error("没有权限").setCode(403);
         }

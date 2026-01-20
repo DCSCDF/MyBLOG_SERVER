@@ -39,7 +39,7 @@ public class DefaultAdminInitializer implements CommandLineRunner {
     public void run(String... args) {
         // 延迟执行，等待数据库初始化完成
         try {
-            Thread.sleep(5000);  // 等待5秒，确保数据库初始化完成
+            Thread.sleep(1000);  // 等待1秒，确保数据库初始化完成
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
