@@ -88,7 +88,7 @@ public class AuthServiceImpl implements AuthService {
             String message;
             int httpCode = 400;
 
-            // 根据 repCode 映射更友好的提示（可选）
+            // 根据 repCode
             switch (repCode) {
                 case "6110":
                     message = "验证码已失效，请重新获取";

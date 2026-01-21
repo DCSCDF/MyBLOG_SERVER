@@ -11,17 +11,30 @@
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.9-6DB33F?logo=springboot&logoColor=white)
 
-> ### API 与数据库等文档
-> - [用户API文档（UserAPI）](Document/USER_API.md)
-> - [数据库结构（UserAPI）](Document/SQL.md)
+> ### API对接 与数据库结构等文档
+> - [用户认证API文档 `Auth_API`](Document/Auth_Api.md)
+> - [数据库结构](Document/Myblog_Sql.md)
 
 ---
 
+```
+# 查看当前配置
+java -jar myblog_dev.jar --help
+
+# 启动时覆盖配置
+java -jar myblog_dev.jar --app.cors.allowed-origins="https://prod.example.com"
+
+```
+
+## 项目开发参考
+
 ### 关系参考图：
+
 ![用户关系图](Document/img/img.png)
 ![数据库ER图](Document/img/img_1.png)
 
 ### 鉴权 API 说明
+
 您可以这样使用鉴权：
 
 ```java
@@ -35,10 +48,10 @@ boolean hasPermission = StpUtil.hasPermission("system:user:list");
 StpUtil.checkPermission("system:user:list");
 
 // 检查多个权限（全部通过）
-StpUtil.checkPermissionAnd("system:user:list", "system:user:create");
+StpUtil.checkPermissionAnd("system:user:list","system:user:create");
 
 // 检查多个权限（任一通过）
-StpUtil.checkPermissionOr("system:user:list", "system:user:delete");
+StpUtil.checkPermissionOr("system:user:list","system:user:delete");
 
 // 获取角色列表
 List<String> roleList = StpUtil.getRoleList();
@@ -50,10 +63,10 @@ boolean hasRole = StpUtil.hasRole("ADMIN");
 StpUtil.checkRole("ADMIN");
 
 // 检查多个角色（全部通过）
-StpUtil.checkRoleAnd("ADMIN", "SUPER_ADMIN");
+StpUtil.checkRoleAnd("ADMIN","SUPER_ADMIN");
 
 // 检查多个角色（任一通过）
-StpUtil.checkRoleOr("ADMIN", "SUPER_ADMIN");
+StpUtil.checkRoleOr("ADMIN","SUPER_ADMIN");
 ```
 
 控制器中使用权限验证：
@@ -82,9 +95,9 @@ public class AdminController {
 
 ### AJ-Captcha 自动注册了以下接口（基于 /api/captcha 前缀）：
 
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `/captcha/get` | POST | 获取验证码（滑动 or 点选） |
-| `/captcha/check` | POST | 核对用户操作结果 |
-| `/captcha/verify` | POST | 二次校验（用于登录等）|
+| 接口                | 方法   | 说明              |
+|-------------------|------|-----------------|
+| `/captcha/get`    | POST | 获取验证码（滑动 or 点选） |
+| `/captcha/check`  | POST | 核对用户操作结果        |
+| `/captcha/verify` | POST | 二次校验（用于登录等）     |
 

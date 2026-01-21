@@ -29,11 +29,12 @@ public class AuthController {
     public SaResult login(@Valid @RequestBody LoginDTO dto) {
         return authService.login(dto);
     }
- 
+
     @GetMapping("/profile")
     @RateLimit(count = 80, period = 4)
     public SaResult getUserProfile() {
-        Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供，若未登录会抛 NotLoginException
+        // 根据 token 返回userID 如果 token 无效会抛 NotLoginException
+        Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供
         return authService.getUserProfile(userId);
     }
 
