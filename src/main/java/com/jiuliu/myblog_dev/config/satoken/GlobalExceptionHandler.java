@@ -7,10 +7,13 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理
@@ -93,5 +96,14 @@ public class GlobalExceptionHandler {
 
         // 返回通用错误
         return SaResult.error("当前服务暂时不可用，请稍后再试").setCode(500);
+    }
+
+    /**
+     * 处理 404 资源未找到异常
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public SaResult handleNotFoundException(NoResourceFoundException ex) {
+        log.warn("请求的资源不存在: {}", ex.getResourcePath());
+        return SaResult.error("请求的资源不存在").setCode(404);
     }
 }

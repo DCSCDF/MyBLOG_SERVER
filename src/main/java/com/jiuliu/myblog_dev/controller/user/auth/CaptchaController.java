@@ -24,6 +24,7 @@ public class CaptchaController {
      * 获取验证码
      */
     @PostMapping("/get")
+//    @RateLimit(count = 6, period = 5)
     public ResponseModel get(@RequestBody CaptchaVO captchaVO) {
         return captchaService.get(captchaVO);
     }

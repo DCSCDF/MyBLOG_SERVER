@@ -7,7 +7,6 @@ import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -15,8 +14,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
+
+    // 构造函数注入
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @GetMapping("/public-key")
     @RateLimit(count = 6, period = 15)
@@ -30,7 +33,7 @@ public class AuthController {
         return authService.login(dto);
     }
 
-    @GetMapping("/profile")
+    @PostMapping("/profile")
     @RateLimit(count = 80, period = 4)
     public SaResult getUserProfile() {
         // 根据 token 返回userID 如果 token 无效会抛 NotLoginException
@@ -51,10 +54,9 @@ public class AuthController {
         return authService.updatePassword(dto, currentUserId);
     }
 
-    @PostMapping("/register")
-    public SaResult register() {
-        // TODO: 补充注册逻辑
-        return SaResult.error("功能暂未开放").setCode(501);
-    }
+//    @PostMapping("/register")
+//    public SaResult register() {
+//        // TODO: 补充注册逻辑
+//        return SaResult.error("功能暂未开放").setCode(501);
+//    }
 }
-

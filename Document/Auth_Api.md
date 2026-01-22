@@ -45,3 +45,37 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 
 ---
 
+##  获取用户信息
+获取用户个人资料信息,要求已经登陆状态才能访问。获取的信息比较详细不适用于公开访问。
+
+
+- 路径`/api/auth/profile`
+- 请求方式 `POST`
+
+#### 未授权访问
+```json
+{
+    "code": 401,
+    "msg": "未授权，请先登录",
+    "data": null
+}
+```
+#### 访问成功
+
+```json
+{
+  "code": 200,
+  "msg": "ok",
+  "data": {
+    "id": 1,
+    "username": "example_user",
+    "nickname": "Example Nickname",
+    "email": "user@example.com",
+    "createTime": "2023-01-01T00:00:00",
+    "updateTime": "2023-01-01T00:00:00",
+    "avatarUrl": "https://example.com/avatar.jpg or null"
+  }
+}
+```
+
+
