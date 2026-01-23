@@ -79,6 +79,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public SaResult login(LoginDTO dto) {
         log.info("用户尝试登录，用户名: {}", dto.getUsername());
+
+        // 验证码校验（保持不变）
         CaptchaVO captchaVO = new CaptchaVO();
         captchaVO.setCaptchaVerification(dto.getCaptchaVerification());
         com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
@@ -88,7 +90,6 @@ public class AuthServiceImpl implements AuthService {
             String message;
             int httpCode = 400;
 
-            // 根据 repCode
             switch (repCode) {
                 case "6110":
                     message = "验证码已失效，请重新获取";
@@ -101,7 +102,7 @@ public class AuthServiceImpl implements AuthService {
                     break;
                 case "6202":
                     message = "验证码验证失败次数过多，请稍后再试";
-                    httpCode = 429; // 请求过于频繁
+                    httpCode = 429;
                     break;
                 case "6201":
                 case "6204":
@@ -115,6 +116,7 @@ public class AuthServiceImpl implements AuthService {
             log.warn("登录失败：验证码校验未通过，repCode={}, username={}", repCode, dto.getUsername());
             return SaResult.error(message).setCode(httpCode);
         }
+
         // 校验临时 Token
         String tempToken = dto.getTempToken();
         String tokenValue = tempLoginTokenService.consumeToken(tempToken);
@@ -126,8 +128,6 @@ public class AuthServiceImpl implements AuthService {
 
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
-
-        boolean rememberMe = Boolean.TRUE.equals(dto.getRememberMe()); // 安全地处理 null
 
         if (!ValidationHelper.validateUsername(username)) {
             log.warn("登录失败：用户名格式错误，username={}", username);
@@ -146,26 +146,24 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-        // 查询用户并统一认证失败提示
-        SysUser user = sysUserMapper.selectOne(
-                new QueryWrapper<SysUser>().eq("username", username.trim())
-        );
-
+        // 查询用户
+        SysUser user = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username.trim()));
         if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
             log.warn("登录失败：用户名或密码错误，username={}", username);
             return SaResult.error("用户名或密码错误").setCode(400);
         }
 
-        // 登录成功：根据 rememberMe 决定是否持久化
-        StpUtil.login(user.getId(), rememberMe);
 
-        String loginType = rememberMe ? "持久 Cookie（7天）" : "会话 Cookie";
-        log.info("用户登录成功，userId={}，登录类型：{}", user.getId(), loginType);
+        StpUtil.login(user.getId()); // 等价于 StpUtil.login(user.getId(), false)
+
+        log.info("用户登录成功，userId={}，", user.getId());
 
         Map<String, Object> data = new HashMap<>();
+
         data.put("token", StpUtil.getTokenValue());
         return SaResult.data(data);
     }
+
 
     @Override
     public SaResult getUserProfile(Long userId) {
@@ -192,29 +190,30 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult logout() {
-        boolean wasLoggedIn = StpUtil.isLogin(); // 提前检查
+        boolean wasLoggedIn = StpUtil.isLogin(); // 检查登出前的登录状态
 
         try {
-            StpUtil.logout(); // 安全调用，幂等
+            if (wasLoggedIn) {
+                StpUtil.logout(); // 只有在用户已登录时才执行登出
+                log.info("用户已成功登出");
+
+                // 登出成功返回成功信息
+                return SaResult.data(Map.of(
+                        "message", "登出成功",
+                        "logoutTime", System.currentTimeMillis(),
+                        "wasLoggedIn", true
+                ));
+            } else {
+                // 用户未登录，返回错误状态
+                log.warn("登出请求来自未认证会话（可能 token 无效、过期或未提供）");
+                return SaResult.error("用户未登录或会话已过期").setCode(401); // 401表示未授权
+            }
         } catch (Exception e) {
             log.error("登出时底层存储异常", e);
+            return SaResult.error("登出失败").setCode(500);
         }
-
-        String message;
-        if (wasLoggedIn) {
-            message = "登出成功";
-            log.info("用户已成功登出"); // 可选：记录正常登出
-        } else {
-            message = "用户未登录或会话已过期";
-            log.warn("登出请求来自未认证会话（可能 token 无效、过期或未提供）");
-        }
-
-        return SaResult.data(Map.of(
-                "message", message,
-                "logoutTime", System.currentTimeMillis(),
-                "wasLoggedIn", wasLoggedIn
-        ));
     }
+
 
     @Override
     public SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {

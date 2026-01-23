@@ -22,7 +22,7 @@ public class AuthController {
     }
 
     @GetMapping("/public-key")
-    @RateLimit(count = 6, period = 15)
+//    @RateLimit(count = 6, period = 15)
     public SaResult getPublicKey() {
         return authService.getPublicKey();
     }

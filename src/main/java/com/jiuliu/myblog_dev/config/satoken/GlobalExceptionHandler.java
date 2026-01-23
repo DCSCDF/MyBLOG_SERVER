@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -87,6 +88,13 @@ public class GlobalExceptionHandler {
     /**
      * 处理其他未预期的系统异常
      */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @SuppressWarnings("unused")
+    public SaResult handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.warn("JSON解析失败: {}", e.getMostSpecificCause().getMessage());
+        return SaResult.error("请求数据格式错误，请检查JSON格式").setCode(400);
+    }
+
     @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
     public SaResult handleGeneralException(Exception e) {
