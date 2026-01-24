@@ -1,6 +1,33 @@
 package com.jiuliu.myblog_dev.controller.user.permission;
 
+
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.service.user.permission.permissionService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+
+@RestController
+@RequestMapping("/api/permission")
 public class PermissionController {
+
+    private final permissionService permissionService;
+
+    // 构造函数注入
+    public PermissionController(permissionService permissionService) {
+        this.permissionService = permissionService;
+    }
+
+
+    @SaCheckPermission("system:permission")
+    @PostMapping("/getPermissionList")
+    public SaResult getPermission() {
+        /*permissionService*/
+        return permissionService.getPermission();
+    }
+
 //    @RestController
 //    @RequestMapping("/api/permissions")
 //    @PreAuthorize("hasRole('ADMIN')")
