@@ -12,9 +12,10 @@ CREATE TABLE IF NOT EXISTS sys_user
     password    VARCHAR(100) NOT NULL COMMENT '密码（加密后）',
     email       VARCHAR(50) UNIQUE COMMENT '邮箱（唯一）',
     avatar_url  VARCHAR(200) COMMENT '头像URL',
-    status      INT      DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    status      INT        DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='用户表';
 
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS sys_role
     is_system      TINYINT(1) DEFAULT 0 COMMENT '是否系统内置角色：0=否，1=是（不可删除）',
     sort_order     INT        DEFAULT 0 COMMENT '排序顺序',
     status         INT        DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
+    is_deleted     TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time    DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time    DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS sys_permission
     is_keep_alive TINYINT(1) DEFAULT 0 COMMENT '是否缓存：0=否，1=是',
     sort_order    INT        DEFAULT 0 COMMENT '排序顺序',
     status        INT        DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
+    is_deleted    TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time   DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time   DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
@@ -65,8 +68,8 @@ CREATE TABLE IF NOT EXISTS sys_user_role
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_user_role (user_id, role_id) COMMENT '防止重复关联',
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION,
+    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='用户-角色关联表';
 
@@ -79,21 +82,23 @@ CREATE TABLE IF NOT EXISTS sys_role_permission
     create_time   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_role_permission (role_id, permission_id) COMMENT '防止重复关联',
-    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES sys_permission (id) ON DELETE CASCADE
+    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE NO ACTION,
+    FOREIGN KEY (permission_id) REFERENCES sys_permission (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='角色-权限关联表';
 
--- 权限组表（用于组织权限）
+-- 权限组表
 CREATE TABLE IF NOT EXISTS sys_permission_group
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '权限组ID',
     name        VARCHAR(50) NOT NULL COMMENT '权限组名称',
     description VARCHAR(200) COMMENT '权限组描述',
-    sort_order  INT      DEFAULT 0 COMMENT '排序顺序',
-    status      INT      DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    sort_order  INT        DEFAULT 0 COMMENT '排序顺序',
+    status      INT        DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
+    is_system   TINYINT(1) DEFAULT 0 COMMENT '是否系统内置：0=否，1=是（不可删除）',
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='权限组表';
 
@@ -107,8 +112,8 @@ CREATE TABLE IF NOT EXISTS sys_permission_group_item
     create_time   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_group_permission (group_id, permission_id) COMMENT '防止重复关联',
-    FOREIGN KEY (group_id) REFERENCES sys_permission_group (id) ON DELETE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES sys_permission (id) ON DELETE CASCADE
+    FOREIGN KEY (group_id) REFERENCES sys_permission_group (id) ON DELETE NO ACTION,
+    FOREIGN KEY (permission_id) REFERENCES sys_permission (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='权限-权限组关联表';
 
@@ -121,8 +126,8 @@ CREATE TABLE IF NOT EXISTS sys_role_permission_group
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_role_group (role_id, group_id) COMMENT '防止重复关联',
-    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE CASCADE,
-    FOREIGN KEY (group_id) REFERENCES sys_permission_group (id) ON DELETE CASCADE
+    FOREIGN KEY (role_id) REFERENCES sys_role (id) ON DELETE NO ACTION,
+    FOREIGN KEY (group_id) REFERENCES sys_permission_group (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='角色-权限组关联表';
 
@@ -135,6 +140,7 @@ CREATE TABLE IF NOT EXISTS sys_category
     sort_order  INT        DEFAULT 0 COMMENT '排序顺序（数字越大越靠前）',
     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     is_hidden   TINYINT(1) DEFAULT 0 COMMENT '是否隐藏：0=显示，1=隐藏',
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='文章分类表';
@@ -156,11 +162,12 @@ CREATE TABLE IF NOT EXISTS sys_blog
     is_hidden     TINYINT(1) DEFAULT 0 COMMENT '是否隐藏：0=公开，1=私密',
     is_top        TINYINT(1) DEFAULT 0 COMMENT '是否置顶：0=否，1=是',
     is_recommend  TINYINT(1) DEFAULT 0 COMMENT '是否推荐：0=否，1=是',
+    is_deleted    TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time   DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time   DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    FOREIGN KEY (category_id) REFERENCES sys_category (id) ON DELETE SET NULL,
-    FOREIGN KEY (author_id) REFERENCES sys_user (id) ON DELETE SET NULL
+    FOREIGN KEY (category_id) REFERENCES sys_category (id) ON DELETE NO ACTION,
+    FOREIGN KEY (author_id) REFERENCES sys_user (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='博客文章表';
 
@@ -181,11 +188,12 @@ CREATE TABLE IF NOT EXISTS sys_comment
     device_info VARCHAR(200) COMMENT '设备信息',
     ip_address  VARCHAR(50) COMMENT 'IP地址',
     is_admin    TINYINT(1) DEFAULT 0 COMMENT '是否管理员评论：0=否，1=是',
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE SET NULL
+    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='评论表';
 
@@ -197,8 +205,8 @@ CREATE TABLE IF NOT EXISTS sys_comment_like
     user_id     BIGINT NOT NULL COMMENT '用户ID',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     UNIQUE KEY uk_comment_user (comment_id, user_id) COMMENT '防止重复点赞',
-    FOREIGN KEY (comment_id) REFERENCES sys_comment (id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE CASCADE
+    FOREIGN KEY (comment_id) REFERENCES sys_comment (id) ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='评论点赞表';
 
@@ -207,8 +215,9 @@ CREATE TABLE IF NOT EXISTS sys_tag
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '标签ID',
     name        VARCHAR(50) NOT NULL UNIQUE COMMENT '标签名称',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='标签表';
 
@@ -221,8 +230,8 @@ CREATE TABLE IF NOT EXISTS sys_blog_tag
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_blog_tag (blog_id, tag_id) COMMENT '防止重复关联',
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES sys_tag (id) ON DELETE CASCADE
+    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
+    FOREIGN KEY (tag_id) REFERENCES sys_tag (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='文章-标签关联表';
 
@@ -235,8 +244,8 @@ CREATE TABLE IF NOT EXISTS sys_blog_like
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     UNIQUE KEY uk_blog_user (blog_id, user_id) COMMENT '防止重复点赞',
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE CASCADE
+    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='文章点赞表';
 
@@ -529,20 +538,34 @@ WHERE r.code = 'USER'
                     AND rp.permission_id = p.id);
 
 -- 插入默认权限组
-INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status)
-SELECT '系统管理组', '包含所有系统管理权限', 100, 1
+INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status, is_system)
+SELECT '系统管理组', '包含所有系统管理权限', 100, 1, 1
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_permission_group WHERE name = '系统管理组');
 
-INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status)
-SELECT '文章管理组', '包含所有文章管理权限', 90, 1
+INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status, is_system)
+SELECT '文章管理组', '包含所有文章管理权限', 90, 1, 1
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_permission_group WHERE name = '文章管理组');
 
-INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status)
-SELECT '用户管理组', '包含用户管理相关权限', 80, 1
+INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status, is_system)
+SELECT '用户管理组', '包含用户管理相关权限', 80, 1, 1
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_permission_group WHERE name = '用户管理组');
+
+/*
+ * [schema.sql]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/1/31 15:13
+ */
 
 -- 为权限组添加权限
 -- 系统管理组权限

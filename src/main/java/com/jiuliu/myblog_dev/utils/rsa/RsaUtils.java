@@ -1,3 +1,17 @@
+/*
+ * [RsaUtils.java]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/1/19 12:57
+ */
+
 package com.jiuliu.myblog_dev.utils.rsa;
 
 
@@ -18,8 +32,8 @@ public class RsaUtils {
     /**
      * 使用私钥解密 Base64 编码的 RSA 密文
      *
-     * @param encryptedBase64   Base64 编码的密文（来自前端）
-     * @param privateKeyBase64  Base64 编码的 PKCS#8 私钥
+     * @param encryptedBase64  Base64 编码的密文（来自前端）
+     * @param privateKeyBase64 Base64 编码的 PKCS#8 私钥
      * @return 解密后的明文
      * @throws DecryptionException 当解密失败时（如数据损坏、非密文、密钥不匹配等）
      */

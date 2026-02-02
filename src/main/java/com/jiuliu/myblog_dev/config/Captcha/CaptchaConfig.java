@@ -1,3 +1,17 @@
+/*
+ * [CaptchaConfig.java]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/1/31 14:39
+ */
+
 package com.jiuliu.myblog_dev.config.Captcha;
 
 import com.anji.captcha.model.common.Const;
@@ -16,7 +30,7 @@ public class CaptchaConfig {
         Properties config = new Properties();
         // 设置缓存类型
         // 对于单机环境，使用 'local'（内存缓存）
-        // 对于分布式环境，使用 'redis'，但您必须提供 CaptchaCacheService 的 Redis 实现
+        // 对于分布式环境，使用 'redis'，但必须提供 CaptchaCacheService 的 Redis 实现
         config.put(Const.CAPTCHA_CACHETYPE, "local");
 
         // 设置验证码类型
