@@ -78,4 +78,69 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 }
 ```
 
+---
 
+
+##  获取 RSA 公钥
+获取用 RSA 公钥,主要用来加密密码等敏感信息,同时提供临时token。
+
+- 路径`/api/auth/public-key`
+- 请求方式 `GET`
+
+#### 访问成功
+
+```json
+{
+    "code": 200,
+    "msg": "ok",
+    "data": {
+        "tempToken": "TcoMKl.........SJ797Kli3S1Y",
+        "publicKey": "MIIBI...........42ztOcMawIDAQAB"
+    }
+}
+```
+
+---
+
+##  账号登陆
+用于登陆账号。
+
+- 路径`/api/auth/login`
+- 请求方式 `POST`
+
+#### 前端请求 Body
+
+`captchaVerification`为验证码服务验证成功后返回的验证信息。
+`password`使用 public-key 接口返回的公钥进行加密后的密码。
+
+```json
+{
+  "username": "admin",
+  "captchaVerification":"6mRZaI......ZZzAbUL8WHw=", 
+  "tempToken":"2Em......htZnPmEc79",
+  "password": "IaOD3....kqjVi4lvuXry8XaUAq9FtwmE21/0g=="
+}
+```
+
+#### 访问成功
+```json
+{
+  "code": 200,
+  "msg": "ok",
+  "data": {
+    "token": "J062mk2fxe......82w34W3E9UbagD"
+  }
+}
+```
+
+#### 访问失败
+
+`msg`中的内容根据错误类型返回。
+
+```json
+{
+    "code": 400,
+    "msg": "验证码已失效，请重新获取",
+    "data": null
+}
+```
