@@ -6,7 +6,8 @@
 
 ### 前端将 token 提交到后端
 
-将 token 塞到请求header里 ，格式为：`{tokenName: tokenValue}`(tokenName可以在application.properties里面修改，默认为token)。
+将 token 塞到请求header里 ，格式为：`{tokenName: tokenValue}`
+(tokenName可以在application.properties里面修改，默认为token)。
 
 对于需要登陆的的接口 如果未登录则会有全局拦截器返回401。
 
