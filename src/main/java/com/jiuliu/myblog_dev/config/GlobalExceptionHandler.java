@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/23 02:52
+ * UpdateTime: 2026/2/2 18:33
  */
 
-package com.jiuliu.myblog_dev.config.satoken;
+package com.jiuliu.myblog_dev.config;
 
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
@@ -21,11 +21,10 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
-import org.springframework.web.ErrorResponse;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -118,6 +117,16 @@ public class GlobalExceptionHandler {
 
         // 返回通用错误
         return SaResult.error("当前服务暂时不可用，请稍后再试").setCode(500);
+    }
+
+    /**
+     * 处理媒体类型不支持异常
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @SuppressWarnings("unused")
+    public SaResult handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
+        log.warn("不支持的媒体类型: {}", e.getContentType());
+        return SaResult.error("不支持的请求格式，请使用 application/json 格式").setCode(400);
     }
 
     /**
