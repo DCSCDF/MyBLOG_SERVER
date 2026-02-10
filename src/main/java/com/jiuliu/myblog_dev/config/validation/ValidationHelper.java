@@ -12,7 +12,7 @@
  * UpdateTime: 2026/1/18 14:01
  */
 
-package com.jiuliu.myblog_dev.utils.Validation;
+package com.jiuliu.myblog_dev.config.validation;
 
 
 import org.springframework.util.StringUtils;

@@ -35,18 +35,19 @@ public class permissionServiceImpl implements permissionService {
     public permissionServiceImpl(SysPermissionMapper sysPermissionMapper) {
         this.sysPermissionMapper = sysPermissionMapper;
     }
+
     @Override
     public SaResult getAllPermissions() {
-        log.info("获取所有权限列表");
+//        log.info("获取所有权限列表");
 
         try {
             // 使用MyBatis-Plus的QueryWrapper按sort_order排序查询所有权限
             QueryWrapper<SysPermission> queryWrapper = new QueryWrapper<>();
-            queryWrapper.orderByAsc("sort_order");
+            queryWrapper.orderByDesc("sort_order");
 
             List<SysPermission> permissions = sysPermissionMapper.selectList(queryWrapper);
 
-            log.info("成功获取权限列表，共{}条记录", permissions.size());
+//            log.info("成功获取权限列表，共{}条记录", permissions.size());
             return SaResult.data(permissions);
         } catch (Exception e) {
             log.error("获取权限列表异常", e);

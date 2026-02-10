@@ -12,7 +12,7 @@
  * UpdateTime: 2026/1/19 12:57
  */
 
-package com.jiuliu.myblog_dev.utils.rsa;
+package com.jiuliu.myblog_dev.config.rsa;
 
 
 import org.slf4j.Logger;

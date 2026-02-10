@@ -1,5 +1,5 @@
 /*
- * [SecurityConfig.java]
+ * [DecryptionException.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -9,19 +9,13 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/21 01:02
+ * UpdateTime: 2026/1/19 12:57
  */
 
-package com.jiuliu.myblog_dev.utils.user.auth;
+package com.jiuliu.myblog_dev.config.rsa;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-
-@Configuration
-public class SecurityConfig {
-    @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+public class DecryptionException extends RuntimeException {
+    public DecryptionException(String message) {
+        super(message);
     }
 }
