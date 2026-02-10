@@ -68,9 +68,9 @@ public class AuthController {
         return authService.updatePassword(dto, currentUserId);
     }
 
-//    @PostMapping("/register")
-//    public SaResult register() {
-//        // TODO: 补充注册逻辑
-//        return SaResult.error("功能暂未开放").setCode(501);
-//    }
+    @PostMapping("/register")
+    public SaResult register() {
+        // TODO: 补充注册逻辑
+        return SaResult.error("功能暂未开放").setCode(501);
+    }
 }

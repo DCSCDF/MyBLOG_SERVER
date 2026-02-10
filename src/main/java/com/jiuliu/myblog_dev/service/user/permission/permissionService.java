@@ -20,7 +20,7 @@ import cn.dev33.satoken.util.SaResult;
 public interface permissionService {
 
 
-    SaResult getPermission();
+    SaResult getAllPermissions();
 
 
 }

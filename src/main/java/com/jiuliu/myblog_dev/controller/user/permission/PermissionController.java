@@ -35,11 +35,15 @@ public class PermissionController {
     }
 
 
-    @SaCheckPermission("system:permission")
-    @PostMapping("/getPermissionList")
-    public SaResult getPermission() {
-        /*permissionService*/
-        return permissionService.getPermission();
+    /**
+     * 获取所有权限列表，按sort_order排序
+     * POST /api/permission/listAll
+     * 权限：system:permission:list
+     */
+    @SaCheckPermission("system:permission:list")
+    @PostMapping("/listAll")
+    public SaResult getAllPermissions() {
+        return permissionService.getAllPermissions();
     }
 
 //    @RestController

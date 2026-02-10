@@ -19,12 +19,13 @@ import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -64,8 +65,15 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({NotLoginException.class, NotRoleException.class, NotPermissionException.class})
     @SuppressWarnings("unused")
-    public SaResult handleAuthException(Exception e) {
+    public SaResult handleAuthException(Exception e, HttpServletRequest request) {
         log.warn("鉴权异常: {}", e.getClass().getSimpleName());
+
+//        // 如果是OPTIONS请求且是登录异常，直接放行
+//        if (e instanceof NotLoginException && "OPTIONS".equalsIgnoreCase(request.getMethod())) {
+//            log.debug("OPTIONS预检请求，跳过登录检查");
+//            return SaResult.ok();
+//        }
+
         // 不记录 e.toString() 或堆栈，避免泄露内部信息
 //        400: '请求参数错误',
 //        401: '未授权，请重新登录',

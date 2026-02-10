@@ -28,10 +28,13 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(allowedOrigins)
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedOriginPatterns("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
                 .allowedHeaders("*")
+                .exposedHeaders("token", "Authorization", "Content-Type", "X-Total-Count", "X-CSRF-Token")
                 .allowCredentials(true)
-                .maxAge(3600);
+                // 预检缓存时间：24小时（86400秒），大幅提升前端性能
+                .maxAge(86400);
     }
+
 }
