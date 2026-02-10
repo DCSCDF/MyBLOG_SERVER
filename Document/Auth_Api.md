@@ -146,3 +146,31 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
     "data": null
 }
 ```
+
+
+##  账号注销
+用于登陆账号。
+
+- 路径`/api/auth/logout`
+- 请求方式 `POST`
+
+#### 访问失败
+
+```json
+{"code":401,"msg":"用户未登录或会话已过期","data":null}
+```
+
+#### 访问成功
+
+```json
+
+{
+    "code": 200,
+    "msg": "ok",
+    "data": {
+        "message": "登出成功",
+        "wasLoggedIn": true,
+        "logoutTime": 1770731084416
+        }
+}
+```
