@@ -15,12 +15,21 @@
 package com.jiuliu.myblog_dev.service.user.permission;
 
 import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 
 
 public interface permissionService {
 
 
-    SaResult getAllPermissions();
+//    SaResult getAllPermissions();
+
+    /**
+     * 分页获取权限列表
+     *
+     * @param pageDto 分页参数DTO
+     * @return 分页结果
+     */
+    SaResult getPagePermissions(PagePermissionDTO pageDto);
 
 
 }

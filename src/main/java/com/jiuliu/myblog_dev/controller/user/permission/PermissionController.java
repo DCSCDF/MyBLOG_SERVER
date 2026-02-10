@@ -17,8 +17,11 @@ package com.jiuliu.myblog_dev.controller.user.permission;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 import com.jiuliu.myblog_dev.service.user.permission.permissionService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,14 +39,17 @@ public class PermissionController {
 
 
     /**
-     * 获取所有权限列表，按sort_order排序
-     * POST /api/permission/listAll
+     * 分页获取权限列表
+     * POST /api/permission/page
      * 权限：system:permission
+     *
+     * @param pageDto 分页参数
+     * @return 分页结果
      */
     @SaCheckPermission("system:permission")
     @PostMapping("/listAll")
-    public SaResult getAllPermissions() {
-        return permissionService.getAllPermissions();
+    public SaResult getPagePermissions(@Valid @RequestBody PagePermissionDTO pageDto) {
+        return permissionService.getPagePermissions(pageDto);
     }
 
 //    @RestController
