@@ -39,28 +39,10 @@ public class permissionServiceImpl implements permissionService {
         this.sysPermissionMapper = sysPermissionMapper;
     }
 
-//    @Override
-//    public SaResult getAllPermissions() {
-////        log.info("获取所有权限列表");
-//
-//        try {
-//            // 使用MyBatis-Plus的QueryWrapper按sort_order排序查询所有权限
-//            QueryWrapper<SysPermission> queryWrapper = new QueryWrapper<>();
-//            queryWrapper.orderByDesc("sort_order");
-//
-//            List<SysPermission> permissions = sysPermissionMapper.selectList(queryWrapper);
-//
 
-    /// /            log.info("成功获取权限列表，共{}条记录", permissions.size());
-//            return SaResult.data(permissions);
-//        } catch (Exception e) {
-//            log.error("获取权限列表异常", e);
-//            return SaResult.error("获取权限列表失败").setCode(500);
-//        }
-//    }
     @Override
     public SaResult getPagePermissions(PagePermissionDTO pageDto) {
-        log.info("分页获取权限列表，currentPage={}, pageSize={}", pageDto.getCurrentPage(), pageDto.getPageSize());
+//        log.info("分页获取权限列表，currentPage={}, pageSize={}", pageDto.getCurrentPage(), pageDto.getPageSize());
 
         try {
             // 创建分页对象
@@ -81,7 +63,7 @@ public class permissionServiceImpl implements permissionService {
             resultData.put("current", pageResult.getCurrent());
             resultData.put("pages", pageResult.getPages());
 
-            log.info("成功获取权限分页列表，共{}条记录，总页数{}", pageResult.getRecords().size(), pageResult.getPages());
+//            log.info("成功获取权限分页列表，共{}条记录，总页数{}", pageResult.getRecords().size(), pageResult.getPages());
             return SaResult.data(resultData);
         } catch (Exception e) {
             log.error("分页获取权限列表异常", e);
