@@ -20,12 +20,12 @@ import com.anji.captcha.model.vo.CaptchaVO;
 import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
+import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
+import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
-import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
-import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult getPublicKey() {
-        log.info("获取 RSA 公钥及临时 Token");
+//        log.info("获取 RSA 公钥及临时 Token");
         Map<String, Object> data = new HashMap<>();
         data.put("publicKey", rsaKeyConfig.getPublicKeyBase64());
 
@@ -86,7 +86,7 @@ public class AuthServiceImpl implements AuthService {
         String tempToken = tempLoginTokenService.generateTempToken();
         data.put("tempToken", tempToken);
 
-        log.debug("公钥已返回，临时 Token: {}", tempToken);
+//        log.debug("公钥已返回，临时 Token: {}", tempToken);
         return SaResult.data(data);
     }
 
@@ -181,7 +181,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult getUserProfile(Long userId) {
-        log.info("获取用户资料，userId={}", userId);
+//        log.info("获取用户资料，userId={}", userId);
 
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
@@ -198,7 +198,7 @@ public class AuthServiceImpl implements AuthService {
         profile.put("updateTime", user.getUpdateTime());
         profile.put("avatarUrl", user.getAvatarUrl());
 
-        log.debug("用户资料查询成功，userId={}", userId);
+
         return SaResult.data(profile);
     }
 
@@ -209,7 +209,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             if (wasLoggedIn) {
                 StpUtil.logout(); // 只有在用户已登录时才执行登出
-                log.info("用户已成功登出");
+//                log.info("用户已成功登出");
 
                 // 登出成功返回成功信息
                 return SaResult.data(Map.of(
