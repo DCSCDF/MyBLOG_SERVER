@@ -14,33 +14,42 @@
 
 package com.jiuliu.myblog_dev.config;
 
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/**
- * Spring Boot原生CORS配置
- * 使用WebMvcConfigurer实现全局跨域支持
- * 从配置文件读取允许的源
- */
+
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
     @Value("${app.cors.allowed-origins}")
     private String[] allowedOrigins;
 
+    /**
+     * 获取配置的 token 名称
+     */
+    @Getter
+    @Value("${sa-token.token-name}")
+    private String tokenName;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // Spring Boot 3.x 推荐使用 allowedOriginPatterns
         registry.addMapping("/**")
-                .allowedOriginPatterns(allowedOrigins)  // 注意：这里变了！
+                .allowedOriginPatterns(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
+                // Origin - CORS 标准 header
+                // Content-Type - 内容类型 header
+                // Accept - 接受的内容类型 header
+                // Authorization - 标准认证 header（保持兼容性）
+                // X-Requested-With - AJAX 请求标识（可考虑后续删除）
+                // tokenName - Sa-Token 自定义认证 header（来自配置）
                 .allowedHeaders("Origin", "Content-Type", "Accept", "Authorization",
-                        "X-Requested-With", "token", "DNT", "sec-ch-ua",
-                        "sec-ch-ua-mobile", "sec-ch-ua-platform", "User-Agent")
-                .exposedHeaders("X-Total-Count", "token")
+                        "X-Requested-With", tokenName)
+                .exposedHeaders(tokenName)
                 .allowCredentials(true)
-                .maxAge(600);
+                .maxAge(86400); // 24小时预检请求缓存
     }
+
 }

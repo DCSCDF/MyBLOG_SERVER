@@ -14,59 +14,20 @@
 
 package com.jiuliu.myblog_dev.config.satoken;
 
-import cn.dev33.satoken.context.SaHolder;
-import cn.dev33.satoken.context.model.SaResponse;
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.dao.SaTokenDaoDefaultImpl;
 import cn.dev33.satoken.filter.SaServletFilter;
 import cn.dev33.satoken.interceptor.SaInterceptor;
-import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.util.SaResult;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.regex.Pattern;
-
 @Slf4j
 @Configuration
 public class SaTokenConfig implements WebMvcConfigurer {
-
-    @Value("${app.cors.allowed-origins}")
-    private String[] allowedOriginsArray;
-
-    @Value("${sa-token.token-name}")
-    private String tokenName;
-
-    private Set<String> allowedOrigins;
-    private Set<Pattern> allowedOriginPatterns;
-
-    /**
-     * 初始化允许的源集合
-     */
-    @PostConstruct
-    public void initAllowedOrigins() {
-        this.allowedOrigins = new HashSet<>(Arrays.asList(allowedOriginsArray));
-        this.allowedOriginPatterns = new HashSet<>();
-
-        // 预编译通配符模式为正则表达式
-        for (String origin : allowedOriginsArray) {
-            if (origin.contains("*")) {
-                String regex = origin.replace(".", "\\.").replace("*", ".*");
-                allowedOriginPatterns.add(Pattern.compile(regex));
-            }
-        }
-
-        log.info("CORS 允许的源: {}", allowedOrigins);
-        log.info("SaToken Token 名称: {}", tokenName);
-    }
 
     @Bean
     public SaTokenDao saTokenDao() {
@@ -77,49 +38,20 @@ public class SaTokenConfig implements WebMvcConfigurer {
 
     /**
      * Sa-Token 全局过滤器
-     * 处理 CORS 响应头、放行 OPTIONS 预检请求。
-     * 不再处理具体的接口认证规则
+     * 过滤器异常处理
      */
     @Bean
     public SaServletFilter getSaServletFilter() {
         return new SaServletFilter()
                 .addInclude("/**")
                 .addExclude("/favicon.ico")
-                .setBeforeAuth(this::handleCorsAndPreflight)
-                // 此处 setAuth 为空，因为具体规则交给注解处理
+                // 移除了 setBeforeAuth 中的 CORS 处理
                 .setAuth(obj -> {
-                })
+                }) // 具体规则由注解处理
                 .setError(e -> {
                     log.error("全局过滤器异常", e);
                     return SaResult.error("服务异常").setCode(500);
                 });
-    }
-
-    /**
-     * 处理 CORS 及 OPTIONS 预检请求
-     */
-    private void handleCorsAndPreflight(Object obj) {
-        SaResponse response = SaHolder.getResponse();
-        String origin = SaHolder.getRequest().getHeader("Origin");
-        String method = SaHolder.getRequest().getMethod();
-
-        // 处理源
-        if (origin != null && isOriginAllowed(origin)) {
-            response.setHeader("Access-Control-Allow-Origin", origin);
-            response.setHeader("Access-Control-Allow-Credentials", "true");
-        }
-
-        // 设置 CORS头
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD");
-        response.setHeader("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, " + tokenName + ", DNT, User-Agent");
-        response.setHeader("Access-Control-Expose-Headers", tokenName + ", X-Total-Count");
-        response.setHeader("Access-Control-Max-Age", "3600");
-
-        // 放行所有 OPTIONS 预检请求
-        if ("OPTIONS".equalsIgnoreCase(method)) {
-            response.setStatus(200);
-            SaRouter.stop();
-        }
     }
 
     /**
@@ -136,33 +68,5 @@ public class SaTokenConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**");
         // 这里不再需要 excludePathPatterns
         // 因为一个接口是否需要登录，由它自己头上的注解决定
-    }
-
-    /**
-     * 检查请求源是否被允许
-     */
-    private boolean isOriginAllowed(String origin) {
-        if (allowedOrigins == null || allowedOrigins.isEmpty()) {
-            return false;
-        }
-
-        // 精确匹配
-        if (allowedOrigins.contains(origin)) {
-            return true;
-        }
-
-        // 通配符匹配
-        if (allowedOrigins.contains("*")) {
-            return true;
-        }
-
-        // 正则表达式匹配（处理通配符域名）
-        for (Pattern pattern : allowedOriginPatterns) {
-            if (pattern.matcher(origin).matches()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
