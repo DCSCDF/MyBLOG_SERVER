@@ -55,7 +55,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
     public void initAllowedOrigins() {
         this.allowedOrigins = new HashSet<>(Arrays.asList(allowedOriginsArray));
         this.allowedOriginPatterns = new HashSet<>();
-        
+
         // 预编译通配符模式为正则表达式
         for (String origin : allowedOriginsArray) {
             if (origin.contains("*")) {
@@ -63,7 +63,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                 allowedOriginPatterns.add(Pattern.compile(regex));
             }
         }
-        
+
         log.info("CORS 允许的源: {}", allowedOrigins);
         log.info("SaToken Token 名称: {}", tokenName);
     }
@@ -103,19 +103,19 @@ public class SaTokenConfig implements WebMvcConfigurer {
         String origin = SaHolder.getRequest().getHeader("Origin");
         String method = SaHolder.getRequest().getMethod();
 
-        // 1. 处理源
+        // 处理源
         if (origin != null && isOriginAllowed(origin)) {
             response.setHeader("Access-Control-Allow-Origin", origin);
             response.setHeader("Access-Control-Allow-Credentials", "true");
         }
 
-        // 2. 设置CORS头
+        // 设置 CORS头
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD");
         response.setHeader("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, " + tokenName + ", DNT, User-Agent");
         response.setHeader("Access-Control-Expose-Headers", tokenName + ", X-Total-Count");
         response.setHeader("Access-Control-Max-Age", "3600");
 
-        // 3. 放行所有 OPTIONS 预检请求
+        // 放行所有 OPTIONS 预检请求
         if ("OPTIONS".equalsIgnoreCase(method)) {
             response.setStatus(200);
             SaRouter.stop();
@@ -145,24 +145,24 @@ public class SaTokenConfig implements WebMvcConfigurer {
         if (allowedOrigins == null || allowedOrigins.isEmpty()) {
             return false;
         }
-        
+
         // 精确匹配
         if (allowedOrigins.contains(origin)) {
             return true;
         }
-        
+
         // 通配符匹配
         if (allowedOrigins.contains("*")) {
             return true;
         }
-        
+
         // 正则表达式匹配（处理通配符域名）
         for (Pattern pattern : allowedOriginPatterns) {
             if (pattern.matcher(origin).matches()) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }
