@@ -32,7 +32,7 @@ java -jar myblog_dev.jar --app.cors.allowed-origins="https://prod.example.com"
 
 ![用户关系图](Document/img/img.png)
 ![数据库ER图](Document/img/img_1.png)
-
+![img.png](Document/img/img_3.png)
 ### 鉴权 API 说明
 
 您可以这样使用鉴权：

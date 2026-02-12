@@ -19,7 +19,6 @@ import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,11 +27,13 @@ import java.util.stream.Collectors;
 @Service
 public class SaTokenService implements StpInterface {
 
-    @Autowired
-    private SysRoleMapper sysRoleMapper;
+    private final SysRoleMapper sysRoleMapper;
+    private final SysPermissionMapper sysPermissionMapper;
 
-    @Autowired
-    private SysPermissionMapper sysPermissionMapper;
+    public SaTokenService(SysRoleMapper sysRoleMapper, SysPermissionMapper sysPermissionMapper) {
+        this.sysRoleMapper = sysRoleMapper;
+        this.sysPermissionMapper = sysPermissionMapper;
+    }
 
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {

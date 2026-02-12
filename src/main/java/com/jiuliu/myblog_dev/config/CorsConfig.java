@@ -19,6 +19,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Spring Boot原生CORS配置
+ * 使用WebMvcConfigurer实现全局跨域支持
+ * 从配置文件读取允许的源
+ */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
@@ -27,14 +32,15 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // Spring Boot 3.x 推荐使用 allowedOriginPatterns
         registry.addMapping("/**")
-                .allowedOriginPatterns("*")
+                .allowedOriginPatterns(allowedOrigins)  // 注意：这里变了！
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
-                .allowedHeaders("*")
-                .exposedHeaders("token", "Authorization", "Content-Type", "X-Total-Count", "X-CSRF-Token")
+                .allowedHeaders("Origin", "Content-Type", "Accept", "Authorization",
+                        "X-Requested-With", "token", "DNT", "sec-ch-ua",
+                        "sec-ch-ua-mobile", "sec-ch-ua-platform", "User-Agent")
+                .exposedHeaders("X-Total-Count", "token")
                 .allowCredentials(true)
-                // 预检缓存时间：24小时（86400秒），大幅提升前端性能
-                .maxAge(86400);
+                .maxAge(600);
     }
-
 }
