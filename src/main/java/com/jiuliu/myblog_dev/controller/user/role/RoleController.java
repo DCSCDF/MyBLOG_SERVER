@@ -2,133 +2,86 @@
  * [RoleController.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
- * However, any distribution or modification must retain this copyright notice.
- * See LICENSE for full terms.
  * --------------------------------------------------------------------------------
  * author: "Jiu Liu"
- * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
- * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/17 13:51
  */
 
 package com.jiuliu.myblog_dev.controller.user.role;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.dto.user.role.PageRoleDTO;
+import com.jiuliu.myblog_dev.dto.user.role.PageRoleResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.role.RoleResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.role.RoleUpdateDTO;
+import com.jiuliu.myblog_dev.service.user.role.RoleService;
+import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/role")
 public class RoleController {
-//    @RestController
-//    @RequestMapping("/api/roles")
-//    @PreAuthorize("hasRole('ADMIN')")
-//    public class RoleController {
-//
-//        /**
-//         * 获取角色列表
-//         * GET /api/roles
-//         * 权限：system:role:list
-//         */
-//        @GetMapping
-//        @CheckPermission("system:role:list")
-//        public Result listRoles(
-//                @RequestParam(defaultValue = "1") Integer page,
-//                @RequestParam(defaultValue = "10") Integer size) {
-//            // 分页查询角色
-//        }
-//
-//        /**
-//         * 获取角色详情
-//         * GET /api/roles/{id}
-//         * 权限：system:role:list
-//         */
-//        @GetMapping("/{id}")
-//        @CheckPermission("system:role:list")
-//        public Result getRoleById(@PathVariable Long id) {
-//            // 获取角色详情
-//        }
-//
-//        /**
-//         * 创建角色
-//         * POST /api/roles
-//         * 权限：system:role:create
-//         */
-//        @PostMapping
-//        @CheckPermission("system:role:create")
-//        public Result createRole(@RequestBody @Valid RoleDTO dto) {
-//            // 创建角色
-//        }
-//
-//        /**
-//         * 更新角色
-//         * PUT /api/roles/{id}
-//         * 权限：system:role:edit
-//         */
-//        @PutMapping("/{id}")
-//        @CheckPermission("system:role:edit")
-//        public Result updateRole(@PathVariable Long id, @RequestBody @Valid RoleDTO dto) {
-//            // 更新角色
-//        }
-//
-//        /**
-//         * 删除角色
-//         * DELETE /api/roles/{id}
-//         * 权限：system:role:delete
-//         */
-//        @DeleteMapping("/{id}")
-//        @CheckPermission("system:role:delete")
-//        public Result deleteRole(@PathVariable Long id) {
-//            // 删除角色（系统内置角色不能删除）
-//        }
-//
-//        /**
-//         * 启用/禁用角色
-//         * PUT /api/roles/{id}/status
-//         * 权限：system:role:edit
-//         */
-//        @PutMapping("/{id}/status")
-//        @CheckPermission("system:role:edit")
-//        public Result updateRoleStatus(@PathVariable Long id, @RequestParam Integer status) {
-//            // 更新角色状态
-//        }
-//    }
 
+    private final RoleService roleService;
 
-//    /**
-//     * 角色权限管理API
-//     */
-//    @RestController
-//    @RequestMapping("/api/roles/{roleId}/permissions")
-//    @PreAuthorize("hasRole('ADMIN')")
-//    public class RolePermissionController {
-//
-//        /**
-//         * 获取角色的权限列表
-//         * GET /api/roles/{roleId}/permissions
-//         * 权限：system:role:assignPermission
-//         */
-//        @GetMapping
-//        @CheckPermission("system:role:assignPermission")
-//        public Result getRolePermissions(@PathVariable Long roleId) {
-//            // 获取角色的所有权限
-//        }
-//
-//        /**
-//         * 为角色分配权限
-//         * POST /api/roles/{roleId}/permissions
-//         * 权限：system:role:assignPermission
-//         */
-//        @PostMapping
-//        @CheckPermission("system:role:assignPermission")
-//        public Result assignPermissions(@PathVariable Long roleId, @RequestBody List<Long> permissionIds) {
-//            // 为角色分配权限
-//        }
-//
-//        /**
-//         * 移除角色的权限
-//         * DELETE /api/roles/{roleId}/permissions/{permissionId}
-//         * 权限：system:role:assignPermission
-//         */
-//        @DeleteMapping("/{permissionId}")
-//        @CheckPermission("system:role:assignPermission")
-//        public Result removePermission(@PathVariable Long roleId, @PathVariable Long permissionId) {
-//            // 移除角色权限
-//        }
-//    }
+    public RoleController(RoleService roleService) {
+        this.roleService = roleService;
+    }
+
+    /**
+     * 分页获取角色列表
+     * 权限：system:role:list
+     */
+    @SaCheckPermission("system:role:list")
+    @PostMapping("/list")
+    public Response<PageRoleResponseDTO> getPageRoles(@Valid @RequestBody PageRoleDTO pageDto) {
+        SaResult saResult = roleService.getPageRoles(pageDto);
+        return handleSaResult(saResult, PageRoleResponseDTO.class);
+    }
+
+    /**
+     * 根据ID获取角色详情
+     * 权限：system:role:list
+     */
+    @SaCheckPermission("system:role:list")
+    @GetMapping("/{id}")
+    public Response<RoleResponseDTO> getRoleById(@PathVariable Long id) {
+        SaResult saResult = roleService.getRoleById(id);
+        return handleSaResult(saResult, RoleResponseDTO.class);
+    }
+
+    /**
+     * 修改角色（系统内置角色不可修改）
+     * 权限：system:role:edit
+     */
+    @SaCheckPermission("system:role:edit")
+    @PutMapping("/{id}")
+    public Response<RoleResponseDTO> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateDTO dto) {
+        dto.setId(id);
+        SaResult saResult = roleService.updateRole(dto);
+        return handleSaResult(saResult, RoleResponseDTO.class);
+    }
+
+    /**
+     * 删除角色（系统内置角色不可删除）
+     * 权限：system:role:delete
+     */
+    @SaCheckPermission("system:role:delete")
+    @DeleteMapping("/{id}")
+    public Response<Object> deleteRole(@PathVariable Long id) {
+        SaResult saResult = roleService.deleteRole(id);
+        return handleSaResult(saResult, Object.class);
+    }
+
+    private <T> Response<T> handleSaResult(SaResult saResult, Class<T> dataType) {
+        if (saResult.getCode() == 200) {
+            @SuppressWarnings("unchecked")
+            T data = (T) saResult.getData();
+            return ResponseUtil.success(data, 200);
+        }
+        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+    }
 }

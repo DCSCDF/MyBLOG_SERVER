@@ -15,10 +15,9 @@
 package com.jiuliu.myblog_dev.mapper.user.role;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.jiuliu.myblog_dev.entity.user.role.SysRole;
+import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
 import org.apache.ibatis.annotations.Mapper;
 
-
 @Mapper
-public interface SysRolePermissionGroupMapper extends BaseMapper<SysRole> {
+public interface SysRolePermissionGroupMapper extends BaseMapper<SysRolePermissionGroup> {
 }

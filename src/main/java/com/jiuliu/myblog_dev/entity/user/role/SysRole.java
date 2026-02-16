@@ -34,7 +34,10 @@ public class SysRole {
     private Boolean superAdmin;   // 是否超级管理员（对应 TINYINT(1)）
 
     @TableField("is_system")
-    private Boolean isSystem;      // 是否系统内置角色
+    private Boolean isSystem;      // 是否系统内置角色（不可删除/修改）
+
+    @TableField("is_deleted")
+    private Integer isDeleted;     // 0=未删除，1=已删除
 
     @TableField("sort_order")
     private Integer sortOrder;

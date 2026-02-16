@@ -33,6 +33,12 @@ public class SysPermissionGroup {
     private Integer sortOrder;
     private Integer status;         // 0=禁用，1=启用
 
+    @TableField("is_system")
+    private Boolean isSystem;       // 是否系统内置（不可删除/修改）
+
+    @TableField("is_deleted")
+    private Integer isDeleted;      // 0=未删除，1=已删除
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

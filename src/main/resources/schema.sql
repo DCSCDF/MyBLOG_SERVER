@@ -353,6 +353,11 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:role:delete', '删除角色', '删除角色', 4),
        ('system:role:assignPermission', '分配权限', '为角色分配权限', 5),
 
+-- 权限组管理 API 权限
+       ('system:permission_group:list', '权限组列表', '查看权限组列表', 1),
+       ('system:permission_group:edit', '编辑权限组', '编辑权限组', 2),
+       ('system:permission_group:delete', '删除权限组', '删除权限组', 3),
+
 -- 文章管理
        ('article', '文章管理', '文章管理菜单', 90),
        ('article:list', '文章列表', '查看文章列表', 1),
