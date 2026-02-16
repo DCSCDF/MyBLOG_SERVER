@@ -22,6 +22,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
+import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
@@ -188,17 +189,26 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("用户不存在").setCode(400);
         }
 
-        Map<String, Object> profile = new HashMap<>();
-        profile.put("id", user.getId());
-        profile.put("username", user.getUsername());
-        profile.put("nickname", user.getNickname());
-        profile.put("email", user.getEmail());
-        profile.put("createTime", user.getCreateTime());
-        profile.put("updateTime", user.getUpdateTime());
-        profile.put("avatarUrl", user.getAvatarUrl());
+        // 转换为UserResponseDTO，自动隐藏密码等敏感字段
+        UserResponseDTO userDTO = convertToUserResponseDTO(user);
 
+        return SaResult.data(userDTO);
+    }
 
-        return SaResult.data(profile);
+    /**
+     * 将SysUser实体转换为UserResponseDTO
+     */
+    private UserResponseDTO convertToUserResponseDTO(SysUser user) {
+        UserResponseDTO dto = new UserResponseDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setNickname(user.getNickname());
+        dto.setEmail(user.getEmail());
+        dto.setAvatarUrl(user.getAvatarUrl());
+        dto.setStatus(user.getStatus());
+        dto.setCreateTime(user.getCreateTime());
+        dto.setUpdateTime(user.getUpdateTime());
+        return dto;
     }
 
     @Override

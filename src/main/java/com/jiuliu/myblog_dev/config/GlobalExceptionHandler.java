@@ -17,7 +17,8 @@ package com.jiuliu.myblog_dev.config;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -43,11 +44,11 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @SuppressWarnings("unused")
-    public SaResult handleValidationException(MethodArgumentNotValidException e) {
+    public Response<Void> handleValidationException(MethodArgumentNotValidException e) {
         FieldError firstError = e.getBindingResult().getFieldError();
         String message = (firstError != null) ? firstError.getDefaultMessage() : "请求参数格式错误";
         log.warn("参数校验失败: {}", message);
-        return SaResult.error(message).setCode(400);
+        return ResponseUtil.fail(message, 400);
     }
 
     /**
@@ -55,9 +56,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     @SuppressWarnings("unused")
-    public SaResult handleIllegalArgumentException(IllegalArgumentException e) {
+    public Response<Void> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("业务参数错误: {}", e.getMessage());
-        return SaResult.error(e.getMessage()).setCode(400);
+        return ResponseUtil.fail(e.getMessage(), 400);
     }
 
     /**
@@ -65,7 +66,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({NotLoginException.class, NotRoleException.class, NotPermissionException.class})
     @SuppressWarnings("unused")
-    public SaResult handleAuthException(Exception e, HttpServletRequest request) {
+    public Response<Void> handleAuthException(Exception e, HttpServletRequest request) {
         log.warn("鉴权异常: {}", e.getClass().getSimpleName());
 
 //        // 如果是OPTIONS请求且是登录异常，直接放行
@@ -87,13 +88,13 @@ public class GlobalExceptionHandler {
 //        504: '网关超时'
 
         if (e instanceof NotLoginException) {
-            return SaResult.error("未授权，请先登录").setCode(401);
+            return ResponseUtil.fail("未授权，请先登录", 401);
         } else if (e instanceof NotRoleException) {
-            return SaResult.error("没有权限").setCode(403);
+            return ResponseUtil.fail("没有权限", 403);
         } else if (e instanceof NotPermissionException) {
-            return SaResult.error("没有权限").setCode(403);
+            return ResponseUtil.fail("没有权限", 403);
         }
-        return SaResult.error("鉴权失败").setCode(403);
+        return ResponseUtil.fail("鉴权失败", 403);
     }
 
     /**
@@ -101,9 +102,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(RateLimitException.class)
     @SuppressWarnings("unused")
-    public SaResult handleRateLimitException(RateLimitException e) {
+    public Response<Void> handleRateLimitException(RateLimitException e) {
         log.warn("触发限流: {}", e.getMessage());
-        return SaResult.error(e.getMessage()).setCode(429); // HTTP 429 Too Many Requests
+        return ResponseUtil.fail(e.getMessage(), 429); // HTTP 429 Too Many Requests
     }
 
     /**
@@ -111,20 +112,20 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @SuppressWarnings("unused")
-    public SaResult handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+    public Response<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.warn("JSON解析失败: {}", e.getMostSpecificCause().getMessage());
-        return SaResult.error("请求数据格式错误，请检查JSON格式").setCode(400);
+        return ResponseUtil.fail("请求数据格式错误，请检查JSON格式", 400);
     }
 
     @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
-    public SaResult handleGeneralException(Exception e) {
+    public Response<Void> handleGeneralException(Exception e) {
         // 记录异常类型和消息（不记录堆栈，除非调试）
         log.error("系统异常: {}", e.getClass().getSimpleName());
         log.error("异常消息: {}", e.getMessage());
 
         // 返回通用错误
-        return SaResult.error("当前服务暂时不可用，请稍后再试").setCode(500);
+        return ResponseUtil.fail("当前服务暂时不可用，请稍后再试", 500);
     }
 
     /**
@@ -132,17 +133,17 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     @SuppressWarnings("unused")
-    public SaResult handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
+    public Response<Void> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
         log.warn("不支持的媒体类型: {}", e.getContentType());
-        return SaResult.error("不支持的请求格式，请使用 application/json 格式").setCode(400);
+        return ResponseUtil.fail("不支持的请求格式，请使用 application/json 格式", 400);
     }
 
     /**
      * 处理 404 资源未找到异常
      */
     @ExceptionHandler(NoResourceFoundException.class)
-    public SaResult handleNotFoundException(NoResourceFoundException ex) {
+    public Response<Void> handleNotFoundException(NoResourceFoundException ex) {
         log.warn("请求的资源不存在: {}", ex.getResourcePath());
-        return SaResult.error("请求的资源不存在").setCode(404);
+        return ResponseUtil.fail("请求的资源不存在", 404);
     }
 }

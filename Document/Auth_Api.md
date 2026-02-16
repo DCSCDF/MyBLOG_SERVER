@@ -1,8 +1,6 @@
-## 用户模块接口文档
+## 用户认证模块接口文档
 
 ---
-
-![img.png](img/img_2.png)
 
 ### 前端将 token 提交到后端
 
@@ -21,7 +19,6 @@
 ###  获取验证码：
 获取验证码信息，用于前端展示验证码图片
 
-
 - **请求方法**: `POST`
 - **请求路径**: `/api/captcha/get`
 
@@ -31,13 +28,11 @@
 - **请求方法**: `POST`
 - **请求路径**: `/api/captcha/check`
 
-
 ### 二次验证：
 进行验证码的二次验证，用于重要操作前的身份确认
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/captcha/verify`
-
 
 #### 参数说明
 
@@ -46,71 +41,35 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 
 ---
 
-
-##  获取用户信息
-获取用户个人资料信息,要求已经登陆状态才能访问。获取的信息比较详细不适用于公开访问。
-
-
-- 路径`/api/auth/profile`
-- 请求方式 `POST`
-
-#### 未授权访问
-```json
-{
-    "code": 401,
-    "msg": "未授权，请先登录",
-    "data": null
-}
-```
-#### 访问成功
-
-```json
-{
-  "code": 200,
-  "msg": "ok",
-  "data": {
-    "id": 1,
-    "username": "example_user",
-    "nickname": "Example Nickname",
-    "email": "user@example.com",
-    "createTime": "2023-01-01T00:00:00",
-    "updateTime": "2023-01-01T00:00:00",
-    "avatarUrl": "https://example.com/avatar.jpg or null"
-  }
-}
-```
-
----
-
-
-##  获取 RSA 公钥
+## 获取 RSA 公钥
 获取用 RSA 公钥,主要用来加密密码等敏感信息,同时提供临时token。
 
-- 路径`/api/auth/public-key`
-- 请求方式 `GET`
+- **请求方法**: `GET`
+- **请求路径**: `/api/auth/public-key`
 
-#### 访问成功
+#### 响应示例
 
 ```json
 {
-    "code": 200,
-    "msg": "ok",
     "data": {
         "tempToken": "TcoMKl.........SJ797Kli3S1Y",
         "publicKey": "MIIBI...........42ztOcMawIDAQAB"
-    }
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
 }
 ```
 
 ---
 
-##  账号登陆
-用于登陆账号。
+## 账号登录
+用于登录账号。
 
-- 路径`/api/auth/login`
-- 请求方式 `POST`
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/login`
 
-#### 前端请求 Body
+#### 请求参数
 
 `captchaVerification`为验证码服务验证成功后返回的验证信息。
 `password`使用 public-key 接口返回的公钥进行加密后的密码。
@@ -124,53 +83,194 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 }
 ```
 
-#### 访问成功
+#### 响应示例
+
 ```json
 {
-  "code": 200,
-  "msg": "ok",
-  "data": {
-    "token": "J062mk2fxe......82w34W3E9UbagD"
-  }
+    "data": {
+        "token": "J062mk2fxe......82w34W3E9UbagD"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
 }
 ```
 
-#### 访问失败
-
-`msg`中的内容根据错误类型返回。
+#### 错误响应
 
 ```json
 {
-    "code": 400,
-    "msg": "验证码已失效，请重新获取",
-    "data": null
+    "data": null,
+    "success": false,
+    "errorMsg": "验证码已失效，请重新获取",
+    "code": 400
 }
 ```
 
+---
 
-##  账号注销
-用于登陆账号。
+## 获取用户信息
+获取用户个人资料信息,要求已经登陆状态才能访问。获取的信息比较详细不适用于公开访问。
 
-- 路径`/api/auth/logout`
-- 请求方式 `POST`
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/profile`
 
-#### 访问失败
-
+#### 未授权访问响应
 ```json
-{"code":401,"msg":"用户未登录或会话已过期","data":null}
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "未授权，请先登录",
+    "code": 401
+}
 ```
 
-#### 访问成功
+#### 访问成功响应
 
 ```json
-
 {
-    "code": 200,
-    "msg": "ok",
+    "data": {
+        "id": 1,
+        "username": "example_user",
+        "nickname": "Example Nickname",
+        "email": "user@example.com",
+        "createTime": "2023-01-01T00:00:00",
+        "updateTime": "2023-01-01T00:00:00",
+        "avatarUrl": "https://example.com/avatar.jpg or null"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+---
+
+## 修改密码
+用于修改用户密码。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/update-password`
+- **需要登录**: 是
+
+#### 请求参数
+
+```json
+{
+  "old_password": "加密后的原密码",
+  "new_password": "加密后的新密码"
+}
+```
+
+#### 响应示例
+
+```json
+{
+    "data": {
+        "message": "密码修改成功，请重新登录"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+---
+
+## 账号注销
+用于退出登录。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/logout`
+- **需要登录**: 是
+
+#### 未登录响应
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "用户未登录或会话已过期",
+    "code": 401
+}
+```
+
+#### 成功响应
+
+```json
+{
     "data": {
         "message": "登出成功",
         "wasLoggedIn": true,
         "logoutTime": 1770731084416
-        }
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+---
+
+## 用户注册
+用户注册接口（暂未实现）。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/register`
+
+#### 响应示例
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "功能暂未开放",
+    "code": 501
+}
+```
+
+---
+
+## 权限管理接口
+
+### 分页获取权限列表
+获取系统权限列表，支持分页查询。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/permission/listAll`
+- **需要权限**: `system:permission`
+
+#### 请求参数
+
+```json
+{
+  "page": 1,
+  "size": 10,
+  "keyword": "搜索关键词(可选)",
+  "type": "权限类型(可选)"
+}
+```
+
+#### 响应示例
+
+```json
+{
+    "data": {
+        "records": [
+            {
+                "id": 1,
+                "code": "system:user:list",
+                "name": "用户列表",
+                "type": "BUTTON",
+                "description": "查看用户列表权限"
+            }
+        ],
+        "total": 100,
+        "current": 1,
+        "size": 10
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
 }
 ```

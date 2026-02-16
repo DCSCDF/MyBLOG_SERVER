@@ -18,14 +18,16 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
+import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class permissionServiceImpl implements permissionService {
@@ -55,20 +57,39 @@ public class permissionServiceImpl implements permissionService {
             // 执行分页查询
             Page<SysPermission> pageResult = sysPermissionMapper.selectPage(page, queryWrapper);
 
-            // 构建返回数据
-            Map<String, Object> resultData = new HashMap<>();
-            resultData.put("records", pageResult.getRecords());
-            resultData.put("total", pageResult.getTotal());
-            resultData.put("size", pageResult.getSize());
-            resultData.put("current", pageResult.getCurrent());
-            resultData.put("pages", pageResult.getPages());
+            // 转换实体为DTO
+            List<PermissionResponseDTO> permissionDTOs = pageResult.getRecords().stream()
+                    .map(this::convertToPermissionResponseDTO)
+                    .collect(Collectors.toList());
 
-//            log.info("成功获取权限分页列表，共{}条记录，总页数{}", pageResult.getRecords().size(), pageResult.getPages());
-            return SaResult.data(resultData);
+            // 构建分页响应DTO
+            PagePermissionResponseDTO responseDTO = new PagePermissionResponseDTO();
+            responseDTO.setRecords(permissionDTOs);
+            responseDTO.setTotal(pageResult.getTotal());
+            responseDTO.setSize(pageResult.getSize());
+            responseDTO.setCurrent(pageResult.getCurrent());
+            responseDTO.setPages(pageResult.getPages());
+
+//            log.info("成功获取权限分页列表，共{}条记录，总页数{}", permissionDTOs.size(), pageResult.getPages());
+            return SaResult.data(responseDTO);
         } catch (Exception e) {
             log.error("分页获取权限列表异常", e);
             return SaResult.error("分页获取权限列表失败").setCode(500);
         }
+    }
+
+    /**
+     * 将SysPermission实体转换为PermissionResponseDTO
+     */
+    private PermissionResponseDTO convertToPermissionResponseDTO(SysPermission permission) {
+        PermissionResponseDTO dto = new PermissionResponseDTO();
+        dto.setId(permission.getId());
+        dto.setCode(permission.getCode());
+        dto.setName(permission.getName());
+        dto.setDescription(permission.getDescription());
+        dto.setSortOrder(permission.getSortOrder());
+        dto.setCreateTime(permission.getCreateTime());
+        return dto;
     }
 
 
