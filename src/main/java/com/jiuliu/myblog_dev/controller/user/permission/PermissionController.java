@@ -20,7 +20,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
-import com.jiuliu.myblog_dev.service.user.permission.permissionService;
+import com.jiuliu.myblog_dev.service.user.permission.PermissionService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,10 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/permission")
 public class PermissionController {
 
-    private final permissionService permissionService;
+    private final PermissionService permissionService;
 
-    // 构造函数注入
-    public PermissionController(permissionService permissionService) {
+    public PermissionController(PermissionService permissionService) {
         this.permissionService = permissionService;
     }
 

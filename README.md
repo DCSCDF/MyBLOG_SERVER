@@ -26,13 +26,43 @@ java -jar myblog_dev.jar --app.cors.allowed-origins="https://prod.example.com"
 
 ```
 
+---
+
 ## 项目开发参考
 
-### 关系参考图：
+### 关系参考图
 
 ![用户关系图](Document/img/img.png)
 ![数据库ER图](Document/img/img_1.png)
 ![img.png](Document/img/img_3.png)
+
+---
+
+## 项目结构
+```
+src/main/java/com/jiuliu/myblog_dev/
+├── config/                 # 配置类
+│   ├── CorsConfig
+│   ├── GlobalExceptionHandler
+│   ├── RsaKeyConfig
+│   ├── Captcha/
+│   ├── rsa/
+│   ├── satoken/
+│   ├── security/
+│   └── validation/
+├── controller/user/        # 控制器（按业务域划分）
+│   ├── auth/
+│   └── permission/
+├── dto/                    # 数据传输对象
+├── entity/                 # 实体类
+├── mapper/                 # MyBatis Mapper
+├── service/user/           # 服务层（接口 + 实现分离）
+│   ├── auth/
+│   └── permission/
+└── utils/                  # 工具类
+```
+
+
 ### 鉴权 API 说明
 
 您可以这样使用鉴权：

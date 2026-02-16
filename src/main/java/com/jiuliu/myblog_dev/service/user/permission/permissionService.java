@@ -1,5 +1,5 @@
 /*
- * [permissionService.java]
+ * [PermissionService.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -18,10 +18,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 
 
-public interface permissionService {
-
-
-//    SaResult getAllPermissions();
+public interface PermissionService {
 
     /**
      * 分页获取权限列表
@@ -30,6 +27,4 @@ public interface permissionService {
      * @return 分页结果
      */
     SaResult getPagePermissions(PagePermissionDTO pageDto);
-
-
 }

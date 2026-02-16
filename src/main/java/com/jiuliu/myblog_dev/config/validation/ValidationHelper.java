@@ -15,14 +15,16 @@
 package com.jiuliu.myblog_dev.config.validation;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
-
-import static com.baomidou.mybatisplus.extension.ddl.DdlScriptErrorHandler.PrintlnLogErrorHandler.log;
 
 /**
  * 验证帮助类
  */
 public class ValidationHelper {
+
+    private static final Logger log = LoggerFactory.getLogger(ValidationHelper.class);
 
     // 不允许的特殊字符
     private static final String INVALID_CHARS = " \t\n\r\"'`;=<>\\/";
@@ -61,25 +63,27 @@ public class ValidationHelper {
     }
 
     /**
-     * 验证密码
+     * 验证密码格式是否符合要求
      *
+     * @param password 待验证的密码
+     * @return true 表示密码有效，false 表示密码无效
      */
     public static boolean validatePassword(String password) {
         if (!StringUtils.hasText(password)) {
             log.warn("密码不能为空");
-            return true;
+            return false;
         }
 
         // 检查长度
         if (password.length() < 6 || password.length() > 20) {
             log.warn("密码长度必须在6-20之间");
-            return true;
+            return false;
         }
 
         // 检查特殊字符
         if (containsInvalidChars(password)) {
             log.warn("密码不能包含空格、引号、分号等特殊字符");
-            return true;
+            return false;
         }
 
         // 检查是否同时包含字母和数字
@@ -88,14 +92,14 @@ public class ValidationHelper {
 
         if (!hasLetter) {
             log.warn("密码必须包含字母");
-            return true;
+            return false;
         }
 
         if (!hasDigit) {
             log.warn("密码必须包含数字");
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 
     /**

@@ -263,7 +263,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-        if (ValidationHelper.validatePassword(rawNewPassword)) {
+        if (!ValidationHelper.validatePassword(rawNewPassword)) {
             log.warn("密码修改失败：新密码格式不符合要求，userId={}", currentUserId);
             return SaResult.error("新密码格式不符合要求").setCode(400);
         }

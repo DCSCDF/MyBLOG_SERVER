@@ -1,5 +1,5 @@
 /*
- * [permissionServiceImpl.java]
+ * [PermissionServiceImpl.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -30,39 +30,30 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class permissionServiceImpl implements permissionService {
+public class PermissionServiceImpl implements PermissionService {
 
-    private static final Logger log = LoggerFactory.getLogger(permissionServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(PermissionServiceImpl.class);
 
     private final SysPermissionMapper sysPermissionMapper;
 
-    // 构造函数注入
-    public permissionServiceImpl(SysPermissionMapper sysPermissionMapper) {
+    public PermissionServiceImpl(SysPermissionMapper sysPermissionMapper) {
         this.sysPermissionMapper = sysPermissionMapper;
     }
 
-
     @Override
     public SaResult getPagePermissions(PagePermissionDTO pageDto) {
-//        log.info("分页获取权限列表，currentPage={}, pageSize={}", pageDto.getCurrentPage(), pageDto.getPageSize());
-
         try {
-            // 创建分页对象
             Page<SysPermission> page = new Page<>(pageDto.getCurrentPage(), pageDto.getPageSize());
 
-            // 构建查询条件，按sort_order降序排列
             QueryWrapper<SysPermission> queryWrapper = new QueryWrapper<>();
             queryWrapper.orderByDesc("sort_order");
 
-            // 执行分页查询
             Page<SysPermission> pageResult = sysPermissionMapper.selectPage(page, queryWrapper);
 
-            // 转换实体为DTO
             List<PermissionResponseDTO> permissionDTOs = pageResult.getRecords().stream()
                     .map(this::convertToPermissionResponseDTO)
                     .collect(Collectors.toList());
 
-            // 构建分页响应DTO
             PagePermissionResponseDTO responseDTO = new PagePermissionResponseDTO();
             responseDTO.setRecords(permissionDTOs);
             responseDTO.setTotal(pageResult.getTotal());
@@ -70,7 +61,6 @@ public class permissionServiceImpl implements permissionService {
             responseDTO.setCurrent(pageResult.getCurrent());
             responseDTO.setPages(pageResult.getPages());
 
-//            log.info("成功获取权限分页列表，共{}条记录，总页数{}", permissionDTOs.size(), pageResult.getPages());
             return SaResult.data(responseDTO);
         } catch (Exception e) {
             log.error("分页获取权限列表异常", e);
@@ -78,9 +68,6 @@ public class permissionServiceImpl implements permissionService {
         }
     }
 
-    /**
-     * 将SysPermission实体转换为PermissionResponseDTO
-     */
     private PermissionResponseDTO convertToPermissionResponseDTO(SysPermission permission) {
         PermissionResponseDTO dto = new PermissionResponseDTO();
         dto.setId(permission.getId());
@@ -91,6 +78,4 @@ public class permissionServiceImpl implements permissionService {
         dto.setCreateTime(permission.getCreateTime());
         return dto;
     }
-
-
 }

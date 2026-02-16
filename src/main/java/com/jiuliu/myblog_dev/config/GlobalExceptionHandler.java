@@ -113,7 +113,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
-        log.warn("JSON解析失败: {}", e.getMostSpecificCause().getMessage());
+        Throwable cause = e.getMostSpecificCause();
+        String message = (cause != null && cause.getMessage() != null) ? cause.getMessage() : "请求数据格式错误";
+        log.warn("JSON解析失败: {}", message);
         return ResponseUtil.fail("请求数据格式错误，请检查JSON格式", 400);
     }
 
