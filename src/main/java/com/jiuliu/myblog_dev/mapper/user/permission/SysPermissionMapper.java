@@ -36,4 +36,16 @@ public interface SysPermissionMapper extends BaseMapper<SysPermission> {
             "WHERE rp.role_id = #{roleId} " +
             "ORDER BY p.sort_order DESC")
     List<SysPermission> selectPermissionsByRoleId(Long roleId);
+
+    /**
+     * 根据权限组 ID 查询权限列表
+     *
+     * @param groupId 权限组 ID
+     * @return 权限列表
+     */
+    @Select("SELECT p.* FROM sys_permission p " +
+            "JOIN sys_permission_group_item pgi ON p.id = pgi.permission_id " +
+            "WHERE pgi.group_id = #{groupId} " +
+            "ORDER BY pgi.sort_order DESC, p.sort_order DESC")
+    List<SysPermission> selectPermissionsByGroupId(Long groupId);
 }

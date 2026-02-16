@@ -352,11 +352,17 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:role:edit', '编辑角色', '编辑角色', 3),
        ('system:role:delete', '删除角色', '删除角色', 4),
        ('system:role:assignPermission', '分配权限', '为角色分配权限', 5),
+       ('system:role:addPermission', '角色添加权限', '为角色添加权限', 6),
+       ('system:role:removePermission', '角色移除权限', '从角色移除权限', 7),
+       ('system:role:addPermissionGroup', '角色添加权限组', '为角色添加权限组', 8),
+       ('system:role:removePermissionGroup', '角色移除权限组', '从角色移除权限组', 9),
 
 -- 权限组管理 API 权限
        ('system:permission_group:list', '权限组列表', '查看权限组列表', 1),
        ('system:permission_group:edit', '编辑权限组', '编辑权限组', 2),
        ('system:permission_group:delete', '删除权限组', '删除权限组', 3),
+       ('system:permission_group:addPermission', '权限组添加权限', '为权限组添加权限', 4),
+       ('system:permission_group:removePermission', '权限组移除权限', '从权限组移除权限', 5),
 
 -- 文章管理
        ('article', '文章管理', '文章管理菜单', 90),

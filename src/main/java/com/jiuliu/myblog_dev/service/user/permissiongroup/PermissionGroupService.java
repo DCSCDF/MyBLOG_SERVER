@@ -24,4 +24,19 @@ public interface PermissionGroupService {
     SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto);
 
     SaResult deletePermissionGroup(Long id);
+
+    /**
+     * 获取权限组关联的权限列表（仅非系统内置权限组可修改，但均可查看）
+     */
+    SaResult getPermissionsByGroupId(Long groupId);
+
+    /**
+     * 为权限组添加权限（仅非系统内置权限组可操作）
+     */
+    SaResult addPermissionToGroup(Long groupId, Long permissionId);
+
+    /**
+     * 从权限组移除权限（仅非系统内置权限组可操作）
+     */
+    SaResult removePermissionFromGroup(Long groupId, Long permissionId);
 }
