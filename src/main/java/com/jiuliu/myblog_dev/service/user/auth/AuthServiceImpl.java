@@ -25,13 +25,20 @@ import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
 import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
+import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.entity.user.role.SysRole;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
@@ -45,20 +52,30 @@ public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
+    private static final String CONFIG_KEY_REGISTER_DEFAULT_ROLE = "user_register_default_role";
+
     private final SysUserMapper sysUserMapper;
+    private final SysUserRoleMapper sysUserRoleMapper;
+    private final SysRoleMapper sysRoleMapper;
+    private final SysConfigMapper sysConfigMapper;
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TempLoginTokenService tempLoginTokenService;
     private final CaptchaService captchaService;
 
-    // 构造函数注入
     public AuthServiceImpl(
             SysUserMapper sysUserMapper,
+            SysUserRoleMapper sysUserRoleMapper,
+            SysRoleMapper sysRoleMapper,
+            SysConfigMapper sysConfigMapper,
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
             TempLoginTokenService tempLoginTokenService,
             CaptchaService captchaService) {
         this.sysUserMapper = sysUserMapper;
+        this.sysUserRoleMapper = sysUserRoleMapper;
+        this.sysRoleMapper = sysRoleMapper;
+        this.sysConfigMapper = sysConfigMapper;
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
         this.tempLoginTokenService = tempLoginTokenService;
@@ -304,6 +321,108 @@ public class AuthServiceImpl implements AuthService {
 
         Map<String, Object> data = new HashMap<>();
         data.put("message", "密码修改成功，请重新登录");
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult register(RegisterDTO dto) {
+        log.info("用户尝试注册，用户名: {}", dto.getUsername());
+
+        // 1. 验证码校验（与登录相同逻辑）
+        CaptchaVO captchaVO = new CaptchaVO();
+        captchaVO.setCaptchaVerification(dto.getCaptchaVerification());
+        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
+        if (!response.isSuccess()) {
+            String repCode = response.getRepCode();
+            String message;
+            int httpCode = 400;
+            switch (repCode) {
+                case "6110": message = "验证码已失效，请重新获取"; break;
+                case "6111": message = "验证码验证失败"; break;
+                case "6206": message = "无效验证码请求，请重新获取"; break;
+                case "6202": message = "验证码验证失败次数过多，请稍后再试"; httpCode = 429; break;
+                case "6201":
+                case "6204": message = "请求过于频繁，请稍后再试"; httpCode = 429; break;
+                default: message = "验证码校验异常，请重试";
+            }
+            log.warn("注册失败：验证码校验未通过，repCode={}, username={}", repCode, dto.getUsername());
+            return SaResult.error(message).setCode(httpCode);
+        }
+
+        // 2. 校验临时 Token
+        String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
+        if (!"unbound".equals(tokenValue)) {
+            log.warn("注册失败：临时 Token 无效或已过期");
+            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+        }
+
+        String username = dto.getUsername().trim();
+        String email = dto.getEmail().trim();
+
+        if (!ValidationHelper.validateUsername(username)) {
+            return SaResult.error("用户名格式错误").setCode(400);
+        }
+        if (!ValidationHelper.validateEmail(email)) {
+            return SaResult.error("邮箱格式不正确").setCode(400);
+        }
+
+        // 3. 解密密码
+        String rawPassword;
+        try {
+            rawPassword = RsaUtils.decryptByPrivateKey(dto.getPassword(), rsaKeyConfig.getPrivateKeyBase64());
+        } catch (Exception e) {
+            log.warn("注册失败：密码解密异常，username={}", username);
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (!StringUtils.hasText(rawPassword)) {
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (!ValidationHelper.validatePassword(rawPassword)) {
+            return SaResult.error("密码格式不符合要求").setCode(400);
+        }
+
+        // 4. 检查用户名、邮箱是否已存在
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username)) != null) {
+            return SaResult.error("用户名已存在").setCode(400);
+        }
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("email", email)) != null) {
+            return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
+        // 5. 获取默认注册角色
+        String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
+        if (!StringUtils.hasText(defaultRoleCode)) {
+            log.error("系统配置 user_register_default_role 未设置");
+            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+        }
+        SysRole defaultRole = sysRoleMapper.selectOne(
+                new QueryWrapper<SysRole>().eq("code", defaultRoleCode).eq("is_deleted", 0));
+        if (defaultRole == null) {
+            log.error("默认注册角色不存在，roleCode={}", defaultRoleCode);
+            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+        }
+
+        // 6. 创建用户
+        SysUser user = new SysUser();
+        user.setUsername(username);
+        user.setNickname(username);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setStatus(1);
+        sysUserMapper.insert(user);
+
+        // 7. 分配默认角色
+        SysUserRole userRole = new SysUserRole();
+        userRole.setUserId(user.getId());
+        userRole.setRoleId(defaultRole.getId());
+        sysUserRoleMapper.insert(userRole);
+
+        log.info("用户注册成功，userId={}, roleId={}", user.getId(), defaultRole.getId());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "注册成功，请登录");
+        data.put("userId", user.getId());
         return SaResult.data(data);
     }
 }

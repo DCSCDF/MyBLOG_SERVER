@@ -22,6 +22,7 @@ import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
@@ -32,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,6 +42,7 @@ import java.util.stream.Collectors;
 public class RoleServiceImpl implements RoleService {
 
     private static final Logger log = LoggerFactory.getLogger(RoleServiceImpl.class);
+    private static final String CONFIG_KEY_REGISTER_DEFAULT_ROLE = "user_register_default_role";
 
     private final SysRoleMapper sysRoleMapper;
     private final SysRolePermissionMapper sysRolePermissionMapper;
@@ -47,19 +50,22 @@ public class RoleServiceImpl implements RoleService {
     private final SysUserRoleMapper sysUserRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
     private final SysPermissionGroupMapper sysPermissionGroupMapper;
+    private final SysConfigMapper sysConfigMapper;
 
     public RoleServiceImpl(SysRoleMapper sysRoleMapper,
                            SysRolePermissionMapper sysRolePermissionMapper,
                            SysRolePermissionGroupMapper sysRolePermissionGroupMapper,
                            SysUserRoleMapper sysUserRoleMapper,
                            SysPermissionMapper sysPermissionMapper,
-                           SysPermissionGroupMapper sysPermissionGroupMapper) {
+                           SysPermissionGroupMapper sysPermissionGroupMapper,
+                           SysConfigMapper sysConfigMapper) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysRolePermissionMapper = sysRolePermissionMapper;
         this.sysRolePermissionGroupMapper = sysRolePermissionGroupMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
+        this.sysConfigMapper = sysConfigMapper;
     }
 
     @Override
@@ -133,6 +139,11 @@ public class RoleServiceImpl implements RoleService {
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             return SaResult.error("系统内置角色不可删除").setCode(403);
+        }
+
+        String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
+        if (StringUtils.hasText(defaultRoleCode) && defaultRoleCode.equals(role.getCode())) {
+            return SaResult.error("该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role").setCode(403);
         }
 
         // 1. 删除用户-角色关联

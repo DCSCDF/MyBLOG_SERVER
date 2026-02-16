@@ -213,21 +213,53 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 ---
 
 ## 用户注册
-用户注册接口（暂未实现）。
+用户注册接口。需先调用 `/api/auth/public-key` 获取公钥和 tempToken，验证码流程与登录相同。
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/auth/register`
+- **限流**: 60 秒内最多 5 次
 
-#### 响应示例
+#### 请求参数
+
+`password` 使用 public-key 接口返回的公钥进行 RSA 加密。`tempToken` 和 `captchaVerification` 获取方式同登录。
 
 ```json
 {
-    "data": null,
-    "success": false,
-    "errorMsg": "功能暂未开放",
-    "code": 501
+  "username": "newUser",
+  "email": "user@example.com",
+  "password": "加密后的密码",
+  "tempToken": "从 public-key 接口获取",
+  "captchaVerification": "验证码二次验证返回的值"
 }
 ```
+
+| 字段                  | 类型     | 必填 | 说明          |
+|---------------------|--------|----|-------------|
+| username            | String | 是  | 用户名，4-20 字符 |
+| email               | String | 是  | 邮箱          |
+| password            | String | 是  | RSA 加密后的密码  |
+| tempToken           | String | 是  | 临时凭证        |
+| captchaVerification | String | 是  | 验证码校验信息     |
+
+#### 成功响应
+
+```json
+{
+    "data": {
+        "message": "注册成功，请登录",
+        "userId": 123
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 错误响应
+
+- 用户名已存在：`code: 400`
+- 邮箱已被注册：`code: 400`
+- 验证码/临时凭证无效：`code: 400`
 
 ---
 

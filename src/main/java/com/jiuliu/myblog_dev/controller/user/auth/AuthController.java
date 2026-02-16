@@ -19,6 +19,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
@@ -101,8 +102,8 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public Response<Void> register() {
-        // TODO: 补充注册逻辑
-        return ResponseUtil.fail("功能暂未开放", 501); // 501表示未实现
+    @RateLimit(count = 5, period = 60)
+    public Response<Map<String, Object>> register(@Valid @RequestBody RegisterDTO dto) {
+        return handleSaResult(authService.register(dto));
     }
 }

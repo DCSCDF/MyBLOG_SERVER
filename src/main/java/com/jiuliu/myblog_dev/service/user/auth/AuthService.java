@@ -18,6 +18,7 @@ package com.jiuliu.myblog_dev.service.user.auth;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
 
 
 public interface AuthService {
@@ -32,5 +33,5 @@ public interface AuthService {
 
     SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId);
 
-    // TODO: 后续补充 register 方法
+    SaResult register(RegisterDTO dto);
 }

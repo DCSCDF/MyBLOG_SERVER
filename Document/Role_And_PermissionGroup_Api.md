@@ -228,6 +228,19 @@
 }
 ```
 
+#### 默认注册角色不可删除响应
+
+若该角色已通过系统配置 `user_register_default_role` 设为用户注册时的默认角色，则不可删除。需先在系统配置中修改该配置项。
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role",
+    "code": 403
+}
+```
+
 ---
 
 ### 获取角色关联的权限和权限组列表

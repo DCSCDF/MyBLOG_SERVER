@@ -513,5 +513,6 @@ WHERE NOT EXISTS (SELECT 1
 -- 插入默认网站配置
 INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_rule, description, is_system)
 VALUES ('site_title', '我的博客', 'string', 'max_length=100', '网站主标题', 1),
-       ('site_subtitle', '记录技术与生活的点滴', 'string', 'max_length=200', '网站副标题', 1)
+       ('site_subtitle', '记录技术与生活的点滴', 'string', 'max_length=200', '网站副标题', 1),
+       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1)
 
