@@ -39,10 +39,12 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @GetMapping("/public-key")
-    //    @RateLimit(count = 6, period = 15)
-    public Response<Map<String, Object>> getPublicKey() {
-        SaResult saResult = authService.getPublicKey();
+    /**
+     * 处理返回Map类型的SaResult结果
+     * @param saResult Sa-Token返回的结果
+     * @return 统一响应格式
+     */
+    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
         if (saResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
             Map<String, Object> data = (Map<String, Object>) saResult.getData();
@@ -52,25 +54,12 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/login")
-    @RateLimit(count = 6, period = 15)
-    public Response<Map<String, Object>> login(@Valid @RequestBody LoginDTO dto) {
-        SaResult saResult = authService.login(dto);
-        if (saResult.getCode() == 200) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
-            return ResponseUtil.success(data, 200);
-        } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
-        }
-    }
-
-    @PostMapping("/profile")
-    @RateLimit(count = 80, period = 4)
-    public Response<Object> getUserProfile() {
-        // 根据 token 返回userID 如果 token 无效会抛 NotLoginException
-        Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供
-        SaResult saResult = authService.getUserProfile(userId);
+    /**
+     * 处理返回Object类型的SaResult结果
+     * @param saResult Sa-Token返回的结果
+     * @return 统一响应格式
+     */
+    private Response<Object> handleSaResultObject(SaResult saResult) {
         if (saResult.getCode() == 200) {
             return ResponseUtil.success(saResult.getData(), 200);
         } else {
@@ -78,31 +67,37 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/public-key")
+    //    @RateLimit(count = 6, period = 15)
+    public Response<Map<String, Object>> getPublicKey() {
+        return handleSaResult(authService.getPublicKey());
+    }
+
+    @PostMapping("/login")
+    @RateLimit(count = 6, period = 15)
+    public Response<Map<String, Object>> login(@Valid @RequestBody LoginDTO dto) {
+        return handleSaResult(authService.login(dto));
+    }
+
+    @PostMapping("/profile")
+    @RateLimit(count = 80, period = 4)
+    public Response<Object> getUserProfile() {
+        // 根据 token 返回userID 如果 token 无效会抛 NotLoginException
+        Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供
+        return handleSaResultObject(authService.getUserProfile(userId));
+    }
+
     @PostMapping("/logout")
     @RateLimit(count = 80, period = 4)
     public Response<Map<String, Object>> logout() {
-        SaResult saResult = authService.logout();
-        if (saResult.getCode() == 200) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
-            return ResponseUtil.success(data, 200);
-        } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
-        }
+        return handleSaResult(authService.logout());
     }
 
     @PostMapping("/update-password")
     @RateLimit(count = 1, period = 15)
     public Response<Map<String, Object>> updatePassword(@Valid @RequestBody ChangePasswordDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = authService.updatePassword(dto, currentUserId);
-        if (saResult.getCode() == 200) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
-            return ResponseUtil.success(data, 200);
-        } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
-        }
+        return handleSaResult(authService.updatePassword(dto, currentUserId));
     }
 
     @PostMapping("/register")
