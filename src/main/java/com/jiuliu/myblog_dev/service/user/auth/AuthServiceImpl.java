@@ -146,13 +146,20 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-        // 查询用户
-        SysUser user = sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username.trim()));
+        // 查询用户（过滤逻辑删除）
+        SysUser user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("username", username.trim())
+                .eq("is_deleted", 0));
         if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
             log.warn("登录失败：用户名或密码错误，username={}", username);
             return SaResult.error("用户名或密码错误").setCode(400);
         }
 
+        // 禁用用户禁止登录
+        if (user.getStatus() == null || user.getStatus() == 0) {
+            log.warn("登录失败：账号已被禁用，userId={}, username={}", user.getId(), username);
+            return SaResult.error("账号已被禁用").setCode(403);
+        }
 
         StpUtil.login(user.getId()); // 等价于 StpUtil.login(user.getId(), false)
 

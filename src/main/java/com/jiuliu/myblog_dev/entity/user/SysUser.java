@@ -61,6 +61,12 @@ public class SysUser {
     private Integer status;
 
     /**
+     * 逻辑删除：0=未删除，1=已删除
+     */
+    @TableField("is_deleted")
+    private Integer isDeleted;
+
+    /**
      * 创建时间，默认 CURRENT_TIMESTAMP
      * 注意：MySQL 自动填充，Java 不需手动设值
      */

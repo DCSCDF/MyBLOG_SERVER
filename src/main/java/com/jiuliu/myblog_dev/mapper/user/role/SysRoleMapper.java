@@ -26,6 +26,8 @@ public interface SysRoleMapper extends BaseMapper<SysRole> {
 
     @Select("SELECT r.* FROM sys_role r " +
             "JOIN sys_user_role ur ON r.id = ur.role_id " +
-            "WHERE ur.user_id = #{userId}")
+            "WHERE ur.user_id = #{userId} " +
+            "AND (r.is_deleted = 0 OR r.is_deleted IS NULL) " +
+            "AND (r.status = 1 OR r.status IS NULL)")
     List<SysRole> selectRolesByUserId(Long userId);
 }
