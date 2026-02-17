@@ -14,6 +14,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.role.PageRoleDTO;
 import com.jiuliu.myblog_dev.dto.user.role.PageRoleResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.role.RoleCreateDTO;
 import com.jiuliu.myblog_dev.dto.user.role.RolePermissionGroupItemDTO;
 import com.jiuliu.myblog_dev.dto.user.role.RolePermissionItemDTO;
 import com.jiuliu.myblog_dev.dto.user.role.RolePermissionsDetailDTO;
@@ -53,6 +54,17 @@ public class RoleController {
     @GetMapping("/{id}")
     public Response<RoleResponseDTO> getRoleById(@PathVariable Long id) {
         SaResult saResult = roleService.getRoleById(id);
+        return handleSaResult(saResult, RoleResponseDTO.class);
+    }
+
+    /**
+     * 创建角色
+     * 权限：system:role:create
+     */
+    @SaCheckPermission("system:role:create")
+    @PostMapping
+    public Response<RoleResponseDTO> createRole(@Valid @RequestBody RoleCreateDTO dto) {
+        SaResult saResult = roleService.createRole(dto);
         return handleSaResult(saResult, RoleResponseDTO.class);
     }
 

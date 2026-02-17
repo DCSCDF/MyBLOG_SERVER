@@ -14,6 +14,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupCreateDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupItemDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupUpdateDTO;
@@ -52,6 +53,17 @@ public class PermissionGroupController {
     @GetMapping("/{id}")
     public Response<PermissionGroupResponseDTO> getPermissionGroupById(@PathVariable Long id) {
         SaResult saResult = permissionGroupService.getPermissionGroupById(id);
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 创建权限组
+     * 权限：system:permission_group:create
+     */
+    @SaCheckPermission("system:permission_group:create")
+    @PostMapping
+    public Response<PermissionGroupResponseDTO> createPermissionGroup(@Valid @RequestBody PermissionGroupCreateDTO dto) {
+        SaResult saResult = permissionGroupService.createPermissionGroup(dto);
         return handleSaResult(saResult);
     }
 

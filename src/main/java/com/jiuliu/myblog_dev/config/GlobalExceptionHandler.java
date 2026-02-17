@@ -23,6 +23,7 @@ import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -105,6 +106,29 @@ public class GlobalExceptionHandler {
     public Response<Void> handleRateLimitException(RateLimitException e) {
         log.warn("触发限流: {}", e.getMessage());
         return ResponseUtil.fail(e.getMessage(), 429); // HTTP 429 Too Many Requests
+    }
+
+    /**
+     * 处理唯一键/唯一约束冲突（如角色编码、权限组名称等重复）
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleDuplicateKeyException(DuplicateKeyException e) {
+        String msg = e.getMessage() != null ? e.getMessage() : "";
+        if (msg.contains("sys_role.code")) {
+            log.warn("角色编码重复: {}", msg);
+            return ResponseUtil.fail("角色编码已存在", 400);
+        }
+        if (msg.contains("sys_permission.code")) {
+            log.warn("权限编码重复: {}", msg);
+            return ResponseUtil.fail("权限编码已存在", 400);
+        }
+        if (msg.contains("sys_permission_group") && msg.contains("name")) {
+            log.warn("权限组名称重复: {}", msg);
+            return ResponseUtil.fail("权限组名称已存在", 400);
+        }
+        log.warn("唯一约束冲突: {}", msg);
+        return ResponseUtil.fail("数据已存在，请勿重复提交", 400);
     }
 
     /**

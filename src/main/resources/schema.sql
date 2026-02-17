@@ -254,33 +254,30 @@ CREATE TABLE IF NOT EXISTS sys_config
     COMMENT = '网站全局配置表（键值对）';
 
 
--- 创建索引 删除已存在的索引
-DROP INDEX IF EXISTS idx_user_status ON sys_user;
-DROP INDEX IF EXISTS idx_role_code ON sys_role;
-DROP INDEX IF EXISTS idx_role_status ON sys_role;
-DROP INDEX IF EXISTS idx_role_super_admin ON sys_role;
-DROP INDEX IF EXISTS idx_permission_code ON sys_permission;
-DROP INDEX IF EXISTS idx_permission_parent ON sys_permission;
-DROP INDEX IF EXISTS idx_permission_type ON sys_permission;
-DROP INDEX IF EXISTS idx_permission_status ON sys_permission;
-DROP INDEX IF EXISTS idx_user_role_user ON sys_user_role;
-DROP INDEX IF EXISTS idx_user_role_role ON sys_user_role;
-DROP INDEX IF EXISTS idx_role_permission_role ON sys_role_permission;
-DROP INDEX IF EXISTS idx_role_permission_permission ON sys_role_permission;
-DROP INDEX IF EXISTS idx_blog_category ON sys_blog;
-DROP INDEX IF EXISTS idx_blog_author ON sys_blog;
-DROP INDEX IF EXISTS idx_blog_create_time ON sys_blog;
-DROP INDEX IF EXISTS idx_blog_hidden ON sys_blog;
-DROP INDEX IF EXISTS idx_blog_top ON sys_blog;
-DROP INDEX IF EXISTS idx_category_hidden ON sys_category;
-DROP INDEX IF EXISTS idx_category_sort ON sys_category;
-DROP INDEX IF EXISTS idx_comment_blog ON sys_comment;
-DROP INDEX IF EXISTS idx_comment_parent ON sys_comment;
-DROP INDEX IF EXISTS idx_comment_user ON sys_comment;
-DROP INDEX IF EXISTS idx_comment_status ON sys_comment;
-DROP INDEX IF EXISTS idx_comment_create_time ON sys_comment;
-DROP INDEX IF EXISTS idx_comment_like_comment ON sys_comment_like;
-DROP INDEX IF EXISTS idx_comment_like_user ON sys_comment_like;
+-- 创建索引 删除已存在的索引（仅删除下方会重建的索引）
+ALTER TABLE sys_user DROP INDEX idx_user_status;
+ALTER TABLE sys_role DROP INDEX idx_role_code;
+ALTER TABLE sys_role DROP INDEX idx_role_status;
+ALTER TABLE sys_role DROP INDEX idx_role_super_admin;
+ALTER TABLE sys_permission DROP INDEX idx_permission_code;
+ALTER TABLE sys_user_role DROP INDEX idx_user_role_user;
+ALTER TABLE sys_user_role DROP INDEX idx_user_role_role;
+ALTER TABLE sys_role_permission DROP INDEX idx_role_permission_role;
+ALTER TABLE sys_role_permission DROP INDEX idx_role_permission_permission;
+ALTER TABLE sys_blog DROP INDEX idx_blog_category;
+ALTER TABLE sys_blog DROP INDEX idx_blog_author;
+ALTER TABLE sys_blog DROP INDEX idx_blog_create_time;
+ALTER TABLE sys_blog DROP INDEX idx_blog_hidden;
+ALTER TABLE sys_blog DROP INDEX idx_blog_top;
+ALTER TABLE sys_category DROP INDEX idx_category_hidden;
+ALTER TABLE sys_category DROP INDEX idx_category_sort;
+ALTER TABLE sys_comment DROP INDEX idx_comment_blog;
+ALTER TABLE sys_comment DROP INDEX idx_comment_parent;
+ALTER TABLE sys_comment DROP INDEX idx_comment_user;
+ALTER TABLE sys_comment DROP INDEX idx_comment_status;
+ALTER TABLE sys_comment DROP INDEX idx_comment_create_time;
+ALTER TABLE sys_comment_like DROP INDEX idx_comment_like_comment;
+ALTER TABLE sys_comment_like DROP INDEX idx_comment_like_user;
 
 -- 创建新索引
 CREATE INDEX idx_user_status ON sys_user (status) COMMENT '用户状态索引';
@@ -338,6 +335,7 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:user', '用户管理', '用户管理', 101),
        ('system:role', '角色管理', '角色管理', 102),
        ('system:permission', '权限管理', '权限管理', 103),
+       ('system:permission_group', '权限组管理', '权限组管理', 104),
 
 -- 用户管理 API 权限
        ('system:user:list', '用户列表', '查看用户列表', 1),
@@ -359,8 +357,9 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
 
 -- 权限组管理 API 权限
        ('system:permission_group:list', '权限组列表', '查看权限组列表', 1),
-       ('system:permission_group:edit', '编辑权限组', '编辑权限组', 2),
-       ('system:permission_group:delete', '删除权限组', '删除权限组', 3),
+       ('system:permission_group:create', '创建权限组', '创建权限组', 2),
+       ('system:permission_group:edit', '编辑权限组', '编辑权限组', 3),
+       ('system:permission_group:delete', '删除权限组', '删除权限组', 4),
        ('system:permission_group:addPermission', '权限组添加权限', '为权限组添加权限', 4),
        ('system:permission_group:removePermission', '权限组移除权限', '从权限组移除权限', 5),
 
@@ -488,31 +487,9 @@ WHERE g.name = '用户管理组'
                   WHERE pgi.group_id = g.id
                     AND pgi.permission_id = p.id);
 
--- 为角色分配权限组（ADMIN角色）
-INSERT IGNORE INTO sys_role_permission_group (role_id, group_id)
-SELECT r.id, g.id
-FROM sys_role r
-         CROSS JOIN sys_permission_group g
-WHERE r.code = 'ADMIN'
-  AND NOT EXISTS (SELECT 1
-                  FROM sys_role_permission_group rpg
-                  WHERE rpg.role_id = r.id
-                    AND rpg.group_id = g.id);
-
--- 自动同步权限组中的权限到角色权限表
-INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
-SELECT rpg.role_id, pgi.permission_id
-FROM sys_role_permission_group rpg
-         JOIN sys_permission_group_item pgi ON rpg.group_id = pgi.group_id
-WHERE NOT EXISTS (SELECT 1
-                  FROM sys_role_permission rp
-                  WHERE rp.role_id = rpg.role_id
-                    AND rp.permission_id = pgi.permission_id);
-
-
 -- 插入默认网站配置
 INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_rule, description, is_system)
 VALUES ('site_title', '我的博客', 'string', 'max_length=100', '网站主标题', 1),
        ('site_subtitle', '记录技术与生活的点滴', 'string', 'max_length=200', '网站副标题', 1),
-       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1)
+       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1);
 

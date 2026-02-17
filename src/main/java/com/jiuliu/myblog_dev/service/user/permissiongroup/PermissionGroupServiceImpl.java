@@ -18,16 +18,21 @@ import com.jiuliu.myblog_dev.dto.user.permissiongroup.*;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroupItem;
+import com.jiuliu.myblog_dev.entity.user.role.SysRolePermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupItemMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionGroupMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
+import com.jiuliu.myblog_dev.utils.PermissionOverlapHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,15 +45,18 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     private final SysPermissionGroupItemMapper sysPermissionGroupItemMapper;
     private final SysPermissionMapper sysPermissionMapper;
     private final SysRolePermissionGroupMapper sysRolePermissionGroupMapper;
+    private final SysRolePermissionMapper sysRolePermissionMapper;
 
     public PermissionGroupServiceImpl(SysPermissionGroupMapper sysPermissionGroupMapper,
                                       SysPermissionGroupItemMapper sysPermissionGroupItemMapper,
                                       SysPermissionMapper sysPermissionMapper,
-                                      SysRolePermissionGroupMapper sysRolePermissionGroupMapper) {
+                                      SysRolePermissionGroupMapper sysRolePermissionGroupMapper,
+                                      SysRolePermissionMapper sysRolePermissionMapper) {
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
         this.sysPermissionGroupItemMapper = sysPermissionGroupItemMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysRolePermissionGroupMapper = sysRolePermissionGroupMapper;
+        this.sysRolePermissionMapper = sysRolePermissionMapper;
     }
 
     @Override
@@ -92,6 +100,30 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     }
 
     @Override
+    public SaResult createPermissionGroup(PermissionGroupCreateDTO dto) {
+        // 检查权限组名称是否已存在（未删除的）
+        SysPermissionGroup existingGroup = sysPermissionGroupMapper.selectOne(
+                new LambdaQueryWrapper<SysPermissionGroup>()
+                        .eq(SysPermissionGroup::getName, dto.getName())
+                        .and(w -> w.eq(SysPermissionGroup::getIsDeleted, 0).or().isNull(SysPermissionGroup::getIsDeleted)));
+        if (existingGroup != null) {
+            return SaResult.error("权限组名称已存在").setCode(400);
+        }
+
+        SysPermissionGroup group = new SysPermissionGroup();
+        group.setName(dto.getName());
+        group.setDescription(dto.getDescription());
+        group.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+        group.setStatus(dto.getStatus() != null ? dto.getStatus() : 1);
+        group.setIsSystem(false);
+        group.setIsDeleted(0);
+
+        sysPermissionGroupMapper.insert(group);
+        log.info("权限组创建成功，id={}, name={}", group.getId(), group.getName());
+        return SaResult.data(toResponseDTO(group));
+    }
+
+    @Override
     public SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(dto.getId());
         if (group == null) {
@@ -106,7 +138,8 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                 .set(SysPermissionGroup::getName, dto.getName())
                 .set(dto.getDescription() != null, SysPermissionGroup::getDescription, dto.getDescription())
                 .set(dto.getSortOrder() != null, SysPermissionGroup::getSortOrder, dto.getSortOrder())
-                .set(dto.getStatus() != null, SysPermissionGroup::getStatus, dto.getStatus());
+                .set(dto.getStatus() != null, SysPermissionGroup::getStatus, dto.getStatus())
+                .set(SysPermissionGroup::getUpdateTime, LocalDateTime.now());
 
         sysPermissionGroupMapper.update(null, wrapper);
         log.info("权限组更新成功，id={}", dto.getId());
@@ -130,10 +163,17 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         // 2. 删除角色-权限组关联
         sysRolePermissionGroupMapper.delete(new LambdaQueryWrapper<SysRolePermissionGroup>()
                 .eq(SysRolePermissionGroup::getGroupId, id));
-        // 3. 逻辑删除权限组
+        // 3. 逻辑删除权限组：name 追加「(已删除)_id」后缀，避免名称占用便于复用
+        String newName = group.getName();
+        if (newName != null && !newName.contains("(已删除)")) {
+            String suffix = "(已删除)_" + id;
+            newName = (newName.length() + suffix.length() <= 50) ? newName + suffix : newName.substring(0, 50 - suffix.length()) + suffix;
+        }
         sysPermissionGroupMapper.update(null, new LambdaUpdateWrapper<SysPermissionGroup>()
                 .eq(SysPermissionGroup::getId, id)
-                .set(SysPermissionGroup::getIsDeleted, 1));
+                .set(SysPermissionGroup::getName, newName)
+                .set(SysPermissionGroup::getIsDeleted, 1)
+                .set(SysPermissionGroup::getUpdateTime, LocalDateTime.now()));
         log.info("权限组删除成功，已级联删除关联数据，id={}", id);
         return SaResult.data("删除成功");
     }
@@ -161,7 +201,8 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         if (Boolean.TRUE.equals(group.getIsSystem())) {
             return SaResult.error("系统内置权限组不可修改").setCode(403);
         }
-        if (sysPermissionMapper.selectById(permissionId) == null) {
+        SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
+        if (newPerm == null) {
             return SaResult.error("权限不存在").setCode(404);
         }
 
@@ -173,11 +214,46 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
             return SaResult.error("该权限已在权限组中").setCode(400);
         }
 
+        // 父子权限互斥：关联了父权限就不能关联其子权限，关联了子权限就不能关联其父权限
+        List<SysPermission> existingPerms = sysPermissionMapper.selectPermissionsByGroupId(groupId);
+        for (SysPermission existing : existingPerms) {
+            if (PermissionOverlapHelper.overlaps(newPerm.getCode(), existing.getCode())) {
+                return SaResult.error("该权限与权限组中已有权限存在父子关系，不能同时关联父权限和子权限").setCode(400);
+            }
+        }
+
+        // 依赖该权限组的所有角色：新增权限不能与角色已有权限（直接+其他权限组）重叠
+        List<Long> roleIdsWithGroup = sysRolePermissionGroupMapper.selectList(
+                new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId))
+                .stream().map(SysRolePermissionGroup::getRoleId).collect(Collectors.toList());
+        for (Long roleId : roleIdsWithGroup) {
+            List<String> rolePermCodesExcludingThisGroup = getRolePermissionCodesExcludingGroup(roleId, groupId);
+            for (String code : rolePermCodesExcludingThisGroup) {
+                if (PermissionOverlapHelper.overlaps(newPerm.getCode(), code)) {
+                    return SaResult.error("该权限与依赖此权限组的角色已有权限重叠（角色通过直接分配或其他权限组已拥有此权限或父子权限）").setCode(400);
+                }
+            }
+        }
+
         SysPermissionGroupItem item = new SysPermissionGroupItem();
         item.setGroupId(groupId);
         item.setPermissionId(permissionId);
         item.setSortOrder(0);
         sysPermissionGroupItemMapper.insert(item);
+
+        // 将新增权限同步到依赖此权限组的所有角色的 sys_role_permission
+        for (Long roleId : roleIdsWithGroup) {
+            long existCount = sysRolePermissionMapper.selectCount(
+                    new LambdaQueryWrapper<SysRolePermission>()
+                            .eq(SysRolePermission::getRoleId, roleId)
+                            .eq(SysRolePermission::getPermissionId, permissionId));
+            if (existCount == 0) {
+                SysRolePermission rp = new SysRolePermission();
+                rp.setRoleId(roleId);
+                rp.setPermissionId(permissionId);
+                sysRolePermissionMapper.insert(rp);
+            }
+        }
         log.info("权限组添加权限成功，groupId={}, permissionId={}", groupId, permissionId);
         return SaResult.data("添加成功");
     }
@@ -199,8 +275,67 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         if (deleted == 0) {
             return SaResult.error("该权限不在权限组中").setCode(400);
         }
+
+        // 同步到依赖此权限组的所有角色：移除该权限，若角色通过其他权限组或直接分配仍拥有则需保留
+        List<Long> roleIdsWithGroup = sysRolePermissionGroupMapper.selectList(
+                new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId))
+                .stream().map(SysRolePermissionGroup::getRoleId).collect(Collectors.toList());
+        for (Long roleId : roleIdsWithGroup) {
+            // 角色是否仍通过其他来源（直接分配或其它权限组）拥有该权限
+            boolean hasFromOtherSource = hasPermissionFromOtherSource(roleId, groupId, permissionId);
+            if (!hasFromOtherSource) {
+                sysRolePermissionMapper.delete(
+                        new LambdaQueryWrapper<SysRolePermission>()
+                                .eq(SysRolePermission::getRoleId, roleId)
+                                .eq(SysRolePermission::getPermissionId, permissionId));
+            }
+        }
         log.info("权限组移除权限成功，groupId={}, permissionId={}", groupId, permissionId);
         return SaResult.data("移除成功");
+    }
+
+    /**
+     * 获取角色拥有的权限编码（排除指定权限组）
+     */
+    private List<String> getRolePermissionCodesExcludingGroup(Long roleId, Long excludeGroupId) {
+        List<String> codes = new ArrayList<>();
+        // 直接分配的权限：sys_role_permission 无法区分来源，需通过「角色权限 = 直接 + 所有权限组」反推
+        // 使用：角色所有权限组（含excludeGroupId）的权限并集，再减去 excludeGroupId 的权限 = 直接 + 其它组
+        List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(roleId);
+        for (SysPermissionGroup g : groups) {
+            if (g.getId().equals(excludeGroupId)) continue;
+            List<SysPermission> perms = sysPermissionMapper.selectPermissionsByGroupId(g.getId());
+            for (SysPermission p : perms) {
+                if (!codes.contains(p.getCode())) codes.add(p.getCode());
+            }
+        }
+        // 直接权限：sys_role_permission 中减去所有权限组的权限
+        List<SysPermission> rolePerms = sysPermissionMapper.selectPermissionsByRoleId(roleId);
+        List<Long> fromGroups = new ArrayList<>();
+        for (SysPermissionGroup g : groups) {
+            fromGroups.addAll(sysPermissionMapper.selectPermissionsByGroupId(g.getId()).stream()
+                    .map(SysPermission::getId).collect(Collectors.toList()));
+        }
+        for (SysPermission p : rolePerms) {
+            if (!fromGroups.contains(p.getId()) && !codes.contains(p.getCode())) {
+                codes.add(p.getCode());
+            }
+        }
+        return codes;
+    }
+
+    /**
+     * 角色是否通过「其它权限组（不含指定组）」拥有指定权限。
+     * 若存在则不应从 sys_role_permission 中删除（因添加时禁止重复，直接分配与权限组不会重叠）。
+     */
+    private boolean hasPermissionFromOtherSource(Long roleId, Long excludeGroupId, Long permissionId) {
+        List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(roleId);
+        for (SysPermissionGroup g : groups) {
+            if (g.getId().equals(excludeGroupId)) continue;
+            List<SysPermission> perms = sysPermissionMapper.selectPermissionsByGroupId(g.getId());
+            if (perms.stream().anyMatch(p -> p.getId().equals(permissionId))) return true;
+        }
+        return false;
     }
 
     private PermissionResponseDTO toPermissionDTO(SysPermission p) {

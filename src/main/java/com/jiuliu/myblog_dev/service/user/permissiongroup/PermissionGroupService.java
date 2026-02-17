@@ -12,6 +12,7 @@ package com.jiuliu.myblog_dev.service.user.permissiongroup;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupCreateDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupUpdateDTO;
 
@@ -20,6 +21,8 @@ public interface PermissionGroupService {
     SaResult getPagePermissionGroups(PagePermissionGroupDTO pageDto);
 
     SaResult getPermissionGroupById(Long id);
+
+    SaResult createPermissionGroup(PermissionGroupCreateDTO dto);
 
     SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto);
 

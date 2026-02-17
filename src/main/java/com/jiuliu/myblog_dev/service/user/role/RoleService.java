@@ -12,6 +12,7 @@ package com.jiuliu.myblog_dev.service.user.role;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.role.PageRoleDTO;
 import com.jiuliu.myblog_dev.dto.user.role.PageRoleResponseDTO;
+import com.jiuliu.myblog_dev.dto.user.role.RoleCreateDTO;
 import com.jiuliu.myblog_dev.dto.user.role.RoleResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.role.RoleUpdateDTO;
 
@@ -20,6 +21,8 @@ public interface RoleService {
     SaResult getPageRoles(PageRoleDTO pageDto);
 
     SaResult getRoleById(Long id);
+
+    SaResult createRole(RoleCreateDTO dto);
 
     SaResult updateRole(RoleUpdateDTO dto);
 
