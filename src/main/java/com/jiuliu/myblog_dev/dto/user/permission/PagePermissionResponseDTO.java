@@ -14,9 +14,11 @@
 
 package com.jiuliu.myblog_dev.dto.user.permission;
 
+import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 权限分页响应DTO
@@ -26,12 +28,10 @@ import java.util.List;
 public class PagePermissionResponseDTO {
 
     private List<PermissionResponseDTO> records;
-
     private Long total;
-
     private Long size;
-
     private Long current;
-
     private Long pages;
+    /** 可用的筛选项（权限无状态/内置等，可为空 Map），供前端统一处理 */
+    private Map<String, List<FilterOptionItem>> filterOptions;
 }

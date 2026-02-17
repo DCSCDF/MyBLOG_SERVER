@@ -27,7 +27,7 @@
 
 ### 分页获取角色列表
 
-获取系统角色列表，支持分页查询。系统内置角色和自定义角色均会返回。
+获取系统角色列表，支持分页、关键词搜索与状态/是否内置筛选。响应中附带可用的筛选项（`filterOptions`），供前端渲染筛选控件。
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/role/list`
@@ -38,9 +38,20 @@
 ```json
 {
   "currentPage": 1,
-  "pageSize": 10
+  "pageSize": 10,
+  "keyword": "ADMIN",
+  "status": 1,
+  "isSystem": 1
 }
 ```
+
+| 字段          | 类型      | 必填 | 说明                                |
+|-------------|---------|----|-----------------------------------|
+| currentPage | Integer | 是  | 当前页码（从 1 开始）                     |
+| pageSize    | Integer | 是  | 每页数量                             |
+| keyword     | String  | 否  | 搜索关键词（匹配 code、name、description）     |
+| status      | Integer | 否  | 状态筛选：0=禁用，1=启用                    |
+| isSystem    | Integer | 否  | 是否系统内置：0=否，1=是                   |
 
 #### 响应示例
 
@@ -64,7 +75,17 @@
         "total": 4,
         "size": 10,
         "current": 1,
-        "pages": 1
+        "pages": 1,
+        "filterOptions": {
+            "status": [
+                { "value": 0, "label": "禁用" },
+                { "value": 1, "label": "启用" }
+            ],
+            "isSystem": [
+                { "value": 0, "label": "否" },
+                { "value": 1, "label": "是" }
+            ]
+        }
     },
     "success": true,
     "errorMsg": null,
@@ -531,7 +552,7 @@
 
 ### 分页获取权限组列表
 
-获取系统权限组列表，支持分页查询。权限组用于将多个权限归类管理，便于为角色批量分配权限。
+获取系统权限组列表，支持分页、关键词搜索与状态/是否内置筛选。响应中附带可用的筛选项（`filterOptions`），供前端渲染筛选控件。
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/permission-group/list`
@@ -542,9 +563,20 @@
 ```json
 {
   "currentPage": 1,
-  "pageSize": 10
+  "pageSize": 10,
+  "keyword": "系统",
+  "status": 1,
+  "isSystem": 1
 }
 ```
+
+| 字段          | 类型      | 必填 | 说明                            |
+|-------------|---------|----|-------------------------------|
+| currentPage | Integer | 是  | 当前页码（从 1 开始）                 |
+| pageSize    | Integer | 是  | 每页数量                         |
+| keyword     | String  | 否  | 搜索关键词（匹配 name、description）   |
+| status      | Integer | 否  | 状态筛选：0=禁用，1=启用                |
+| isSystem    | Integer | 否  | 是否系统内置：0=否，1=是               |
 
 #### 响应示例
 
@@ -566,7 +598,17 @@
         "total": 3,
         "size": 10,
         "current": 1,
-        "pages": 1
+        "pages": 1,
+        "filterOptions": {
+            "status": [
+                { "value": 0, "label": "禁用" },
+                { "value": 1, "label": "启用" }
+            ],
+            "isSystem": [
+                { "value": 0, "label": "否" },
+                { "value": 1, "label": "是" }
+            ]
+        }
     },
     "success": true,
     "errorMsg": null,

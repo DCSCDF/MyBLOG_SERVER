@@ -13,6 +13,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.role.*;
@@ -39,6 +40,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.jiuliu.myblog_dev.service.user.permission.PermissionServiceImpl.getPermissionResponseDTO;
@@ -79,7 +81,16 @@ public class RoleServiceImpl implements RoleService {
         try {
             LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<SysRole>()
                     .eq(SysRole::getIsDeleted, 0)
+                    .eq(pageDto.getStatus() != null, SysRole::getStatus, pageDto.getStatus())
+                    .eq(pageDto.getIsSystem() != null, SysRole::getIsSystem, pageDto.getIsSystem() != null && pageDto.getIsSystem() == 1)
                     .orderByDesc(SysRole::getSortOrder);
+
+            if (StringUtils.hasText(pageDto.getKeyword())) {
+                String kw = pageDto.getKeyword().trim();
+                wrapper.and(w -> w.like(SysRole::getCode, kw)
+                        .or().like(SysRole::getName, kw)
+                        .or().like(SysRole::getDescription, kw));
+            }
 
             Page<SysRole> page = new Page<>(pageDto.getCurrentPage(), pageDto.getPageSize());
             Page<SysRole> pageResult = sysRoleMapper.selectPage(page, wrapper);
@@ -94,12 +105,19 @@ public class RoleServiceImpl implements RoleService {
             response.setSize(pageResult.getSize());
             response.setCurrent(pageResult.getCurrent());
             response.setPages(pageResult.getPages());
+            response.setFilterOptions(buildRoleListFilterOptions());
 
             return SaResult.data(response);
         } catch (Exception e) {
             log.error("分页获取角色列表异常", e);
             return SaResult.error("获取角色列表失败").setCode(500);
         }
+    }
+
+    private static Map<String, List<FilterOptionItem>> buildRoleListFilterOptions() {
+        return Map.of(
+                "status", List.of(new FilterOptionItem(0, "禁用"), new FilterOptionItem(1, "启用")),
+                "isSystem", List.of(new FilterOptionItem(0, "否"), new FilterOptionItem(1, "是")));
     }
 
     @Override
@@ -144,6 +162,9 @@ public class RoleServiceImpl implements RoleService {
         if (role == null) {
             return SaResult.error("角色不存在").setCode(404);
         }
+        if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
+            return SaResult.error("超级管理员角色不可修改").setCode(403);
+        }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             return SaResult.error("系统内置角色不可修改").setCode(403);
         }
@@ -167,6 +188,9 @@ public class RoleServiceImpl implements RoleService {
         SysRole role = sysRoleMapper.selectById(id);
         if (role == null) {
             return SaResult.error("角色不存在").setCode(404);
+        }
+        if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
+            return SaResult.error("超级管理员角色不可删除").setCode(403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             return SaResult.error("系统内置角色不可删除").setCode(403);
@@ -375,6 +399,9 @@ public class RoleServiceImpl implements RoleService {
         SysRole role = sysRoleMapper.selectById(roleId);
         if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
             throw new BusinessException("角色不存在", 404);
+        }
+        if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
+            throw new BusinessException("超级管理员角色不可修改", 403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             throw new BusinessException("系统内置角色不可修改", 403);

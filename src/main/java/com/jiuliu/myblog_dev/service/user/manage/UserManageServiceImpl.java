@@ -14,6 +14,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.user.manage.PageUserDTO;
 import com.jiuliu.myblog_dev.dto.user.manage.PageUserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.manage.UserAdminResponseDTO;
@@ -31,8 +32,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,6 +84,7 @@ public class UserManageServiceImpl implements UserManageService {
             resp.setSize(pageResult.getSize());
             resp.setCurrent(pageResult.getCurrent());
             resp.setPages(pageResult.getPages());
+            resp.setFilterOptions(buildUserListFilterOptions());
             return SaResult.data(resp);
         } catch (Exception e) {
             log.error("分页获取用户列表异常", e);
@@ -131,6 +136,15 @@ public class UserManageServiceImpl implements UserManageService {
             if (role == null) {
                 return SaResult.error("角色不存在或已禁用").setCode(404);
             }
+            // 超级管理员只能有一个，且只能分配给默认管理员账号
+            boolean isSuperAdminRole = Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode());
+            boolean isDefaultAdmin = "admin".equals(user.getUsername());
+            if (isSuperAdminRole && !isDefaultAdmin) {
+                return SaResult.error("超级管理员角色只能分配给默认管理员账号（admin）").setCode(403);
+            }
+            if (isDefaultAdmin && !isSuperAdminRole) {
+                return SaResult.error("默认管理员必须保留超级管理员角色").setCode(403);
+            }
             sysUserRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
             SysUserRole userRole = new SysUserRole();
             userRole.setUserId(id);
@@ -138,12 +152,26 @@ public class UserManageServiceImpl implements UserManageService {
             sysUserRoleMapper.insert(userRole);
         }
 
+        // 头像URL：仅当传入时更新；须为合法 http(s) URL 或传空字符串清空
+        String avatarValueToSet = null;
+        if (dto.getAvatarUrl() != null) {
+            String v = dto.getAvatarUrl().trim();
+            if (v.isEmpty()) {
+                avatarValueToSet = null;
+            } else {
+                if (!isValidAvatarUrl(v)) {
+                    return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
+                }
+                avatarValueToSet = v;
+            }
+        }
+
         // 用户字段更新
         LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0)
                 .set(StringUtils.hasText(dto.getNickname()), SysUser::getNickname, dto.getNickname())
-                .set(dto.getAvatarUrl() != null, SysUser::getAvatarUrl, dto.getAvatarUrl())
+                .set(dto.getAvatarUrl() != null, SysUser::getAvatarUrl, avatarValueToSet)
                 .set(SysUser::getUpdateTime, LocalDateTime.now());
 
         sysUserMapper.update(null, updateWrapper);
@@ -240,7 +268,30 @@ public class UserManageServiceImpl implements UserManageService {
         dto.setStatus(user.getStatus());
         dto.setCreateTime(user.getCreateTime());
         dto.setUpdateTime(user.getUpdateTime());
+        List<SysRole> roles = sysRoleMapper.selectRolesByUserId(user.getId());
+        dto.setRoles(roles.stream().map(this::toRoleResponseDTO).collect(Collectors.toList()));
         return dto;
+    }
+
+    private static Map<String, List<FilterOptionItem>> buildUserListFilterOptions() {
+        return Map.of("status",
+                List.of(
+                        new FilterOptionItem(0, "禁用"),
+                        new FilterOptionItem(1, "启用")));
+    }
+
+    /** 校验为合法的 http/https URL，用于头像等链接 */
+    private boolean isValidAvatarUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try {
+            URL u = new URL(url);
+            String scheme = u.getProtocol();
+            return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+        } catch (MalformedURLException e) {
+            return false;
+        }
     }
 
     private RoleResponseDTO toRoleResponseDTO(SysRole role) {

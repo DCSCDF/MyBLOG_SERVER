@@ -329,6 +329,20 @@ SELECT 'USER', '普通用户', '可以评论、点赞、收藏文章', 0, 1, 70,
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'USER');
 
+-- 修复默认角色标记（兼容旧数据：历史库可能已存在但标记不正确）
+UPDATE sys_role
+SET is_super_admin = 1,
+    is_system      = 1,
+    status         = 1,
+    is_deleted     = 0
+WHERE code = 'SUPER_ADMIN';
+
+UPDATE sys_role
+SET is_system  = 1,
+    status     = 1,
+    is_deleted = 0
+WHERE code IN ('ADMIN', 'AUTHOR', 'USER');
+
 -- 系统管理权限
 INSERT IGNORE INTO sys_permission (code, name, description, sort_order)
 VALUES ('system', '系统管理', '系统管理菜单', 100),
@@ -387,52 +401,47 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('comment:approve', '审核评论', '审核评论', 5);
 
 -- 为超级管理员角色分配所有权限（使用NOT EXISTS检查）
+-- 重新分配默认角色权限（避免父子权限同时分配导致后续“权限重叠”问题）
+DELETE rp
+FROM sys_role_permission rp
+         JOIN sys_role r ON rp.role_id = r.id
+WHERE r.code IN ('SUPER_ADMIN', 'ADMIN', 'AUTHOR', 'USER');
+
+-- SUPER_ADMIN：分配全部“叶子权限”（排除菜单/父级权限，避免父子冲突）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
-  AND NOT EXISTS (SELECT 1
-                  FROM sys_role_permission rp
-                  WHERE rp.role_id = r.id
-                    AND rp.permission_id = p.id);
+  AND p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment');
 
--- 为普通管理员角色分配基本管理权限
+-- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'ADMIN'
-  AND p.code NOT LIKE 'system:permission%'
-  AND p.code NOT LIKE 'system:role:assignPermission%'
-  AND NOT EXISTS (SELECT 1
-                  FROM sys_role_permission rp
-                  WHERE rp.role_id = r.id
-                    AND rp.permission_id = p.id);
+  AND (p.code LIKE 'system:user:%'
+    OR p.code LIKE 'article:%'
+    OR p.code LIKE 'category:%'
+    OR p.code LIKE 'comment:%');
 
--- 为作者角色分配文章相关权限
+-- AUTHOR：文章管理 + 分类列表 + 基础评论权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'AUTHOR'
-  AND (p.code LIKE 'article:%' OR p.code LIKE 'category:list%')
-  AND NOT EXISTS (SELECT 1
-                  FROM sys_role_permission rp
-                  WHERE rp.role_id = r.id
-                    AND rp.permission_id = p.id);
+  AND (p.code LIKE 'article:%'
+    OR p.code IN ('category:list', 'comment:create', 'comment:list'));
 
--- 为普通用户角色分配基本权限
+-- USER：文章列表 + 评论（创建/列表）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'USER'
-  AND (p.code IN ('article:list', 'comment:create', 'comment:list'))
-  AND NOT EXISTS (SELECT 1
-                  FROM sys_role_permission rp
-                  WHERE rp.role_id = r.id
-                    AND rp.permission_id = p.id);
+  AND p.code IN ('article:list', 'comment:create', 'comment:list');
 
 -- 插入默认权限组
 INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status, is_system)
@@ -450,14 +459,29 @@ SELECT '用户管理组', '包含用户管理相关权限', 80, 1, 1
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_permission_group WHERE name = '用户管理组');
 
+-- 修复默认权限组标记（兼容旧数据）
+UPDATE sys_permission_group
+SET is_system  = 1,
+    status     = 1,
+    is_deleted = 0
+WHERE name IN ('系统管理组', '文章管理组', '用户管理组');
+
 -- 为权限组添加权限
+-- 重建系统内置权限组的默认分配（避免父子权限混入同一组）
+DELETE pgi
+FROM sys_permission_group_item pgi
+         JOIN sys_permission_group g ON pgi.group_id = g.id
+WHERE g.name IN ('系统管理组', '文章管理组', '用户管理组');
+
 -- 系统管理组权限
 INSERT IGNORE INTO sys_permission_group_item (group_id, permission_id, sort_order)
 SELECT g.id, p.id, 1
 FROM sys_permission_group g
          CROSS JOIN sys_permission p
 WHERE g.name = '系统管理组'
-  AND p.code LIKE 'system:%'
+  AND (p.code = 'system:permission'
+    OR p.code LIKE 'system:role:%'
+    OR p.code LIKE 'system:permission_group:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
                   WHERE pgi.group_id = g.id
@@ -469,7 +493,9 @@ SELECT g.id, p.id, 1
 FROM sys_permission_group g
          CROSS JOIN sys_permission p
 WHERE g.name = '文章管理组'
-  AND p.code LIKE 'article:%'
+  AND (p.code LIKE 'article:%'
+    OR p.code LIKE 'category:%'
+    OR p.code LIKE 'comment:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
                   WHERE pgi.group_id = g.id

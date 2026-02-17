@@ -16,7 +16,7 @@
 
 ### 分页获取用户列表
 
-查看程序中的所有用户（仅返回未删除用户），支持分页与关键字筛选。
+查看程序中的所有用户（仅返回未删除用户），支持分页、关键词搜索与状态筛选。响应中附带可用的筛选项（`filterOptions`），供前端渲染筛选控件。
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/user/list`
@@ -37,7 +37,7 @@
 |-------------|---------|----|-----------------------------|
 | currentPage | Integer | 是  | 当前页码（从 1 开始）               |
 | pageSize    | Integer | 是  | 每页数量                         |
-| keyword     | String  | 否  | 关键字（匹配 username/nickname/email） |
+| keyword     | String  | 否  | 搜索关键词（匹配 username、nickname、email） |
 | status      | Integer | 否  | 状态筛选：0=禁用，1=启用              |
 
 #### 响应示例
@@ -54,19 +54,45 @@
         "avatarUrl": "https://example.com/avatar.png",
         "status": 1,
         "createTime": "2026-01-01T00:00:00",
-        "updateTime": "2026-01-01T00:00:00"
+        "updateTime": "2026-01-01T00:00:00",
+        "roles": [
+          {
+            "id": 1,
+            "code": "SUPER_ADMIN",
+            "name": "超级管理员",
+            "description": "拥有系统所有权限，只能有一个",
+            "superAdmin": true,
+            "isSystem": true,
+            "sortOrder": 100,
+            "status": 1,
+            "createTime": "2026-01-01T00:00:00",
+            "updateTime": "2026-01-01T00:00:00"
+          }
+        ]
       }
     ],
     "total": 1,
     "size": 10,
     "current": 1,
-    "pages": 1
+    "pages": 1,
+    "filterOptions": {
+      "status": [
+        { "value": 0, "label": "禁用" },
+        { "value": 1, "label": "启用" }
+      ]
+    }
   },
   "success": true,
   "errorMsg": null,
   "code": 200
 }
 ```
+
+| 响应字段         | 说明 |
+|----------------|------|
+| records        | 当前页用户列表，每项含 `roles` 当前角色列表 |
+| total / size / current / pages | 分页信息 |
+| filterOptions  | 可用筛选项，key 为筛选项名称（如 `status`），value 为 `{ value, label }` 数组，供前端下拉等使用 |
 
 ---
 
@@ -90,7 +116,21 @@
     "avatarUrl": null,
     "status": 1,
     "createTime": "2026-01-01T00:00:00",
-    "updateTime": "2026-01-01T00:00:00"
+    "updateTime": "2026-01-01T00:00:00",
+    "roles": [
+      {
+        "id": 2,
+        "code": "ADMIN",
+        "name": "普通管理员",
+        "description": "拥有系统大部分管理权限",
+        "superAdmin": false,
+        "isSystem": true,
+        "sortOrder": 90,
+        "status": 1,
+        "createTime": "2026-01-01T00:00:00",
+        "updateTime": "2026-01-01T00:00:00"
+      }
+    ]
   },
   "success": true,
   "errorMsg": null,

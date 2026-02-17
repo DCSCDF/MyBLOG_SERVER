@@ -24,14 +24,18 @@ import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.sql.SQLSyntaxErrorException;
 
 /**
  * 全局异常处理
@@ -154,6 +158,28 @@ public class GlobalExceptionHandler {
         return ResponseUtil.fail("请求数据格式错误，请检查JSON格式", 400);
     }
 
+    /**
+     * 处理数据库访问异常（给出更明确的错误提示）
+     */
+    @ExceptionHandler({BadSqlGrammarException.class, DataAccessException.class})
+    @SuppressWarnings("unused")
+    public Response<Void> handleDataAccessException(Exception e) {
+        Throwable root = getRootCause(e);
+        String rootMsg = root != null && root.getMessage() != null ? root.getMessage() : "";
+
+        // 常见：数据库不存在（Unknown database 'xxx'）
+        if (root instanceof SQLSyntaxErrorException && rootMsg.contains("Unknown database")) {
+            log.error("数据库不存在或无权限创建: {}", rootMsg);
+            return ResponseUtil.fail("数据库未初始化：目标数据库不存在。请确认已创建数据库，或修改 spring.datasource.url 指向已存在的库", 503);
+        }
+
+        // 兜底：其他数据库异常
+        if (root != null) {
+            log.error("数据库访问异常: {}", root.getClass().getSimpleName());
+        }
+        return ResponseUtil.fail("数据库异常，请检查数据库连接与初始化状态", 503);
+    }
+
     @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
     public Response<Void> handleGeneralException(Exception e) {
@@ -182,5 +208,13 @@ public class GlobalExceptionHandler {
     public Response<Void> handleNotFoundException(NoResourceFoundException ex) {
         log.warn("请求的资源不存在: {}", ex.getResourcePath());
         return ResponseUtil.fail("请求的资源不存在", 404);
+    }
+
+    private static Throwable getRootCause(Throwable t) {
+        Throwable cur = t;
+        while (cur != null && cur.getCause() != null && cur.getCause() != cur) {
+            cur = cur.getCause();
+        }
+        return cur;
     }
 }

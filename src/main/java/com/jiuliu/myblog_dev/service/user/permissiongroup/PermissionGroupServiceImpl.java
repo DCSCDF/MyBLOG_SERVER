@@ -13,6 +13,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.*;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
@@ -31,10 +32,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.jiuliu.myblog_dev.service.user.permission.PermissionServiceImpl.getPermissionResponseDTO;
@@ -67,7 +70,15 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         try {
             LambdaQueryWrapper<SysPermissionGroup> wrapper = new LambdaQueryWrapper<SysPermissionGroup>()
                     .eq(SysPermissionGroup::getIsDeleted, 0)
+                    .eq(pageDto.getStatus() != null, SysPermissionGroup::getStatus, pageDto.getStatus())
+                    .eq(pageDto.getIsSystem() != null, SysPermissionGroup::getIsSystem, pageDto.getIsSystem() != null && pageDto.getIsSystem() == 1)
                     .orderByDesc(SysPermissionGroup::getSortOrder);
+
+            if (StringUtils.hasText(pageDto.getKeyword())) {
+                String kw = pageDto.getKeyword().trim();
+                wrapper.and(w -> w.like(SysPermissionGroup::getName, kw)
+                        .or().like(SysPermissionGroup::getDescription, kw));
+            }
 
             Page<SysPermissionGroup> page = new Page<>(pageDto.getCurrentPage(), pageDto.getPageSize());
             Page<SysPermissionGroup> pageResult = sysPermissionGroupMapper.selectPage(page, wrapper);
@@ -82,12 +93,19 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
             response.setSize(pageResult.getSize());
             response.setCurrent(pageResult.getCurrent());
             response.setPages(pageResult.getPages());
+            response.setFilterOptions(buildPermissionGroupListFilterOptions());
 
             return SaResult.data(response);
         } catch (Exception e) {
             log.error("分页获取权限组列表异常", e);
             return SaResult.error("获取权限组列表失败").setCode(500);
         }
+    }
+
+    private static Map<String, List<FilterOptionItem>> buildPermissionGroupListFilterOptions() {
+        return Map.of(
+                "status", List.of(new FilterOptionItem(0, "禁用"), new FilterOptionItem(1, "启用")),
+                "isSystem", List.of(new FilterOptionItem(0, "否"), new FilterOptionItem(1, "是")));
     }
 
     @Override

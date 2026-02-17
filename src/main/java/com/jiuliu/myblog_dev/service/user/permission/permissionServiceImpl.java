@@ -15,19 +15,22 @@
 package com.jiuliu.myblog_dev.service.user.permission;
 
 import cn.dev33.satoken.util.SaResult;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
+import org.springframework.util.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,12 +47,17 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     public SaResult getPagePermissions(PagePermissionDTO pageDto) {
         try {
+            LambdaQueryWrapper<SysPermission> wrapper = new LambdaQueryWrapper<SysPermission>()
+                    .orderByDesc(SysPermission::getSortOrder);
+            if (StringUtils.hasText(pageDto.getKeyword())) {
+                String kw = pageDto.getKeyword().trim();
+                wrapper.and(w -> w.like(SysPermission::getCode, kw)
+                        .or().like(SysPermission::getName, kw)
+                        .or().like(SysPermission::getDescription, kw));
+            }
+
             Page<SysPermission> page = new Page<>(pageDto.getCurrentPage(), pageDto.getPageSize());
-
-            QueryWrapper<SysPermission> queryWrapper = new QueryWrapper<>();
-            queryWrapper.orderByDesc("sort_order");
-
-            Page<SysPermission> pageResult = sysPermissionMapper.selectPage(page, queryWrapper);
+            Page<SysPermission> pageResult = sysPermissionMapper.selectPage(page, wrapper);
 
             List<PermissionResponseDTO> permissionDTOs = pageResult.getRecords().stream()
                     .map(this::convertToPermissionResponseDTO)
@@ -61,6 +69,7 @@ public class PermissionServiceImpl implements PermissionService {
             responseDTO.setSize(pageResult.getSize());
             responseDTO.setCurrent(pageResult.getCurrent());
             responseDTO.setPages(pageResult.getPages());
+            responseDTO.setFilterOptions(Collections.emptyMap());
 
             return SaResult.data(responseDTO);
         } catch (Exception e) {

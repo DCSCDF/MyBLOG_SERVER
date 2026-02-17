@@ -69,7 +69,7 @@ public class DefaultAdminInitializer implements CommandLineRunner {
 
         // 检查是否已经存在管理员
         QueryWrapper<SysUser> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("username", "admin");
+        queryWrapper.eq("username", DEFAULT_ADMIN_USERNAME);
         SysUser adminUser = sysUserMapper.selectOne(queryWrapper);
 
         if (adminUser == null) {
@@ -99,8 +99,12 @@ public class DefaultAdminInitializer implements CommandLineRunner {
         }
     }
 
+    /** 默认管理员用户名（唯一可拥有超级管理员角色的账号） */
+    private static final String DEFAULT_ADMIN_USERNAME = "admin";
+
     /**
-     * 为用户分配超级管理员角色
+     * 为用户分配超级管理员角色。
+     * 超级管理员只能有一个：先移除其他用户对该角色的关联，再为当前用户分配。
      */
     private void assignSuperAdminRole(Long userId) {
         try {
@@ -112,6 +116,14 @@ public class DefaultAdminInitializer implements CommandLineRunner {
             if (superAdminRole == null) {
                 log.error("超级管理员角色不存在，请确保数据库初始化完成");
                 return;
+            }
+
+            // 超级管理员只能有一个：移除其他用户对该角色的关联
+            QueryWrapper<SysUserRole> removeOthers = new QueryWrapper<>();
+            removeOthers.eq("role_id", superAdminRole.getId()).ne("user_id", userId);
+            int removed = sysUserRoleMapper.delete(removeOthers);
+            if (removed > 0) {
+                log.info("已从其他 {} 个用户移除超级管理员角色，保证仅默认管理员拥有", removed);
             }
 
             // 检查是否已存在关联

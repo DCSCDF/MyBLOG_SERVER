@@ -9,9 +9,11 @@
 
 package com.jiuliu.myblog_dev.dto.user.manage;
 
+import com.jiuliu.myblog_dev.dto.user.role.RoleResponseDTO;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户管理响应 DTO（不包含密码等敏感信息）
@@ -27,5 +29,8 @@ public class UserAdminResponseDTO {
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /** 用户当前角色（列表接口与详情均返回） */
+    private List<RoleResponseDTO> roles;
 }
 

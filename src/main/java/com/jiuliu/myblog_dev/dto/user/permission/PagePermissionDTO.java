@@ -24,17 +24,14 @@ import lombok.Data;
 @Data
 public class PagePermissionDTO {
 
-    /**
-     * 当前页码（从1开始）
-     */
     @NotNull(message = "当前页码不能为空")
     @Min(value = 1, message = "当前页码必须大于0")
     private Integer currentPage;
 
-    /**
-     * 每页显示数量
-     */
     @NotNull(message = "每页数量不能为空")
     @Min(value = 1, message = "每页数量必须大于0")
     private Integer pageSize;
+
+    /** 搜索关键词：匹配 code、name、description */
+    private String keyword;
 }

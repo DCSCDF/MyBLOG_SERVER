@@ -266,7 +266,8 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 ## 权限管理接口
 
 ### 分页获取权限列表
-获取系统权限列表，支持分页查询。
+
+获取系统权限列表，支持分页与关键词搜索。权限无状态/内置等维度，响应中 `filterOptions` 为空对象，与用户/角色/权限组列表结构保持一致。
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/permission/listAll`
@@ -276,12 +277,17 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 
 ```json
 {
-  "page": 1,
-  "size": 10,
-  "keyword": "搜索关键词(可选)",
-  "type": "权限类型(可选)"
+  "currentPage": 1,
+  "pageSize": 10,
+  "keyword": "system:user"
 }
 ```
+
+| 字段          | 类型      | 必填 | 说明                              |
+|-------------|---------|----|---------------------------------|
+| currentPage | Integer | 是  | 当前页码（从 1 开始）                   |
+| pageSize    | Integer | 是  | 每页数量                           |
+| keyword     | String  | 否  | 搜索关键词（匹配 code、name、description） |
 
 #### 响应示例
 
@@ -293,13 +299,16 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
                 "id": 1,
                 "code": "system:user:list",
                 "name": "用户列表",
-                "type": "BUTTON",
-                "description": "查看用户列表权限"
+                "description": "查看用户列表",
+                "sortOrder": 1,
+                "createTime": "2026-01-01T00:00:00"
             }
         ],
         "total": 100,
+        "size": 10,
         "current": 1,
-        "size": 10
+        "pages": 10,
+        "filterOptions": {}
     },
     "success": true,
     "errorMsg": null,
