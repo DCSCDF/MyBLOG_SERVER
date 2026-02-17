@@ -18,6 +18,7 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.exception.BusinessException;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,6 +51,16 @@ public class GlobalExceptionHandler {
         String message = (firstError != null) ? firstError.getDefaultMessage() : "请求参数格式错误";
         log.warn("参数校验失败: {}", message);
         return ResponseUtil.fail(message, 400);
+    }
+
+    /**
+     * 处理业务逻辑异常
+     */
+    @ExceptionHandler(BusinessException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleBusinessException(BusinessException e) {
+        log.warn("业务异常: {} (code: {})", e.getMessage(), e.getCode());
+        return ResponseUtil.fail(e.getMessage(), e.getCode());
     }
 
     /**

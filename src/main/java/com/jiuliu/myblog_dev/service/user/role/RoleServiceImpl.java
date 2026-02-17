@@ -16,12 +16,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.role.*;
+import com.jiuliu.myblog_dev.entity.user.SysUserRole;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
-import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.exception.BusinessException;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
@@ -39,6 +40,9 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.jiuliu.myblog_dev.service.user.permission.PermissionServiceImpl.getPermissionResponseDTO;
+import static com.jiuliu.myblog_dev.service.user.permissiongroup.PermissionGroupServiceImpl.getPermissionGroupResponseDTO;
 
 @Service
 public class RoleServiceImpl implements RoleService {
@@ -216,13 +220,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public SaResult addPermissionToRole(Long roleId, Long permissionId) {
-        SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
-            return SaResult.error("角色不存在").setCode(404);
-        }
-        if (Boolean.TRUE.equals(role.getIsSystem())) {
-            return SaResult.error("系统内置角色不可修改").setCode(403);
-        }
+        validateRoleForModification(roleId);
         SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
         if (newPerm == null) {
             return SaResult.error("权限不存在").setCode(404);
@@ -246,13 +244,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public SaResult removePermissionFromRole(Long roleId, Long permissionId) {
-        SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
-            return SaResult.error("角色不存在").setCode(404);
-        }
-        if (Boolean.TRUE.equals(role.getIsSystem())) {
-            return SaResult.error("系统内置角色不可修改").setCode(403);
-        }
+        validateRoleForModification(roleId);
 
         int deleted = sysRolePermissionMapper.delete(
                 new LambdaQueryWrapper<SysRolePermission>()
@@ -267,13 +259,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public SaResult addPermissionGroupToRole(Long roleId, Long groupId) {
-        SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
-            return SaResult.error("角色不存在").setCode(404);
-        }
-        if (Boolean.TRUE.equals(role.getIsSystem())) {
-            return SaResult.error("系统内置角色不可修改").setCode(403);
-        }
+        validateRoleForModification(roleId);
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(groupId);
         if (group == null || (group.getIsDeleted() != null && group.getIsDeleted() == 1)) {
             return SaResult.error("权限组不存在").setCode(404);
@@ -309,7 +295,7 @@ public class RoleServiceImpl implements RoleService {
         // 同步权限组中的权限到角色权限表，供 Sa-Token 鉴权使用
         List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
                 .map(SysPermission::getId)
-                .collect(Collectors.toList());
+                .toList();
         for (Long pid : permissionIds) {
             long existCount = sysRolePermissionMapper.selectCount(
                     new LambdaQueryWrapper<SysRolePermission>()
@@ -328,13 +314,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public SaResult removePermissionGroupFromRole(Long roleId, Long groupId) {
-        SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
-            return SaResult.error("角色不存在").setCode(404);
-        }
-        if (Boolean.TRUE.equals(role.getIsSystem())) {
-            return SaResult.error("系统内置角色不可修改").setCode(403);
-        }
+        validateRoleForModification(roleId);
 
         int deleted = sysRolePermissionGroupMapper.delete(
                 new LambdaQueryWrapper<SysRolePermissionGroup>()
@@ -348,7 +328,7 @@ public class RoleServiceImpl implements RoleService {
         // 注意：若某权限同时通过直接分配获得，此处删除会一并移除，需重新添加
         List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
                 .map(SysPermission::getId)
-                .collect(Collectors.toList());
+                .toList();
         for (Long pid : permissionIds) {
             sysRolePermissionMapper.delete(
                     new LambdaQueryWrapper<SysRolePermission>()
@@ -360,27 +340,12 @@ public class RoleServiceImpl implements RoleService {
     }
 
     private PermissionResponseDTO toPermissionDTO(SysPermission p) {
-        PermissionResponseDTO dto = new PermissionResponseDTO();
-        dto.setId(p.getId());
-        dto.setCode(p.getCode());
-        dto.setName(p.getName());
-        dto.setDescription(p.getDescription());
-        dto.setSortOrder(p.getSortOrder());
-        dto.setCreateTime(p.getCreateTime());
-        return dto;
+        return getPermissionResponseDTO(p);
     }
 
     private PermissionGroupResponseDTO toPermissionGroupDTO(SysPermissionGroup g) {
         PermissionGroupResponseDTO dto = new PermissionGroupResponseDTO();
-        dto.setId(g.getId());
-        dto.setName(g.getName());
-        dto.setDescription(g.getDescription());
-        dto.setSortOrder(g.getSortOrder());
-        dto.setStatus(g.getStatus());
-        dto.setIsSystem(g.getIsSystem());
-        dto.setCreateTime(g.getCreateTime());
-        dto.setUpdateTime(g.getUpdateTime());
-        return dto;
+        return getPermissionGroupResponseDTO(g, dto);
     }
 
     /**
@@ -399,6 +364,21 @@ public class RoleServiceImpl implements RoleService {
             }
         }
         return codes;
+    }
+
+    /**
+     * 验证角色是否存在且可修改
+     *
+     * @param roleId 角色ID
+     */
+    private void validateRoleForModification(Long roleId) {
+        SysRole role = sysRoleMapper.selectById(roleId);
+        if (role == null || (role.getIsDeleted() != null && role.getIsDeleted() == 1)) {
+            throw new BusinessException("角色不存在", 404);
+        }
+        if (Boolean.TRUE.equals(role.getIsSystem())) {
+            throw new BusinessException("系统内置角色不可修改", 403);
+        }
     }
 
     private RoleResponseDTO toResponseDTO(SysRole role) {

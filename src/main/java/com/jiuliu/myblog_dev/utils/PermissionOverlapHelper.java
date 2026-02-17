@@ -37,9 +37,6 @@ public final class PermissionOverlapHelper {
             return true;
         }
         // B 是 A 的父级：A 以 "B:" 开头
-        if (codeA.startsWith(codeB + ":")) {
-            return true;
-        }
-        return false;
+        return codeA.startsWith(codeB + ":");
     }
 }

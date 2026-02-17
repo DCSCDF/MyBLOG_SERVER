@@ -12,14 +12,7 @@ package com.jiuliu.myblog_dev.controller.user.role;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.user.role.PageRoleDTO;
-import com.jiuliu.myblog_dev.dto.user.role.PageRoleResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RoleCreateDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RolePermissionGroupItemDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RolePermissionItemDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RolePermissionsDetailDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RoleResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.role.RoleUpdateDTO;
+import com.jiuliu.myblog_dev.dto.user.role.*;
 import com.jiuliu.myblog_dev.service.user.role.RoleService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import jakarta.validation.Valid;
@@ -43,7 +36,7 @@ public class RoleController {
     @PostMapping("/list")
     public Response<PageRoleResponseDTO> getPageRoles(@Valid @RequestBody PageRoleDTO pageDto) {
         SaResult saResult = roleService.getPageRoles(pageDto);
-        return handleSaResult(saResult, PageRoleResponseDTO.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -54,7 +47,7 @@ public class RoleController {
     @GetMapping("/{id}")
     public Response<RoleResponseDTO> getRoleById(@PathVariable Long id) {
         SaResult saResult = roleService.getRoleById(id);
-        return handleSaResult(saResult, RoleResponseDTO.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -65,7 +58,7 @@ public class RoleController {
     @PostMapping
     public Response<RoleResponseDTO> createRole(@Valid @RequestBody RoleCreateDTO dto) {
         SaResult saResult = roleService.createRole(dto);
-        return handleSaResult(saResult, RoleResponseDTO.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -77,7 +70,7 @@ public class RoleController {
     public Response<RoleResponseDTO> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateDTO dto) {
         dto.setId(id);
         SaResult saResult = roleService.updateRole(dto);
-        return handleSaResult(saResult, RoleResponseDTO.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -88,7 +81,7 @@ public class RoleController {
     @DeleteMapping("/{id}")
     public Response<Object> deleteRole(@PathVariable Long id) {
         SaResult saResult = roleService.deleteRole(id);
-        return handleSaResult(saResult, Object.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -99,7 +92,7 @@ public class RoleController {
     @GetMapping("/{id}/permissions-detail")
     public Response<RolePermissionsDetailDTO> getRolePermissionsDetail(@PathVariable Long id) {
         SaResult saResult = roleService.getRolePermissionsDetail(id);
-        return handleSaResult(saResult, RolePermissionsDetailDTO.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -111,7 +104,7 @@ public class RoleController {
     public Response<Object> addPermissionToRole(
             @PathVariable Long id, @Valid @RequestBody RolePermissionItemDTO dto) {
         SaResult saResult = roleService.addPermissionToRole(id, dto.getPermissionId());
-        return handleSaResult(saResult, Object.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -123,7 +116,7 @@ public class RoleController {
     public Response<Object> removePermissionFromRole(
             @PathVariable Long id, @PathVariable Long permissionId) {
         SaResult saResult = roleService.removePermissionFromRole(id, permissionId);
-        return handleSaResult(saResult, Object.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -135,7 +128,7 @@ public class RoleController {
     public Response<Object> addPermissionGroupToRole(
             @PathVariable Long id, @Valid @RequestBody RolePermissionGroupItemDTO dto) {
         SaResult saResult = roleService.addPermissionGroupToRole(id, dto.getGroupId());
-        return handleSaResult(saResult, Object.class);
+        return handleSaResult(saResult);
     }
 
     /**
@@ -147,10 +140,10 @@ public class RoleController {
     public Response<Object> removePermissionGroupFromRole(
             @PathVariable Long id, @PathVariable Long groupId) {
         SaResult saResult = roleService.removePermissionGroupFromRole(id, groupId);
-        return handleSaResult(saResult, Object.class);
+        return handleSaResult(saResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult, Class<T> dataType) {
+    private <T> Response<T> handleSaResult(SaResult saResult) {
         if (saResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
             T data = (T) saResult.getData();

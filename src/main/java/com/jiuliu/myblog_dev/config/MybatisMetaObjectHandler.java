@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * MyBatis-Plus 自动填充 createTime 和 updateTime。
- * 实体类中使用 @TableField(fill = FieldFill.INSERT) 或 FieldFill.INSERT_UPDATE 时生效。
+ * 自动填充 createTime 和 updateTime
+ * 实体类中使用 @TableField(fill = FieldFill.INSERT) 或 FieldFill.INSERT_UPDATE 时生效
  */
 @Component
 public class MybatisMetaObjectHandler implements MetaObjectHandler {

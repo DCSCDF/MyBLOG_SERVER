@@ -22,6 +22,7 @@ import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,11 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     private PermissionResponseDTO convertToPermissionResponseDTO(SysPermission permission) {
+        return getPermissionResponseDTO(permission);
+    }
+
+    @NonNull
+    public static PermissionResponseDTO getPermissionResponseDTO(SysPermission permission) {
         PermissionResponseDTO dto = new PermissionResponseDTO();
         dto.setId(permission.getId());
         dto.setCode(permission.getCode());

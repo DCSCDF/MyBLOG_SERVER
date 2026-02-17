@@ -111,41 +111,10 @@ public class AuthServiceImpl implements AuthService {
     public SaResult login(LoginDTO dto) {
         log.info("用户尝试登录，用户名: {}", dto.getUsername());
 
-        // 验证码校验（保持不变）
-        CaptchaVO captchaVO = new CaptchaVO();
-        captchaVO.setCaptchaVerification(dto.getCaptchaVerification());
-        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
-
-        if (!response.isSuccess()) {
-            String repCode = response.getRepCode();
-            String message;
-            int httpCode = 400;
-
-            switch (repCode) {
-                case "6110":
-                    message = "验证码已失效，请重新获取";
-                    break;
-                case "6111":
-                    message = "验证码验证失败";
-                    break;
-                case "6206":
-                    message = "无效验证码请求，请重新获取";
-                    break;
-                case "6202":
-                    message = "验证码验证失败次数过多，请稍后再试";
-                    httpCode = 429;
-                    break;
-                case "6201":
-                case "6204":
-                    message = "请求过于频繁，请稍后再试";
-                    httpCode = 429;
-                    break;
-                default:
-                    message = "验证码校验异常，请重试";
-            }
-
-            log.warn("登录失败：验证码校验未通过，repCode={}, username={}", repCode, dto.getUsername());
-            return SaResult.error(message).setCode(httpCode);
+        // 验证码校验
+        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        if (captchaResult != null) {
+            return captchaResult;
         }
 
         // 校验临时 Token
@@ -160,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
 
-        if (!ValidationHelper.validateUsername(username)) {
+        if (ValidationHelper.validateUsername(username)) {
             log.warn("登录失败：用户名格式错误，username={}", username);
             return SaResult.error("用户名格式错误").setCode(400);
         }
@@ -280,7 +249,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-        if (!ValidationHelper.validatePassword(rawNewPassword)) {
+        if (ValidationHelper.validatePassword(rawNewPassword)) {
             log.warn("密码修改失败：新密码格式不符合要求，userId={}", currentUserId);
             return SaResult.error("新密码格式不符合要求").setCode(400);
         }
@@ -329,25 +298,10 @@ public class AuthServiceImpl implements AuthService {
     public SaResult register(RegisterDTO dto) {
         log.info("用户尝试注册，用户名: {}", dto.getUsername());
 
-        // 1. 验证码校验（与登录相同逻辑）
-        CaptchaVO captchaVO = new CaptchaVO();
-        captchaVO.setCaptchaVerification(dto.getCaptchaVerification());
-        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
-        if (!response.isSuccess()) {
-            String repCode = response.getRepCode();
-            String message;
-            int httpCode = 400;
-            switch (repCode) {
-                case "6110": message = "验证码已失效，请重新获取"; break;
-                case "6111": message = "验证码验证失败"; break;
-                case "6206": message = "无效验证码请求，请重新获取"; break;
-                case "6202": message = "验证码验证失败次数过多，请稍后再试"; httpCode = 429; break;
-                case "6201":
-                case "6204": message = "请求过于频繁，请稍后再试"; httpCode = 429; break;
-                default: message = "验证码校验异常，请重试";
-            }
-            log.warn("注册失败：验证码校验未通过，repCode={}, username={}", repCode, dto.getUsername());
-            return SaResult.error(message).setCode(httpCode);
+        // 1. 验证码校验
+        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        if (captchaResult != null) {
+            return captchaResult;
         }
 
         // 2. 校验临时 Token
@@ -360,7 +314,7 @@ public class AuthServiceImpl implements AuthService {
         String username = dto.getUsername().trim();
         String email = dto.getEmail().trim();
 
-        if (!ValidationHelper.validateUsername(username)) {
+        if (ValidationHelper.validateUsername(username)) {
             return SaResult.error("用户名格式错误").setCode(400);
         }
         if (!ValidationHelper.validateEmail(email)) {
@@ -378,7 +332,7 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(rawPassword)) {
             return SaResult.error("密码格式错误").setCode(400);
         }
-        if (!ValidationHelper.validatePassword(rawPassword)) {
+        if (ValidationHelper.validatePassword(rawPassword)) {
             return SaResult.error("密码格式不符合要求").setCode(400);
         }
 
@@ -424,5 +378,52 @@ public class AuthServiceImpl implements AuthService {
         data.put("message", "注册成功，请登录");
         data.put("userId", user.getId());
         return SaResult.data(data);
+    }
+
+    /**
+     * 验证码校验通用方法
+     * 
+     * @param captchaVerification 验证码验证字符串
+     * @param username 用户名（用于日志记录）
+     * @return 如果验证失败返回错误结果，验证成功返回null
+     */
+    private SaResult validateCaptcha(String captchaVerification, String username) {
+        CaptchaVO captchaVO = new CaptchaVO();
+        captchaVO.setCaptchaVerification(captchaVerification);
+        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
+
+        if (!response.isSuccess()) {
+            String repCode = response.getRepCode();
+            String message;
+            int httpCode = 400;
+
+            switch (repCode) {
+                case "6110":
+                    message = "验证码已失效，请重新获取";
+                    break;
+                case "6111":
+                    message = "验证码验证失败";
+                    break;
+                case "6206":
+                    message = "无效验证码请求，请重新获取";
+                    break;
+                case "6202":
+                    message = "验证码验证失败次数过多，请稍后再试";
+                    httpCode = 429;
+                    break;
+                case "6201":
+                case "6204":
+                    message = "请求过于频繁，请稍后再试";
+                    httpCode = 429;
+                    break;
+                default:
+                    message = "验证码校验异常，请重试";
+            }
+
+            log.warn("验证码校验未通过，repCode={}, username={}", repCode, username);
+            return SaResult.error(message).setCode(httpCode);
+        }
+        
+        return null; // 验证成功
     }
 }

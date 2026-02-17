@@ -42,6 +42,7 @@ public class AuthController {
 
     /**
      * 处理返回Map类型的SaResult结果
+     *
      * @param saResult Sa-Token返回的结果
      * @return 统一响应格式
      */
@@ -57,6 +58,7 @@ public class AuthController {
 
     /**
      * 处理返回Object类型的SaResult结果
+     *
      * @param saResult Sa-Token返回的结果
      * @return 统一响应格式
      */
@@ -102,7 +104,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @RateLimit(count = 5, period = 60)
+    @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> register(@Valid @RequestBody RegisterDTO dto) {
         return handleSaResult(authService.register(dto));
     }
