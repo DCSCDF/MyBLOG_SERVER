@@ -285,8 +285,8 @@ CaptchaVO 包含验证码相关的验证信息，具体字段参考实现类。
 
 | 字段          | 类型      | 必填 | 说明                              |
 |-------------|---------|----|---------------------------------|
-| currentPage | Integer | 是  | 当前页码（从 1 开始）                   |
-| pageSize    | Integer | 是  | 每页数量                           |
+| currentPage | Integer | 是  | 当前页码（从 1 开始）                    |
+| pageSize    | Integer | 是  | 每页数量                            |
 | keyword     | String  | 否  | 搜索关键词（匹配 code、name、description） |
 
 #### 响应示例

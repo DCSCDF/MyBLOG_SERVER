@@ -16,6 +16,7 @@
 > - [角色与权限组API文档](Document/Role_And_PermissionGroup_Api.md)
 > - [数据库结构](Document/Myblog_Sql.md)
 > - [角色与权限组管理接口文档](Document/Role_And_PermissionGroup_Api.md)
+> - [账号管理（用户管理）接口文档](Document/User_Manage_Api.md)
 
 ---
 
