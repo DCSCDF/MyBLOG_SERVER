@@ -12,7 +12,7 @@
  * UpdateTime: 2026/1/31 14:39
  */
 
-package com.jiuliu.myblog_dev.config.Captcha;
+package com.jiuliu.myblog_dev.config.captcha;
 
 import com.anji.captcha.model.common.Const;
 import com.anji.captcha.service.CaptchaService;
