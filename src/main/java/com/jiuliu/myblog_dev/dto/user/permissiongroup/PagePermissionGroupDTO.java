@@ -2,6 +2,20 @@
  * [PagePermissionGroupDTO.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/2/18 08:11
+ */
+
+/*
+ * [PagePermissionGroupDTO.java]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
  * --------------------------------------------------------------------------------
  * author: "Jiu Liu"
  * license: "MIT"
@@ -24,10 +38,16 @@ public class PagePermissionGroupDTO {
     @Min(value = 1, message = "每页数量必须大于0")
     private Integer pageSize;
 
-    /** 搜索关键词：匹配 name、description */
+    /**
+     * 搜索关键词：匹配 name、description
+     */
     private String keyword;
-    /** 状态筛选：0=禁用，1=启用 */
+    /**
+     * 状态筛选：0=禁用，1=启用
+     */
     private Integer status;
-    /** 是否系统内置：0=否，1=是 */
+    /**
+     * 是否系统内置：0=否，1=是
+     */
     private Integer isSystem;
 }

@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/18 11:53
+ * UpdateTime: 2026/2/17 01:11
  */
 
 package com.jiuliu.myblog_dev.config;
@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
+
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;

@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/16 17:30
+ * UpdateTime: 2026/2/18 08:11
  */
 
 package com.jiuliu.myblog_dev.dto.user.permission;
@@ -32,6 +32,8 @@ public class PagePermissionResponseDTO {
     private Long size;
     private Long current;
     private Long pages;
-    /** 可用的筛选项（权限无状态/内置等，可为空 Map），供前端统一处理 */
+    /**
+     * 可用的筛选项（权限无状态/内置等，可为空 Map），供前端统一处理
+     */
     private Map<String, List<FilterOptionItem>> filterOptions;
 }

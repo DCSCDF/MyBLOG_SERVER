@@ -255,29 +255,52 @@ CREATE TABLE IF NOT EXISTS sys_config
 
 
 -- 创建索引 删除已存在的索引（仅删除下方会重建的索引）
-ALTER TABLE sys_user DROP INDEX idx_user_status;
-ALTER TABLE sys_role DROP INDEX idx_role_code;
-ALTER TABLE sys_role DROP INDEX idx_role_status;
-ALTER TABLE sys_role DROP INDEX idx_role_super_admin;
-ALTER TABLE sys_permission DROP INDEX idx_permission_code;
-ALTER TABLE sys_user_role DROP INDEX idx_user_role_user;
-ALTER TABLE sys_user_role DROP INDEX idx_user_role_role;
-ALTER TABLE sys_role_permission DROP INDEX idx_role_permission_role;
-ALTER TABLE sys_role_permission DROP INDEX idx_role_permission_permission;
-ALTER TABLE sys_blog DROP INDEX idx_blog_category;
-ALTER TABLE sys_blog DROP INDEX idx_blog_author;
-ALTER TABLE sys_blog DROP INDEX idx_blog_create_time;
-ALTER TABLE sys_blog DROP INDEX idx_blog_hidden;
-ALTER TABLE sys_blog DROP INDEX idx_blog_top;
-ALTER TABLE sys_category DROP INDEX idx_category_hidden;
-ALTER TABLE sys_category DROP INDEX idx_category_sort;
-ALTER TABLE sys_comment DROP INDEX idx_comment_blog;
-ALTER TABLE sys_comment DROP INDEX idx_comment_parent;
-ALTER TABLE sys_comment DROP INDEX idx_comment_user;
-ALTER TABLE sys_comment DROP INDEX idx_comment_status;
-ALTER TABLE sys_comment DROP INDEX idx_comment_create_time;
-ALTER TABLE sys_comment_like DROP INDEX idx_comment_like_comment;
-ALTER TABLE sys_comment_like DROP INDEX idx_comment_like_user;
+ALTER TABLE sys_user
+    DROP INDEX idx_user_status;
+ALTER TABLE sys_role
+    DROP INDEX idx_role_code;
+ALTER TABLE sys_role
+    DROP INDEX idx_role_status;
+ALTER TABLE sys_role
+    DROP INDEX idx_role_super_admin;
+ALTER TABLE sys_permission
+    DROP INDEX idx_permission_code;
+ALTER TABLE sys_user_role
+    DROP INDEX idx_user_role_user;
+ALTER TABLE sys_user_role
+    DROP INDEX idx_user_role_role;
+ALTER TABLE sys_role_permission
+    DROP INDEX idx_role_permission_role;
+ALTER TABLE sys_role_permission
+    DROP INDEX idx_role_permission_permission;
+ALTER TABLE sys_blog
+    DROP INDEX idx_blog_category;
+ALTER TABLE sys_blog
+    DROP INDEX idx_blog_author;
+ALTER TABLE sys_blog
+    DROP INDEX idx_blog_create_time;
+ALTER TABLE sys_blog
+    DROP INDEX idx_blog_hidden;
+ALTER TABLE sys_blog
+    DROP INDEX idx_blog_top;
+ALTER TABLE sys_category
+    DROP INDEX idx_category_hidden;
+ALTER TABLE sys_category
+    DROP INDEX idx_category_sort;
+ALTER TABLE sys_comment
+    DROP INDEX idx_comment_blog;
+ALTER TABLE sys_comment
+    DROP INDEX idx_comment_parent;
+ALTER TABLE sys_comment
+    DROP INDEX idx_comment_user;
+ALTER TABLE sys_comment
+    DROP INDEX idx_comment_status;
+ALTER TABLE sys_comment
+    DROP INDEX idx_comment_create_time;
+ALTER TABLE sys_comment_like
+    DROP INDEX idx_comment_like_comment;
+ALTER TABLE sys_comment_like
+    DROP INDEX idx_comment_like_user;
 
 -- 创建新索引
 CREATE INDEX idx_user_status ON sys_user (status) COMMENT '用户状态索引';
@@ -413,7 +436,8 @@ SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
-  AND p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment');
+  AND
+    p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -465,6 +489,20 @@ SET is_system  = 1,
     status     = 1,
     is_deleted = 0
 WHERE name IN ('系统管理组', '文章管理组', '用户管理组');
+
+/*
+ * [schema.sql]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/2/18 09:43
+ */
 
 -- 为权限组添加权限
 -- 重建系统内置权限组的默认分配（避免父子权限混入同一组）

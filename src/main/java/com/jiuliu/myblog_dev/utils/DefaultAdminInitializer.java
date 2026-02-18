@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/21 01:10
+ * UpdateTime: 2026/2/18 08:11
  */
 
 package com.jiuliu.myblog_dev.utils;
@@ -99,7 +99,9 @@ public class DefaultAdminInitializer implements CommandLineRunner {
         }
     }
 
-    /** 默认管理员用户名（唯一可拥有超级管理员角色的账号） */
+    /**
+     * 默认管理员用户名（唯一可拥有超级管理员角色的账号）
+     */
     private static final String DEFAULT_ADMIN_USERNAME = "admin";
 
     /**

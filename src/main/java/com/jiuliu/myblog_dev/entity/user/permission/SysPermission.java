@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/13 09:06
+ * UpdateTime: 2026/2/10 22:49
  */
 
 package com.jiuliu.myblog_dev.entity.user.permission;
@@ -29,7 +29,7 @@ public class SysPermission {
     private String code;             // 权限编码（唯一）
     private String name;             // 权限名称
     private String description;      // 描述
-    
+
     @TableField("sort_order")
     private Integer sortOrder;       // 排序顺序
 

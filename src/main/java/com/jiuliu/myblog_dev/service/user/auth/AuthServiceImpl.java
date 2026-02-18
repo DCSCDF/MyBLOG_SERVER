@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/24 02:43
+ * UpdateTime: 2026/2/18 04:41
  */
 
 package com.jiuliu.myblog_dev.service.user.auth;
@@ -389,9 +389,9 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 验证码校验通用方法
-     * 
+     *
      * @param captchaVerification 验证码验证字符串
-     * @param username 用户名（用于日志记录）
+     * @param username            用户名（用于日志记录）
      * @return 如果验证失败返回错误结果，验证成功返回null
      */
     private SaResult validateCaptcha(String captchaVerification, String username) {
@@ -430,7 +430,7 @@ public class AuthServiceImpl implements AuthService {
             log.warn("验证码校验未通过，repCode={}, username={}", repCode, username);
             return SaResult.error(message).setCode(httpCode);
         }
-        
+
         return null; // 验证成功
     }
 }

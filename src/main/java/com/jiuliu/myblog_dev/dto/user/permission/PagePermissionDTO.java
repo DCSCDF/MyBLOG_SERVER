@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/11 16:30
+ * UpdateTime: 2026/2/18 08:11
  */
 
 package com.jiuliu.myblog_dev.dto.user.permission;
@@ -32,6 +32,8 @@ public class PagePermissionDTO {
     @Min(value = 1, message = "每页数量必须大于0")
     private Integer pageSize;
 
-    /** 搜索关键词：匹配 code、name、description */
+    /**
+     * 搜索关键词：匹配 code、name、description
+     */
     private String keyword;
 }

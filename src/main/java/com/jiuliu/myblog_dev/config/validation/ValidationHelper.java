@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/1/18 14:01
+ * UpdateTime: 2026/2/17 22:40
  */
 
 package com.jiuliu.myblog_dev.config.validation;

@@ -2,6 +2,20 @@
  * [UserManageServiceImpl.java]
  * --------------------------------------------------------------------------------
  * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * --------------------------------------------------------------------------------
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/2/18 11:09
+ */
+
+/*
+ * [UserManageServiceImpl.java]
+ * --------------------------------------------------------------------------------
+ * This software is licensed under the MIT License.
  * --------------------------------------------------------------------------------
  * author: "Jiu Liu"
  * license: "MIT"
@@ -279,7 +293,9 @@ public class UserManageServiceImpl implements UserManageService {
                         new FilterOptionItem(1, "启用")));
     }
 
-    /** 校验为合法的 http/https URL，用于头像等链接 */
+    /**
+     * 校验为合法的 http/https URL，用于头像等链接
+     */
     private boolean isValidAvatarUrl(String url) {
         if (url == null || url.isBlank()) {
             return false;
