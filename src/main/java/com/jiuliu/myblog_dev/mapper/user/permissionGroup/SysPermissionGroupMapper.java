@@ -33,6 +33,7 @@ public interface SysPermissionGroupMapper extends BaseMapper<SysPermissionGroup>
     @Select("SELECT g.* FROM sys_permission_group g " +
             "JOIN sys_role_permission_group rpg ON g.id = rpg.group_id " +
             "WHERE rpg.role_id = #{roleId} AND (g.is_deleted = 0 OR g.is_deleted IS NULL) " +
+            "AND (g.status = 1 OR g.status IS NULL) " +
             "ORDER BY g.sort_order DESC")
     List<SysPermissionGroup> selectGroupsByRoleId(Long roleId);
 }

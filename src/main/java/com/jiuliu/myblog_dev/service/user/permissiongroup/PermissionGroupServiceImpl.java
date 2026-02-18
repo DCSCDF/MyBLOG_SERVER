@@ -145,6 +145,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(dto.getId());
         if (group == null) {
@@ -152,6 +153,15 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
             return SaResult.error("系统内置权限组不可修改").setCode(403);
+        }
+
+        // 禁用时：仅收回角色通过该组获得的权限，保留角色-权限组关联，便于重新启用时恢复
+        if (dto.getStatus() != null && dto.getStatus() == 0) {
+            revokeGroupPermissionsFromRoles(dto.getId());
+        }
+        // 重新启用时：根据保留的角色-权限组关联，恢复各角色通过该组获得的权限
+        if (dto.getStatus() != null && dto.getStatus() == 1) {
+            syncGroupPermissionsToRoles(dto.getId());
         }
 
         LambdaUpdateWrapper<SysPermissionGroup> wrapper = new LambdaUpdateWrapper<SysPermissionGroup>()
@@ -178,12 +188,11 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
             return SaResult.error("系统内置权限组不可删除").setCode(403);
         }
 
-        // 1. 删除权限组-权限关联
+        // 1. 同步移除所有角色与该权限组的关联，并移除角色通过该组获得的权限
+        removeGroupFromAllRolesAndSyncPermissions(id);
+        // 2. 删除权限组-权限关联
         sysPermissionGroupItemMapper.delete(new LambdaQueryWrapper<SysPermissionGroupItem>()
                 .eq(SysPermissionGroupItem::getGroupId, id));
-        // 2. 删除角色-权限组关联
-        sysRolePermissionGroupMapper.delete(new LambdaQueryWrapper<SysRolePermissionGroup>()
-                .eq(SysRolePermissionGroup::getGroupId, id));
         // 3. 逻辑删除权限组：name 追加「(已删除)_id」后缀，避免名称占用便于复用
         String newName = group.getName();
         if (newName != null && !newName.contains("(已删除)")) {
@@ -337,6 +346,79 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
 
     private PermissionResponseDTO toPermissionDTO(SysPermission p) {
         return getPermissionResponseDTO(p);
+    }
+
+    /**
+     * 权限组禁用时：仅收回角色通过该组获得的权限，不删除 sys_role_permission_group，便于重新启用时恢复。
+     */
+    private void revokeGroupPermissionsFromRoles(Long groupId) {
+        List<Long> roleIds = sysRolePermissionGroupMapper.selectList(
+                        new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId))
+                .stream().map(SysRolePermissionGroup::getRoleId).distinct().toList();
+        if (roleIds.isEmpty()) return;
+        List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
+                .map(SysPermission::getId).toList();
+        for (Long roleId : roleIds) {
+            for (Long permissionId : permissionIds) {
+                sysRolePermissionMapper.delete(
+                        new LambdaQueryWrapper<SysRolePermission>()
+                                .eq(SysRolePermission::getRoleId, roleId)
+                                .eq(SysRolePermission::getPermissionId, permissionId));
+            }
+        }
+        log.info("已收回所有角色通过权限组获得的权限（保留关联），groupId={}, 涉及角色数={}", groupId, roleIds.size());
+    }
+
+    /**
+     * 权限组重新启用时：根据 sys_role_permission_group 中保留的关联，将权限组内权限重新同步到各角色。
+     */
+    private void syncGroupPermissionsToRoles(Long groupId) {
+        List<Long> roleIds = sysRolePermissionGroupMapper.selectList(
+                        new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId))
+                .stream().map(SysRolePermissionGroup::getRoleId).distinct().toList();
+        if (roleIds.isEmpty()) return;
+        List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
+                .map(SysPermission::getId).toList();
+        for (Long roleId : roleIds) {
+            for (Long permissionId : permissionIds) {
+                long existCount = sysRolePermissionMapper.selectCount(
+                        new LambdaQueryWrapper<SysRolePermission>()
+                                .eq(SysRolePermission::getRoleId, roleId)
+                                .eq(SysRolePermission::getPermissionId, permissionId));
+                if (existCount == 0) {
+                    SysRolePermission rp = new SysRolePermission();
+                    rp.setRoleId(roleId);
+                    rp.setPermissionId(permissionId);
+                    sysRolePermissionMapper.insert(rp);
+                }
+            }
+        }
+        log.info("已恢复权限组与角色的权限同步，groupId={}, 涉及角色数={}", groupId, roleIds.size());
+    }
+
+    /**
+     * 权限组被删除时：移除所有角色与该权限组的关联，并移除角色通过该组获得的权限（关联不再保留）。
+     */
+    private void removeGroupFromAllRolesAndSyncPermissions(Long groupId) {
+        List<Long> roleIds = sysRolePermissionGroupMapper.selectList(
+                        new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId))
+                .stream().map(SysRolePermissionGroup::getRoleId).distinct().toList();
+        if (roleIds.isEmpty()) {
+            sysRolePermissionGroupMapper.delete(new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId));
+            return;
+        }
+        List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
+                .map(SysPermission::getId).toList();
+        for (Long roleId : roleIds) {
+            for (Long permissionId : permissionIds) {
+                sysRolePermissionMapper.delete(
+                        new LambdaQueryWrapper<SysRolePermission>()
+                                .eq(SysRolePermission::getRoleId, roleId)
+                                .eq(SysRolePermission::getPermissionId, permissionId));
+            }
+        }
+        sysRolePermissionGroupMapper.delete(new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, groupId));
+        log.info("已从所有角色移除权限组关联及该组权限，groupId={}, 涉及角色数={}", groupId, roleIds.size());
     }
 
     /**

@@ -169,6 +169,13 @@ public class RoleServiceImpl implements RoleService {
             return SaResult.error("系统内置角色不可修改").setCode(403);
         }
 
+        if (dto.getStatus() != null && dto.getStatus() == 0) {
+            long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, dto.getId()));
+            if (userCount > 0) {
+                return SaResult.error("该角色正在被用户使用，无法禁用。请先解除用户与该角色的关联").setCode(403);
+            }
+        }
+
         LambdaUpdateWrapper<SysRole> wrapper = new LambdaUpdateWrapper<SysRole>()
                 .eq(SysRole::getId, dto.getId())
                 .set(SysRole::getName, dto.getName())
@@ -199,6 +206,11 @@ public class RoleServiceImpl implements RoleService {
         String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
         if (StringUtils.hasText(defaultRoleCode) && defaultRoleCode.equals(role.getCode())) {
             return SaResult.error("该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role").setCode(403);
+        }
+
+        long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, id));
+        if (userCount > 0) {
+            return SaResult.error("该角色正在被用户使用，无法删除。请先解除用户与该角色的关联").setCode(403);
         }
 
         // 1. 删除用户-角色关联
