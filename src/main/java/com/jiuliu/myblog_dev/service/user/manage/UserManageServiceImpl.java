@@ -156,14 +156,13 @@ public class UserManageServiceImpl implements UserManageService {
         String avatarValueToSet = null;
         if (dto.getAvatarUrl() != null) {
             String v = dto.getAvatarUrl().trim();
-            if (v.isEmpty()) {
-                avatarValueToSet = null;
-            } else {
+            if (!v.isEmpty()) {
                 if (!isValidAvatarUrl(v)) {
                     return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
                 }
                 avatarValueToSet = v;
             }
+            // v为空时，avatarValueToSet保持null，表示清空头像
         }
 
         // 用户字段更新

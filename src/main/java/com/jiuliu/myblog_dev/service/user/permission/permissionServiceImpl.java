@@ -22,15 +22,14 @@ import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PermissionResponseDTO;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
-import org.springframework.util.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
