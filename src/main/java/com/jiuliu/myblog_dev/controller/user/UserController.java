@@ -1,15 +1,15 @@
 /*
  * [UserController.java]
- * --------------------------------------------------------------------------------
+ * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
  * See LICENSE for full terms.
- * --------------------------------------------------------------------------------
+ * =======================================
  * author: "Jiu Liu"
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 04:42
+ * UpdateTime: 2026/2/18 11:52
  */
 
 package com.jiuliu.myblog_dev.controller.user;
@@ -18,11 +18,7 @@ package com.jiuliu.myblog_dev.controller.user;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.user.manage.PageUserDTO;
-import com.jiuliu.myblog_dev.dto.user.manage.PageUserResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.manage.UserAdminResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.manage.UserUpdateDTO;
-import com.jiuliu.myblog_dev.dto.user.manage.UserUpdateStatusDTO;
+import com.jiuliu.myblog_dev.dto.user.manage.*;
 import com.jiuliu.myblog_dev.dto.user.role.RoleResponseDTO;
 import com.jiuliu.myblog_dev.service.user.manage.UserManageService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;

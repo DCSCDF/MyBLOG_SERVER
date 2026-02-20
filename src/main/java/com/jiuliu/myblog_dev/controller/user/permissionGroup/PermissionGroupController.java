@@ -1,15 +1,15 @@
 /*
  * [PermissionGroupController.java]
- * --------------------------------------------------------------------------------
+ * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
  * See LICENSE for full terms.
- * --------------------------------------------------------------------------------
+ * =======================================
  * author: "Jiu Liu"
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 05:47
+ * UpdateTime: 2026/2/18 11:52
  */
 
 /*
@@ -26,12 +26,7 @@ package com.jiuliu.myblog_dev.controller.user.permissionGroup;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupDTO;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PagePermissionGroupResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupCreateDTO;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupItemDTO;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.permissiongroup.PermissionGroupUpdateDTO;
+import com.jiuliu.myblog_dev.dto.user.permissiongroup.*;
 import com.jiuliu.myblog_dev.service.user.permissiongroup.PermissionGroupService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import jakarta.validation.Valid;
