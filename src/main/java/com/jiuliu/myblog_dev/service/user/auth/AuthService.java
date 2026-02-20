@@ -19,6 +19,9 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
 
 
 public interface AuthService {
@@ -34,4 +37,10 @@ public interface AuthService {
     SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId);
 
     SaResult register(RegisterDTO dto);
+
+    SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId);
+
+    SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId);
+
+    SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId);
 }

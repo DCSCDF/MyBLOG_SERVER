@@ -17,9 +17,7 @@ package com.jiuliu.myblog_dev.controller.user.auth;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
@@ -97,7 +95,7 @@ public class AuthController {
     }
 
     @PostMapping("/update-password")
-    @RateLimit(count = 1, period = 15)
+    @RateLimit(count = 6, period = 15)
     public Response<Map<String, Object>> updatePassword(@Valid @RequestBody ChangePasswordDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResult(authService.updatePassword(dto, currentUserId));
@@ -107,5 +105,26 @@ public class AuthController {
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> register(@Valid @RequestBody RegisterDTO dto) {
         return handleSaResult(authService.register(dto));
+    }
+
+    @PostMapping("/update-nickname")
+    @RateLimit(count = 10, period = 60)
+    public Response<Map<String, Object>> updateNickname(@Valid @RequestBody UpdateNicknameDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.updateNickname(dto, currentUserId));
+    }
+
+    @PostMapping("/update-avatar-url")
+    @RateLimit(count = 10, period = 60)
+    public Response<Map<String, Object>> updateAvatarUrl(@Valid @RequestBody UpdateAvatarUrlDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.updateAvatarUrl(dto, currentUserId));
+    }
+
+    @PostMapping("/update-email")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> updateEmail(@Valid @RequestBody UpdateEmailDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.updateEmail(dto, currentUserId));
     }
 }

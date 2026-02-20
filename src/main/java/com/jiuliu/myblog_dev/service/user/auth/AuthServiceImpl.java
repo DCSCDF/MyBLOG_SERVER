@@ -26,6 +26,9 @@ import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
@@ -41,6 +44,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -432,5 +437,155 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return null; // 验证成功
+    }
+
+    @Override
+    public SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId) {
+        log.info("用户尝试修改昵称，currentUserId={}", currentUserId);
+
+        String nickname = dto.getNickname().trim();
+        if (!StringUtils.hasText(nickname)) {
+            log.warn("昵称修改失败：昵称为空，userId={}", currentUserId);
+            return SaResult.error("昵称不能为空").setCode(400);
+        }
+
+        if (nickname.length() > 50) {
+            log.warn("昵称修改失败：昵称长度超过限制，userId={}", currentUserId);
+            return SaResult.error("昵称长度不能超过50字符").setCode(400);
+        }
+
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            log.warn("昵称修改失败：用户不存在，userId={}", currentUserId);
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        user.setNickname(nickname);
+        long timestamp = System.currentTimeMillis();
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestamp),
+                ZoneId.systemDefault()
+        );
+        user.setUpdateTime(localDateTime);
+
+        int rows = sysUserMapper.updateById(user);
+        if (rows != 1) {
+            log.error("昵称修改失败：数据库更新失败，userId={}", currentUserId);
+            return SaResult.error("昵称修改失败，请重试").setCode(400);
+        }
+
+        log.info("昵称修改成功，userId={}", currentUserId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "昵称修改成功");
+        return SaResult.data(data);
+    }
+
+    @Override
+    public SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId) {
+        log.info("用户尝试修改头像URL，currentUserId={}", currentUserId);
+
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            log.warn("头像URL修改失败：用户不存在，userId={}", currentUserId);
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        String avatarUrl = null;
+        if (dto.getAvatarUrl() != null) {
+            String v = dto.getAvatarUrl().trim();
+            if (!v.isEmpty()) {
+                if (!isValidAvatarUrl(v)) {
+                    log.warn("头像URL修改失败：URL格式无效，userId={}", currentUserId);
+                    return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
+                }
+                avatarUrl = v;
+            }
+            // v为空时，avatarUrl保持null，表示清空头像
+        }
+
+        user.setAvatarUrl(avatarUrl);
+        long timestamp = System.currentTimeMillis();
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestamp),
+                ZoneId.systemDefault()
+        );
+        user.setUpdateTime(localDateTime);
+
+        int rows = sysUserMapper.updateById(user);
+        if (rows != 1) {
+            log.error("头像URL修改失败：数据库更新失败，userId={}", currentUserId);
+            return SaResult.error("头像URL修改失败，请重试").setCode(400);
+        }
+
+        log.info("头像URL修改成功，userId={}", currentUserId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", avatarUrl == null ? "头像已清空" : "头像URL修改成功");
+        return SaResult.data(data);
+    }
+
+    @Override
+    public SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId) {
+        log.info("用户尝试修改邮箱，currentUserId={}", currentUserId);
+
+        String email = dto.getEmail().trim();
+        if (!StringUtils.hasText(email)) {
+            log.warn("邮箱修改失败：邮箱为空，userId={}", currentUserId);
+            return SaResult.error("邮箱不能为空").setCode(400);
+        }
+
+        if (!ValidationHelper.validateEmail(email)) {
+            log.warn("邮箱修改失败：邮箱格式不正确，userId={}", currentUserId);
+            return SaResult.error("邮箱格式不正确").setCode(400);
+        }
+
+        // 检查邮箱是否已被其他用户使用
+        SysUser existingUser = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", email)
+                .eq("is_deleted", 0));
+        if (existingUser != null && !existingUser.getId().equals(currentUserId)) {
+            log.warn("邮箱修改失败：邮箱已被注册，userId={}, email={}", currentUserId, email);
+            return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            log.warn("邮箱修改失败：用户不存在，userId={}", currentUserId);
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        user.setEmail(email);
+        long timestamp = System.currentTimeMillis();
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestamp),
+                ZoneId.systemDefault()
+        );
+        user.setUpdateTime(localDateTime);
+
+        int rows = sysUserMapper.updateById(user);
+        if (rows != 1) {
+            log.error("邮箱修改失败：数据库更新失败，userId={}", currentUserId);
+            return SaResult.error("邮箱修改失败，请重试").setCode(400);
+        }
+
+        log.info("邮箱修改成功，userId={}", currentUserId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "邮箱修改成功");
+        return SaResult.data(data);
+    }
+
+    /**
+     * 校验为合法的 http/https URL，用于头像等链接
+     */
+    private boolean isValidAvatarUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try {
+            URL u = new URL(url);
+            String scheme = u.getProtocol();
+            return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+        } catch (MalformedURLException e) {
+            return false;
+        }
     }
 }
