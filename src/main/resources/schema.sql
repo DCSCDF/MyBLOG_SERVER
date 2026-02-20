@@ -253,6 +253,29 @@ CREATE TABLE IF NOT EXISTS sys_config
   COLLATE = utf8mb4_unicode_ci
     COMMENT = '网站全局配置表（键值对）';
 
+-- SEO表
+CREATE TABLE IF NOT EXISTS sys_seo
+(
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'SEO配置ID',
+    page_type      VARCHAR(50) NOT NULL COMMENT '页面类型：home=首页，article=文章页，category=分类页，tag=标签页，about=关于页，contact=联系页',
+    page_id        BIGINT COMMENT '关联页面ID',
+    title          VARCHAR(200) COMMENT 'SEO标题（title标签）',
+    keywords       VARCHAR(500) COMMENT 'SEO关键词（keywords meta标签，逗号分隔）',
+    description    VARCHAR(1500) COMMENT 'SEO描述（description meta标签）',
+    og_title       VARCHAR(200) COMMENT 'Open Graph标题（og:title）',
+    og_description VARCHAR(1500) COMMENT 'Open Graph描述（og:description）',
+    og_image       VARCHAR(500) COMMENT 'Open Graph图片URL（og:image）',
+    og_type        VARCHAR(50)  DEFAULT 'website' COMMENT 'Open Graph类型（og:type，如website、article）',
+    canonical_url  VARCHAR(500) COMMENT '规范URL（canonical link）',
+    robots         VARCHAR(100) DEFAULT 'index,follow' COMMENT 'robots meta标签（如index,follow、noIndex,noFollow）',
+    is_deleted     TINYINT(1)   DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    is_system      TINYINT(1)   DEFAULT 0 COMMENT '是否系统内置：0=否，1=是（不可删除）',
+    create_time    DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+
+    UNIQUE KEY uk_page_type_id (page_type, page_id) COMMENT '页面类型和页面ID唯一索引'
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='SEO配置表';
 
 -- 创建索引 删除已存在的索引（仅删除下方会重建的索引）
 ALTER TABLE sys_user
@@ -301,6 +324,10 @@ ALTER TABLE sys_comment_like
     DROP INDEX idx_comment_like_comment;
 ALTER TABLE sys_comment_like
     DROP INDEX idx_comment_like_user;
+ALTER TABLE sys_seo
+    DROP INDEX idx_seo_page_type;
+ALTER TABLE sys_seo
+    DROP INDEX idx_seo_page_id;
 
 -- 创建新索引
 CREATE INDEX idx_user_status ON sys_user (status) COMMENT '用户状态索引';
@@ -329,6 +356,8 @@ CREATE INDEX idx_comment_status ON sys_comment (status) COMMENT '评论状态索
 CREATE INDEX idx_comment_create_time ON sys_comment (create_time) COMMENT '评论创建时间索引';
 CREATE INDEX idx_comment_like_comment ON sys_comment_like (comment_id) COMMENT '点赞评论索引';
 CREATE INDEX idx_comment_like_user ON sys_comment_like (user_id) COMMENT '点赞用户索引';
+CREATE INDEX idx_seo_page_type ON sys_seo (page_type) COMMENT 'SEO页面类型索引';
+CREATE INDEX idx_seo_page_id ON sys_seo (page_id) COMMENT 'SEO页面ID索引';
 
 
 -- 插入默认角色
@@ -421,7 +450,14 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('comment:create', '创建评论', '创建评论', 2),
        ('comment:edit', '编辑评论', '编辑评论', 3),
        ('comment:delete', '删除评论', '删除评论', 4),
-       ('comment:approve', '审核评论', '审核评论', 5);
+       ('comment:approve', '审核评论', '审核评论', 5),
+
+-- SEO管理
+       ('seo', 'SEO管理', 'SEO管理菜单', 60),
+       ('seo:list', 'SEO列表', '查看SEO列表', 1),
+       ('seo:create', '创建SEO', '创建SEO配置', 2),
+       ('seo:edit', '编辑SEO', '编辑SEO配置', 3),
+       ('seo:delete', '删除SEO', '删除SEO配置', 4);
 
 -- 为超级管理员角色分配所有权限（使用NOT EXISTS检查）
 -- 重新分配默认角色权限（避免父子权限同时分配导致后续“权限重叠”问题）
@@ -437,7 +473,7 @@ FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
   AND
-    p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment');
+    p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -448,7 +484,8 @@ WHERE r.code = 'ADMIN'
   AND (p.code LIKE 'system:user:%'
     OR p.code LIKE 'article:%'
     OR p.code LIKE 'category:%'
-    OR p.code LIKE 'comment:%');
+    OR p.code LIKE 'comment:%'
+    OR p.code LIKE 'seo:%');
 
 -- AUTHOR：文章管理 + 分类列表 + 基础评论权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -556,4 +593,113 @@ INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_r
 VALUES ('site_title', '我的博客', 'string', 'max_length=100', '网站主标题', 1),
        ('site_subtitle', '记录技术与生活的点滴', 'string', 'max_length=200', '网站副标题', 1),
        ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1);
+
+-- 插入默认SEO配置
+-- 首页SEO
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'home',
+       null,
+       '我的博客 - 记录技术与生活的点滴',
+       '博客,技术博客,个人博客,技术分享,编程,开发',
+       '我的个人博客，分享技术心得、生活感悟和编程经验',
+       '我的博客 - 记录技术与生活的点滴',
+       '我的个人博客，分享技术心得、生活感悟和编程经验',
+       NULL,
+       'website',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'home' AND page_id IS NULL);
+
+-- 文章页SEO模板
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'article',
+       null,
+       '{文章标题} - 我的博客',
+       '{文章标签},{文章分类},技术博客,编程分享',
+       '{文章摘要}',
+       '{文章标题} - 我的博客',
+       '{文章摘要}',
+       NULL,
+       'article',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'article' AND page_id IS NULL);
+
+-- 分类页SEO模板
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'category',
+       null,
+       '{分类名称} - 我的博客',
+       '{分类名称},技术分类,编程教程,{相关技术关键词}',
+       '查看{分类名称}相关的技术文章和编程教程',
+       '{分类名称} - 我的博客',
+       '查看{分类名称}相关的技术文章和编程教程',
+       NULL,
+       'website',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'category' AND page_id IS NULL);
+
+-- 标签页SEO模板
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'tag',
+       null,
+       '{标签名称} - 我的博客',
+       '{标签名称},技术标签,编程标签,{相关内容关键词}',
+       '查看{标签名称}相关的技术文章和编程内容',
+       '{标签名称} - 我的博客',
+       '查看{标签名称}相关的技术文章和编程内容',
+       NULL,
+       'website',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'tag' AND page_id IS NULL);
+
+-- 关于页SEO
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'about',
+       null,
+       '关于我们 - 我的博客',
+       '关于博主,个人介绍,技术背景,联系方式',
+       '了解博客作者的技术背景、个人经历和联系方式',
+       '关于我们 - 我的博客',
+       '了解博客作者的技术背景、个人经历和联系方式',
+       NULL,
+       'website',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'about' AND page_id IS NULL);
+
+-- 友情链接页SEO
+INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+                            og_type, canonical_url, robots, is_system)
+SELECT 'links',
+       null,
+       '友情链接 - 我的博客',
+       '友情链接,合作伙伴,技术博客,网站推荐',
+       '我的博客友情链接页面，推荐优质的技术博客和网站',
+       '友情链接 - 我的博客',
+       '我的博客友情链接页面，推荐优质的技术博客和网站',
+       NULL,
+       'website',
+       NULL,
+       'index,follow',
+       1
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'links' AND page_id IS NULL);
 
