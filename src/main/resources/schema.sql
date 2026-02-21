@@ -462,7 +462,15 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('seo:list', 'SEO列表', '查看SEO列表', 1),
        ('seo:create', '创建SEO', '创建SEO配置', 2),
        ('seo:edit', '编辑SEO', '编辑SEO配置', 3),
-       ('seo:delete', '删除SEO', '删除SEO配置', 4);
+       ('seo:delete', '删除SEO', '删除SEO配置', 4),
+
+-- 网站配置管理
+       ('config', '网站配置', '网站配置菜单', 55),
+       ('config:system:list', '系统配置查询', '按 key 查询系统默认配置项', 1),
+       ('config:custom:list', '自定义配置列表', '分页查询用户自定义配置项', 2),
+       ('config:create', '创建自定义配置', '添加用户自定义配置项', 3),
+       ('config:edit', '修改配置', '修改网站配置项的值', 4),
+       ('config:delete', '删除自定义配置', '删除非系统内置的配置项', 5);
 
 -- 为超级管理员角色分配所有权限（使用NOT EXISTS检查）
 -- 重新分配默认角色权限（避免父子权限同时分配导致后续“权限重叠”问题）
@@ -478,7 +486,7 @@ FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
   AND p.code NOT IN
-      ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo');
+      ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo', 'config');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -490,7 +498,8 @@ WHERE r.code = 'ADMIN'
     OR p.code LIKE 'article:%'
     OR p.code LIKE 'category:%'
     OR p.code LIKE 'comment:%'
-    OR p.code LIKE 'seo:%');
+    OR p.code LIKE 'seo:%'
+    OR p.code LIKE 'config:%');
 
 -- AUTHOR：文章管理 + 分类列表 + 基础评论权限
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -561,7 +570,8 @@ FROM sys_permission_group g
 WHERE g.name = '系统管理组'
   AND (p.code = 'system:permission'
     OR p.code LIKE 'system:role:%'
-    OR p.code LIKE 'system:permission_group:%')
+    OR p.code LIKE 'system:permission_group:%'
+    OR p.code LIKE 'config:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
                   WHERE pgi.group_id = g.id
@@ -575,7 +585,8 @@ FROM sys_permission_group g
 WHERE g.name = '文章管理组'
   AND (p.code LIKE 'article:%'
     OR p.code LIKE 'category:%'
-    OR p.code LIKE 'comment:%')
+    OR p.code LIKE 'comment:%'
+    OR p.code LIKE 'seo:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
                   WHERE pgi.group_id = g.id
