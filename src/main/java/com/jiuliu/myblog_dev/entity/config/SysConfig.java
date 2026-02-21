@@ -23,9 +23,7 @@
 
 package com.jiuliu.myblog_dev.entity.config;
 
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -34,7 +32,10 @@ import java.time.LocalDateTime;
 @TableName("sys_config")
 public class SysConfig {
 
-    @TableId("config_key")
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    @TableField("config_key")
     private String configKey;
 
     @TableField("config_value")
@@ -51,6 +52,12 @@ public class SysConfig {
     @TableField("is_system")
     private Integer isSystem;
 
-    @TableField("update_time")
+    @TableField("is_deleted")
+    private Integer isDeleted;
+
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 }

@@ -241,13 +241,18 @@ CREATE TABLE IF NOT EXISTS sys_blog_like
 -- 网站配置表
 CREATE TABLE IF NOT EXISTS sys_config
 (
-    config_key      VARCHAR(100) NOT NULL PRIMARY KEY COMMENT '配置项唯一键，如 site_title, seo_keywords',
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '配置ID',
+    config_key      VARCHAR(100) NOT NULL UNIQUE COMMENT '配置项唯一键，如 site_title, seo_keywords',
     config_value    TEXT         NOT NULL COMMENT '配置值（字符串形式存储，应用层按类型解析）',
     data_type       VARCHAR(20)  NOT NULL DEFAULT 'string' COMMENT '数据类型：string, boolean, integer, json, email, url, text',
     validation_rule VARCHAR(255) COMMENT '校验规则：如 max_length=100, regex=..., array_of_strings 等',
     description     VARCHAR(255) COMMENT '配置项说明，用于后台展示',
     is_system       TINYINT(1)            DEFAULT 0 COMMENT '是否系统内置：0=否，1=是（不可删除）',
-    update_time     DATETIME              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    is_deleted      TINYINT(1)            DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    create_time     DATETIME              DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time     DATETIME              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    UNIQUE KEY uk_config_key (config_key) COMMENT '配置键唯一索引'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
@@ -472,8 +477,8 @@ SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
-  AND
-    p.code NOT IN ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo');
+  AND p.code NOT IN
+      ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -590,9 +595,18 @@ WHERE g.name = '用户管理组'
 
 -- 插入默认网站配置
 INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_rule, description, is_system)
-VALUES ('site_title', '我的博客', 'string', 'max_length=100', '网站主标题', 1),
-       ('site_subtitle', '记录技术与生活的点滴', 'string', 'max_length=200', '网站副标题', 1),
-       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1);
+VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称', 1),
+       ('site.domain', 'localhost:8080', 'string', 'max_length=100', '网站域名', 1),
+       ('site.description', '一个简洁的个人博客系统', 'text', NULL, '网站描述', 1),
+       ('site.icp', '', 'string', 'max_length=50', '网站备案号', 1),
+       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1),
+
+       ('smtp.host', 'smtp.example.com', 'string', 'max_length=100', 'SMTP服务器地址', 1),
+       ('smtp.port', '587', 'integer', 'range=1-65535', 'SMTP端口号', 1),
+       ('smtp.username', 'your-email@example.com', 'email', NULL, 'SMTP用户名', 1),
+       ('smtp.password', 'your-password', 'string', NULL, 'SMTP密码', 1),
+       ('smtp.from', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1),
+       ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1);
 
 -- 插入默认SEO配置
 -- 首页SEO
@@ -600,7 +614,7 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'home',
        null,
-       '我的博客 - 记录技术与生活的点滴',
+       'myblog - 记录技术与生活的点滴',
        '博客,技术博客,个人博客,技术分享,编程,开发',
        '我的个人博客，分享技术心得、生活感悟和编程经验',
        '我的博客 - 记录技术与生活的点滴',
@@ -618,10 +632,10 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'article',
        null,
-       '{文章标题} - 我的博客',
+       'myblog - {文章标题}',
        '{文章标签},{文章分类},技术博客,编程分享',
        '{文章摘要}',
-       '{文章标题} - 我的博客',
+       '我的博客 - {文章标题}',
        '{文章摘要}',
        NULL,
        'article',
@@ -636,10 +650,10 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'category',
        null,
-       '{分类名称} - 我的博客',
+       'myblog - {分类名称}',
        '{分类名称},技术分类,编程教程,{相关技术关键词}',
        '查看{分类名称}相关的技术文章和编程教程',
-       '{分类名称} - 我的博客',
+       ' - {分类名称}',
        '查看{分类名称}相关的技术文章和编程教程',
        NULL,
        'website',
@@ -654,10 +668,10 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'tag',
        null,
-       '{标签名称} - 我的博客',
+       'myblog - {标签名称}',
        '{标签名称},技术标签,编程标签,{相关内容关键词}',
        '查看{标签名称}相关的技术文章和编程内容',
-       '{标签名称} - 我的博客',
+       ' - {标签名称}',
        '查看{标签名称}相关的技术文章和编程内容',
        NULL,
        'website',
@@ -672,10 +686,10 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'about',
        null,
-       '关于我们 - 我的博客',
+       'myblog - 关于我们',
        '关于博主,个人介绍,技术背景,联系方式',
        '了解博客作者的技术背景、个人经历和联系方式',
-       '关于我们 - 我的博客',
+       ' - 关于我们',
        '了解博客作者的技术背景、个人经历和联系方式',
        NULL,
        'website',
@@ -690,10 +704,10 @@ INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og
                             og_type, canonical_url, robots, is_system)
 SELECT 'links',
        null,
-       '友情链接 - 我的博客',
+       'myblog - 友情链接',
        '友情链接,合作伙伴,技术博客,网站推荐',
        '我的博客友情链接页面，推荐优质的技术博客和网站',
-       '友情链接 - 我的博客',
+       ' - 友情链接',
        '我的博客友情链接页面，推荐优质的技术博客和网站',
        NULL,
        'website',
