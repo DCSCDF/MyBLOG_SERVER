@@ -138,8 +138,11 @@ public class SysConfigServiceImpl implements SysConfigService {
         if (config.getIsSystem() != null && config.getIsSystem() == 1) {
             return SaResult.error("系统内置配置项不可删除").setCode(403);
         }
+        // 为被删除的配置项添加"_已删除"后缀，防止与未删除的配置项产生键名冲突
+        String deletedConfigKey = config.getConfigKey() + "_已删除";
         LambdaUpdateWrapper<SysConfig> updateWrapper = new LambdaUpdateWrapper<SysConfig>()
                 .eq(SysConfig::getId, id)
+                .set(SysConfig::getConfigKey, deletedConfigKey)
                 .set(SysConfig::getIsDeleted, 1)
                 .set(SysConfig::getUpdateTime, LocalDateTime.now());
         sysConfigMapper.update(null, updateWrapper);
