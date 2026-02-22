@@ -23,10 +23,12 @@
 |-------------|--------------|-----------------------------|-----------------------------|--------------|
 | id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 用户ID         |
 | username    | VARCHAR(50)  | UNIQUE, NOT NULL            | -                           | 用户名          |
-| password    | VARCHAR(100) | NOT NULL                    | -                           | 密码（BCrypt加密） |
-| email       | VARCHAR(50)  | UNIQUE                      | NULL                        | 邮箱           |
+| nickname    | VARCHAR(50)  | NOT NULL                    | -                           | 昵称           |
+| password    | VARCHAR(100) | NOT NULL                    | -                           | 密码（加密后）     |
+| email       | VARCHAR(50)  | UNIQUE                      | NULL                        | 邮箱（唯一）       |
 | avatar_url  | VARCHAR(200) | -                           | NULL                        | 头像URL        |
 | status      | INT          | -                           | 1                           | 状态：0=禁用，1=启用 |
+| is_deleted  | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
 | create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间         |
 | update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
 
@@ -50,6 +52,7 @@
 | is_system      | TINYINT(1)   | -                           | 0                           | 是否系统内置       |
 | sort_order     | INT          | -                           | 0                           | 排序顺序         |
 | status         | INT          | -                           | 1                           | 状态：0=禁用，1=启用 |
+| is_deleted     | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
 | create_time    | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间         |
 | update_time    | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
 
@@ -70,42 +73,25 @@
 
 ### 3. 权限表 (`sys_permission`)
 
-**用途**：存储系统权限信息，支持菜单、按钮、接口等类型
+**用途**：存储系统权限信息（权限编码、名称、描述等）
 
-| 字段名           | 类型           | 约束                          | 默认值                         | 说明                       |
-|---------------|--------------|-----------------------------|-----------------------------|:-------------------------|
-| id            | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 权限ID                     |
-| parent_id     | BIGINT       | -                           | 0                           | 父权限ID                    |
-| code          | VARCHAR(100) | UNIQUE, NOT NULL            | -                           | 权限编码                     |
-| name          | VARCHAR(50)  | NOT NULL                    | -                           | 权限名称                     |
-| type          | VARCHAR(20)  | NOT NULL                    | -                           | 类型：MENU/BUTTON/API/FIELD |
-| description   | VARCHAR(200) | -                           | NULL                        | 权限描述                     |
-| icon          | VARCHAR(50)  | -                           | NULL                        | 图标                       |
-| path          | VARCHAR(200) | -                           | NULL                        | 路径/URL                   |
-| component     | VARCHAR(200) | -                           | NULL                        | 前端组件                     |
-| is_hidden     | TINYINT(1)   | -                           | 0                           | 是否隐藏                     |
-| is_affix      | TINYINT(1)   | -                           | 0                           | 是否固定页签                   |
-| is_keep_alive | TINYINT(1)   | -                           | 0                           | 是否缓存                     |
-| sort_order    | INT          | -                           | 0                           | 排序顺序                     |
-| status        | INT          | -                           | 1                           | 状态：0=禁用，1=启用             |
-| create_time   | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间                     |
-| update_time   | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间                     |
+| 字段名         | 类型           | 约束                          | 默认值               | 说明   |
+|-------------|--------------|-----------------------------|-------------------|------|
+| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                 | 权限ID  |
+| code        | VARCHAR(100) | UNIQUE, NOT NULL            | -                 | 权限编码（唯一） |
+| name        | VARCHAR(50)  | NOT NULL                    | -                 | 权限名称  |
+| description | VARCHAR(200) | -                           | NULL              | 权限描述  |
+| sort_order  | INT          | -                           | 0                 | 排序顺序  |
+| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP | 创建时间  |
 
 **索引**：
 
-- `idx_permission_code(code)`
-- `idx_permission_parent(parent_id)`
-- `idx_permission_type(type)`
-- `idx_permission_status(status)`
+- `idx_permission_code(code)` - 权限编码索引
 
 **默认权限**：
 
-- 系统管理权限 (`system.*`)
-- 用户管理权限 (`system:user:*`)
-- 角色管理权限 (`system:role:*`)
-- 文章管理权限 (`article:*`)
-- 分类管理权限 (`category:*`)
-- 评论管理权限 (`comment:*`)
+- 系统管理权限 (`system.*`)、用户管理 (`system:user:*`)、角色管理 (`system:role:*`)、权限组管理 (`system:permission_group:*`)
+- 文章管理 (`article:*`)、分类管理 (`category:*`)、评论管理 (`comment:*`)、SEO 管理 (`seo:*`)、网站配置 (`config:*`)
 
 ---
 
@@ -122,9 +108,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_user_role(user_id, role_id)`
-- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE`
-- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_user_role(user_id, role_id)` - 防止重复关联
+- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE NO ACTION`
 
 **索引**：
 
@@ -146,9 +132,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_role_permission(role_id, permission_id)`
-- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE CASCADE`
-- `FOREIGN KEY (permission_id) REFERENCES sys_permission(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_role_permission(role_id, permission_id)` - 防止重复关联
+- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (permission_id) REFERENCES sys_permission(id) ON DELETE NO ACTION`
 
 **索引**：
 
@@ -161,15 +147,17 @@
 
 **用途**：用于组织和管理权限组
 
-| 字段名         | 类型           | 约束                          | 默认值                         | 说明    |
-|-------------|--------------|-----------------------------|-----------------------------|-------|
-| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 权限组ID |
-| name        | VARCHAR(50)  | NOT NULL                    | -                           | 权限组名称 |
-| description | VARCHAR(200) | -                           | NULL                        | 权限组描述 |
-| sort_order  | INT          | -                           | 0                           | 排序顺序  |
-| status      | INT          | -                           | 1                           | 状态    |
-| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间  |
-| update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间  |
+| 字段名         | 类型           | 约束                          | 默认值                         | 说明           |
+|-------------|--------------|-----------------------------|-----------------------------|--------------|
+| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 权限组ID        |
+| name        | VARCHAR(50)  | NOT NULL                    | -                           | 权限组名称        |
+| description | VARCHAR(200) | -                           | NULL                        | 权限组描述        |
+| sort_order  | INT          | -                           | 0                           | 排序顺序         |
+| status      | INT          | -                           | 1                           | 状态：0=禁用，1=启用 |
+| is_system   | TINYINT(1)   | -                           | 0                           | 是否系统内置：0=否，1=是（不可删除） |
+| is_deleted  | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
+| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间         |
+| update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
 
 **默认权限组**：
 
@@ -193,9 +181,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_group_permission(group_id, permission_id)`
-- `FOREIGN KEY (group_id) REFERENCES sys_permission_group(id) ON DELETE CASCADE`
-- `FOREIGN KEY (permission_id) REFERENCES sys_permission(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_group_permission(group_id, permission_id)` - 防止重复关联
+- `FOREIGN KEY (group_id) REFERENCES sys_permission_group(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (permission_id) REFERENCES sys_permission(id) ON DELETE NO ACTION`
 
 ---
 
@@ -212,9 +200,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_role_group(role_id, group_id)`
-- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE CASCADE`
-- `FOREIGN KEY (group_id) REFERENCES sys_permission_group(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_role_group(role_id, group_id)` - 防止重复关联
+- `FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (group_id) REFERENCES sys_permission_group(id) ON DELETE NO ACTION`
 
 ---
 
@@ -222,15 +210,16 @@
 
 **用途**：文章分类管理
 
-| 字段名         | 类型           | 约束                          | 默认值                         | 说明   |
-|-------------|--------------|-----------------------------|-----------------------------|------|
-| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 分类ID |
-| name        | VARCHAR(50)  | NOT NULL                    | -                           | 分类名称 |
-| description | VARCHAR(200) | -                           | NULL                        | 分类描述 |
-| sort_order  | INT          | -                           | 0                           | 排序顺序 |
-| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间 |
-| is_hidden   | TINYINT(1)   | -                           | 0                           | 是否隐藏 |
-| update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| 字段名         | 类型           | 约束                          | 默认值                         | 说明           |
+|-------------|--------------|-----------------------------|-----------------------------|--------------|
+| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 分类ID          |
+| name        | VARCHAR(50)  | NOT NULL                    | -                           | 分类名称          |
+| description | VARCHAR(200) | -                           | NULL                        | 分类描述          |
+| sort_order  | INT          | -                           | 0                           | 排序顺序（数字越大越靠前） |
+| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间          |
+| is_hidden   | TINYINT(1)   | -                           | 0                           | 是否隐藏：0=显示，1=隐藏 |
+| is_deleted  | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
+| update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间          |
 
 **索引**：
 
@@ -256,16 +245,17 @@
 | view_count    | INT          | -                           | 0                           | 浏览量      |
 | comment_count | INT          | -                           | 0                           | 评论数      |
 | like_count    | INT          | -                           | 0                           | 点赞数      |
-| is_hidden     | TINYINT(1)   | -                           | 0                           | 是否隐藏     |
-| is_top        | TINYINT(1)   | -                           | 0                           | 是否置顶     |
-| is_recommend  | TINYINT(1)   | -                           | 0                           | 是否推荐     |
-| create_time   | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间     |
-| update_time   | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间     |
+| is_hidden     | TINYINT(1)   | -                           | 0                           | 是否隐藏：0=公开，1=私密 |
+| is_top        | TINYINT(1)   | -                           | 0                           | 是否置顶：0=否，1=是   |
+| is_recommend  | TINYINT(1)   | -                           | 0                           | 是否推荐：0=否，1=是   |
+| is_deleted    | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
+| create_time   | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间         |
+| update_time   | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
 
 **约束**：
 
-- `FOREIGN KEY (category_id) REFERENCES sys_category(id) ON DELETE SET NULL`
-- `FOREIGN KEY (author_id) REFERENCES sys_user(id) ON DELETE SET NULL`
+- `FOREIGN KEY (category_id) REFERENCES sys_category(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (author_id) REFERENCES sys_user(id) ON DELETE NO ACTION`
 
 **索引**：
 
@@ -292,18 +282,19 @@
 | avatar_url  | VARCHAR(200) | -                           | NULL                        | 头像URL          |
 | website     | VARCHAR(200) | -                           | NULL                        | 个人网站           |
 | content     | TEXT         | NOT NULL                    | -                           | 评论内容           |
-| status      | TINYINT      | -                           | 0                           | 状态：0=待审核，1=已通过 |
+| status      | TINYINT      | -                           | 0                           | 状态：0=待审核，1=已通过，2=垃圾评论，3=已删除 |
 | like_count  | INT          | -                           | 0                           | 点赞数            |
 | device_info | VARCHAR(200) | -                           | NULL                        | 设备信息           |
 | ip_address  | VARCHAR(50)  | -                           | NULL                        | IP地址           |
-| is_admin    | TINYINT(1)   | -                           | 0                           | 是否管理员评论        |
+| is_admin    | TINYINT(1)   | -                           | 0                           | 是否管理员评论：0=否，1=是 |
+| is_deleted  | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
 | create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间           |
 | update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间           |
 
 **约束**：
 
-- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE CASCADE`
-- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE SET NULL`
+- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE NO ACTION`
 
 **索引**：
 
@@ -328,9 +319,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_comment_user(comment_id, user_id)`
-- `FOREIGN KEY (comment_id) REFERENCES sys_comment(id) ON DELETE CASCADE`
-- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_comment_user(comment_id, user_id)` - 防止重复点赞
+- `FOREIGN KEY (comment_id) REFERENCES sys_comment(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE NO ACTION`
 
 **索引**：
 
@@ -343,12 +334,13 @@
 
 **用途**：文章标签管理
 
-| 字段名         | 类型          | 约束                          | 默认值                         | 说明   |
-|-------------|-------------|-----------------------------|-----------------------------|------|
-| id          | BIGINT      | PRIMARY KEY, AUTO_INCREMENT | -                           | 标签ID |
-| name        | VARCHAR(50) | UNIQUE, NOT NULL            | -                           | 标签名称 |
-| create_time | DATETIME    | -                           | CURRENT_TIMESTAMP           | 创建时间 |
-| update_time | DATETIME    | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间 |
+| 字段名         | 类型          | 约束                          | 默认值                         | 说明           |
+|-------------|-------------|-----------------------------|-----------------------------|--------------|
+| id          | BIGINT      | PRIMARY KEY, AUTO_INCREMENT | -                           | 标签ID          |
+| name        | VARCHAR(50) | UNIQUE, NOT NULL            | -                           | 标签名称（唯一）     |
+| is_deleted  | TINYINT(1)  | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
+| create_time | DATETIME    | -                           | CURRENT_TIMESTAMP           | 创建时间         |
+| update_time | DATETIME    | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
 
 ---
 
@@ -365,9 +357,9 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_blog_tag(blog_id, tag_id)`
-- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE CASCADE`
-- `FOREIGN KEY (tag_id) REFERENCES sys_tag(id) ON DELETE CASCADE`
+- `UNIQUE KEY uk_blog_tag(blog_id, tag_id)` - 防止重复关联
+- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (tag_id) REFERENCES sys_tag(id) ON DELETE NO ACTION`
 
 ---
 
@@ -384,6 +376,91 @@
 
 **约束**：
 
-- `UNIQUE KEY uk_blog_user(blog_id, user_id)`
-- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE CASCADE`
-- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE`  
+- `UNIQUE KEY uk_blog_user(blog_id, user_id)` - 防止重复点赞
+- `FOREIGN KEY (blog_id) REFERENCES sys_blog(id) ON DELETE NO ACTION`
+- `FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE NO ACTION`
+
+---
+
+## 新增表（与 schema.sql 一致）
+
+### 16. 网站配置表 (`sys_config`)
+
+**用途**：网站全局配置（键值对），区分系统内置与用户自定义配置
+
+| 字段名          | 类型           | 约束                          | 默认值                         | 说明                                       |
+|--------------|--------------|-----------------------------|-----------------------------|------------------------------------------|
+| id           | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 配置ID                                     |
+| config_key   | VARCHAR(100) | UNIQUE, NOT NULL            | -                           | 配置项唯一键，如 site_title, seo_keywords           |
+| config_value | TEXT         | NOT NULL                    | -                           | 配置值（字符串形式存储，应用层按类型解析）                   |
+| data_type    | VARCHAR(20)  | NOT NULL                    | 'string'                    | 数据类型：string, boolean, integer, json, email, url, text |
+| validation_rule | VARCHAR(255) | -                        | NULL                        | 校验规则：如 max_length=100, regex=... 等           |
+| description  | VARCHAR(255) | -                           | NULL                        | 配置项说明，用于后台展示                             |
+| is_system    | TINYINT(1)   | -                           | 0                           | 是否系统内置：0=否，1=是（不可删除）                      |
+| is_deleted   | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除                          |
+| create_time  | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间                                     |
+| update_time  | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间                                     |
+
+**约束**：
+
+- `UNIQUE KEY uk_config_key(config_key)` - 配置键唯一索引
+
+---
+
+### 17. SEO 配置表 (`sys_seo`)
+
+**用途**：各页面类型的 SEO 配置（title、keywords、description、Open Graph 等）
+
+| 字段名          | 类型          | 约束                          | 默认值                         | 说明                                       |
+|--------------|-------------|-----------------------------|-----------------------------|------------------------------------------|
+| id           | BIGINT      | PRIMARY KEY, AUTO_INCREMENT | -                           | SEO 配置ID                                 |
+| page_type    | VARCHAR(50) | NOT NULL                    | -                           | 页面类型：home/article/category/tag/about/contact/links 等 |
+| page_id      | BIGINT      | -                           | NULL                        | 关联页面ID                                  |
+| title        | VARCHAR(200)| -                           | NULL                        | SEO 标题（title 标签）                         |
+| keywords     | VARCHAR(500)| -                           | NULL                        | SEO 关键词（keywords meta，逗号分隔）                 |
+| description  | VARCHAR(1500)| -                          | NULL                        | SEO 描述（description meta）                    |
+| og_title     | VARCHAR(200)| -                           | NULL                        | Open Graph 标题（og:title）                     |
+| og_description | VARCHAR(1500)| -                         | NULL                        | Open Graph 描述（og:description）                |
+| og_image     | VARCHAR(500)| -                           | NULL                        | Open Graph 图片 URL（og:image）                  |
+| og_type      | VARCHAR(50) | -                           | 'website'                   | Open Graph 类型（og:type，如 website、article）      |
+| canonical_url| VARCHAR(500)| -                           | NULL                        | 规范 URL（canonical link）                      |
+| robots       | VARCHAR(100)| -                           | 'index,follow'              | robots meta（如 index,follow、noIndex,noFollow）   |
+| is_deleted   | TINYINT(1)  | -                           | 0                           | 逻辑删除：0=未删除，1=已删除                          |
+| is_system    | TINYINT(1)  | -                           | 0                           | 是否系统内置：0=否，1=是（不可删除）                      |
+| create_time  | DATETIME    | -                           | CURRENT_TIMESTAMP           | 创建时间                                     |
+| update_time  | DATETIME    | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间                                     |
+
+**约束**：
+
+- `UNIQUE KEY uk_page_type_id(page_type, page_id)` - 页面类型与页面ID 唯一索引
+
+**索引**：
+
+- `idx_seo_page_type(page_type)`
+- `idx_seo_page_id(page_id)`
+
+---
+
+### 18. 外链/友情链接表 (`sys_friend_link`)
+
+**用途**：存储外链/友情链接，支持审核与排序
+
+| 字段名         | 类型           | 约束                          | 默认值                         | 说明           |
+|-------------|--------------|-----------------------------|-----------------------------|--------------|
+| id          | BIGINT       | PRIMARY KEY, AUTO_INCREMENT | -                           | 外链ID         |
+| name        | VARCHAR(100) | NOT NULL                    | -                           | 链接名称         |
+| url         | VARCHAR(500) | NOT NULL                    | -                           | URL 地址       |
+| summary     | VARCHAR(500) | -                           | NULL                        | 简介           |
+| remark      | VARCHAR(500) | -                           | NULL                        | 备注           |
+| image_url   | VARCHAR(500) | -                           | NULL                        | 图片 URL       |
+| sort_order  | INT          | -                           | 0                           | 排序顺序（数字越大越靠前） |
+| status      | TINYINT      | -                           | 0                           | 状态：0=待审核，1=已通过，2=已拒绝，3=已删除 |
+| is_deleted  | TINYINT(1)   | -                           | 0                           | 逻辑删除：0=未删除，1=已删除 |
+| create_time | DATETIME     | -                           | CURRENT_TIMESTAMP           | 创建时间         |
+| update_time | DATETIME     | -                           | CURRENT_TIMESTAMP ON UPDATE | 更新时间         |
+
+**索引**：
+
+- `idx_friend_link_status(status)` - 外链审核状态索引
+- `idx_friend_link_sort(sort_order)` - 外链排序索引
+- `idx_friend_link_create_time(create_time)` - 外链创建时间索引  

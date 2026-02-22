@@ -282,6 +282,23 @@ CREATE TABLE IF NOT EXISTS sys_seo
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='SEO配置表';
 
+-- 外链/友情链接表
+CREATE TABLE IF NOT EXISTS sys_friend_link
+(
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '外链ID',
+    name        VARCHAR(100) NOT NULL COMMENT '链接名称',
+    url         VARCHAR(500) NOT NULL COMMENT 'URL地址',
+    summary     VARCHAR(500) COMMENT '简介',
+    remark      VARCHAR(500) COMMENT '备注',
+    image_url   VARCHAR(500) COMMENT '图片URL',
+    sort_order  INT        DEFAULT 0 COMMENT '排序顺序（数字越大越靠前）',
+    status      TINYINT    DEFAULT 0 COMMENT '状态：0=待审核，1=已通过，2=已拒绝，3=已删除',
+    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+    create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='外链/友情链接表';
+
 -- 创建索引 删除已存在的索引（仅删除下方会重建的索引）
 ALTER TABLE sys_user
     DROP INDEX idx_user_status;
@@ -363,6 +380,9 @@ CREATE INDEX idx_comment_like_comment ON sys_comment_like (comment_id) COMMENT '
 CREATE INDEX idx_comment_like_user ON sys_comment_like (user_id) COMMENT '点赞用户索引';
 CREATE INDEX idx_seo_page_type ON sys_seo (page_type) COMMENT 'SEO页面类型索引';
 CREATE INDEX idx_seo_page_id ON sys_seo (page_id) COMMENT 'SEO页面ID索引';
+CREATE INDEX idx_friend_link_status ON sys_friend_link (status) COMMENT '外链审核状态索引';
+CREATE INDEX idx_friend_link_sort ON sys_friend_link (sort_order) COMMENT '外链排序索引';
+CREATE INDEX idx_friend_link_create_time ON sys_friend_link (create_time) COMMENT '外链创建时间索引';
 
 
 -- 插入默认角色
