@@ -111,6 +111,7 @@ public class SeoServiceImpl implements SeoService {
                         .eq(SysSeo::getId, id)
                         .eq(SysSeo::getIsDeleted, 0));
         if (seo == null) {
+            log.warn("获取SEO详情失败：SEO配置不存在，id={}", id);
             return SaResult.error("SEO配置不存在").setCode(404);
         }
         return SaResult.data(toResponseDTO(seo));
@@ -127,6 +128,7 @@ public class SeoServiceImpl implements SeoService {
 
         SysSeo existingSeo = sysSeoMapper.selectOne(wrapper);
         if (existingSeo != null) {
+            log.warn("创建SEO配置失败：该页面类型配置已存在，pageType={}, pageId={}", dto.getPageType(), dto.getPageId());
             return SaResult.error("该页面类型的SEO配置已存在").setCode(400);
         }
 
@@ -160,9 +162,11 @@ public class SeoServiceImpl implements SeoService {
     public SaResult updateSeo(SeoUpdateDTO dto) {
         SysSeo seo = sysSeoMapper.selectById(dto.getId());
         if (seo == null) {
+            log.warn("更新SEO配置失败：SEO配置不存在，id={}", dto.getId());
             return SaResult.error("SEO配置不存在").setCode(404);
         }
         if (seo.getIsDeleted() != null && seo.getIsDeleted() == 1) {
+            log.warn("更新SEO配置失败：SEO配置已被删除，id={}", dto.getId());
             return SaResult.error("SEO配置已被删除").setCode(404);
         }
 
@@ -176,6 +180,7 @@ public class SeoServiceImpl implements SeoService {
 
             SysSeo existingSeo = sysSeoMapper.selectOne(wrapper);
             if (existingSeo != null) {
+                log.warn("更新SEO配置失败：该页面类型配置已存在，pageType={}, pageId={}", seo.getPageType(), dto.getPageId());
                 return SaResult.error("该页面类型的SEO配置已存在").setCode(400);
             }
         }
@@ -204,12 +209,15 @@ public class SeoServiceImpl implements SeoService {
     public SaResult deleteSeo(Long id) {
         SysSeo seo = sysSeoMapper.selectById(id);
         if (seo == null) {
+            log.warn("删除SEO配置失败：SEO配置不存在，id={}", id);
             return SaResult.error("SEO配置不存在").setCode(404);
         }
         if (seo.getIsDeleted() != null && seo.getIsDeleted() == 1) {
+            log.warn("删除SEO配置失败：SEO配置已被删除，id={}", id);
             return SaResult.error("SEO配置已被删除").setCode(404);
         }
         if (Boolean.TRUE.equals(seo.getIsSystem())) {
+            log.warn("删除SEO配置失败：系统内置SEO配置不可删除，id={}, pageType={}", id, seo.getPageType());
             return SaResult.error("系统内置SEO配置不可删除").setCode(403);
         }
 

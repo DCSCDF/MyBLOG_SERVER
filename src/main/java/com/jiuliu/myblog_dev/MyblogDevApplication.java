@@ -17,14 +17,25 @@ package com.jiuliu.myblog_dev;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @MapperScan("com.jiuliu.myblog_dev.mapper")  // 启用 Mapper 扫描
 @SpringBootApplication
 @EnableAspectJAutoProxy  // 启用 AspectJ 代理支持AOP
 public class MyblogDevApplication {
 
+    private static final Logger log = LoggerFactory.getLogger(MyblogDevApplication.class);
+
     public static void main(String[] args) {
         SpringApplication.run(MyblogDevApplication.class, args);
+    }
+
+    @Bean
+    public ApplicationRunner applicationRunner() {
+        return args -> log.info("MyblogDev 应用就绪，可接受请求");
     }
 }

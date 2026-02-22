@@ -24,12 +24,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RateLimit {
     /**
-     * 限流次数（默认 5 次）
+     * 时间窗口内允许的请求次数（默认 5 次）
      */
     int count() default 5;
 
     /**
-     * 时间窗口，单位：秒（默认 2min）
+     * 时间窗口长度，单位：分钟（默认 2 分钟）
      */
     int period() default 2;
 

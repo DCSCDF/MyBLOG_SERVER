@@ -68,8 +68,11 @@ public class AuthController {
         }
     }
 
+    /**
+     * 获取登录用公钥（限流：每 IP 每 1 分钟最多 30 次，防止滥用）
+     */
     @GetMapping("/public-key")
-    //    @RateLimit(count = 6, period = 15)
+    @RateLimit(count = 30, period = 1)
     public Response<Map<String, Object>> getPublicKey() {
         return handleSaResult(authService.getPublicKey());
     }

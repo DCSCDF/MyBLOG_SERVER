@@ -22,6 +22,7 @@ import com.jiuliu.myblog_dev.exception.BusinessException;
 import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -114,13 +115,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理限流异常
+     * 处理限流异常（返回 429，并设置 Retry-After 头供客户端退避）
      */
     @ExceptionHandler(RateLimitException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleRateLimitException(RateLimitException e) {
+    public Response<Void> handleRateLimitException(RateLimitException e, HttpServletResponse response) {
         log.warn("触发限流: {}", e.getMessage());
+        response.setHeader("Retry-After", "60"); // 建议 60 秒后重试
         return ResponseUtil.fail(e.getMessage(), 429); // HTTP 429 Too Many Requests
+    }
+
+    /**
+     * 处理非法状态异常（如 RateLimit 在非 Web 上下文中使用）
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleIllegalStateException(IllegalStateException e) {
+        log.warn("非法状态: {}", e.getMessage());
+        return ResponseUtil.fail("服务暂时不可用，请稍后再试", 500);
     }
 
     /**

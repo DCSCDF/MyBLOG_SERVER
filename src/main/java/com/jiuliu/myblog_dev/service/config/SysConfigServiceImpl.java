@@ -45,10 +45,12 @@ public class SysConfigServiceImpl implements SysConfigService {
     @Override
     public SaResult getSystemConfigByKeys(ConfigSystemKeysDTO dto) {
         if (dto.getKeys() == null || dto.getKeys().isEmpty()) {
+            log.warn("系统配置查询失败：配置键列表为空");
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
         List<String> keys = dto.getKeys().stream().filter(StringUtils::hasText).distinct().collect(Collectors.toList());
         if (keys.isEmpty()) {
+            log.warn("系统配置查询失败：过滤后配置键列表为空");
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
         LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
@@ -91,6 +93,7 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .eq(SysConfig::getIsDeleted, 0);
         SysConfig existing = sysConfigMapper.selectOne(wrapper);
         if (existing != null) {
+            log.warn("创建自定义配置失败：配置键已存在，configKey={}", dto.getConfigKey());
             return SaResult.error("配置键已存在").setCode(400);
         }
         SysConfig config = new SysConfig();
@@ -113,6 +116,7 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .eq(SysConfig::getIsDeleted, 0);
         SysConfig config = sysConfigMapper.selectOne(wrapper);
         if (config == null) {
+            log.warn("修改配置失败：配置项不存在，configKey={}", dto.getConfigKey());
             return SaResult.error("配置项不存在").setCode(404);
         }
         LambdaUpdateWrapper<SysConfig> updateWrapper = new LambdaUpdateWrapper<SysConfig>()
@@ -130,12 +134,15 @@ public class SysConfigServiceImpl implements SysConfigService {
     public SaResult deleteCustomConfig(Long id) {
         SysConfig config = sysConfigMapper.selectById(id);
         if (config == null) {
+            log.warn("删除自定义配置失败：配置项不存在，id={}", id);
             return SaResult.error("配置项不存在").setCode(404);
         }
         if (config.getIsDeleted() != null && config.getIsDeleted() == 1) {
+            log.warn("删除自定义配置失败：配置项已被删除，id={}", id);
             return SaResult.error("配置项已被删除").setCode(404);
         }
         if (config.getIsSystem() != null && config.getIsSystem() == 1) {
+            log.warn("删除自定义配置失败：系统内置配置项不可删除，id={}, configKey={}", id, config.getConfigKey());
             return SaResult.error("系统内置配置项不可删除").setCode(403);
         }
         // 为被删除的配置项添加"_已删除"后缀，防止与未删除的配置项产生键名冲突

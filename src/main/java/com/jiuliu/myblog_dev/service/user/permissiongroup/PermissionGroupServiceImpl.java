@@ -129,6 +129,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroup::getId, id)
                         .eq(SysPermissionGroup::getIsDeleted, 0));
         if (group == null) {
+            log.warn("获取权限组详情失败：权限组不存在，id={}", id);
             return SaResult.error("权限组不存在").setCode(404);
         }
         return SaResult.data(toResponseDTO(group));
@@ -142,6 +143,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroup::getName, dto.getName())
                         .and(w -> w.eq(SysPermissionGroup::getIsDeleted, 0).or().isNull(SysPermissionGroup::getIsDeleted)));
         if (existingGroup != null) {
+            log.warn("创建权限组失败：权限组名称已存在，name={}", dto.getName());
             return SaResult.error("权限组名称已存在").setCode(400);
         }
 
@@ -163,9 +165,11 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     public SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(dto.getId());
         if (group == null) {
+            log.warn("更新权限组失败：权限组不存在，id={}", dto.getId());
             return SaResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
+            log.warn("更新权限组失败：系统内置权限组不可修改，id={}", dto.getId());
             return SaResult.error("系统内置权限组不可修改").setCode(403);
         }
 
@@ -196,9 +200,11 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     public SaResult deletePermissionGroup(Long id) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(id);
         if (group == null) {
+            log.warn("删除权限组失败：权限组不存在，id={}", id);
             return SaResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
+            log.warn("删除权限组失败：系统内置权限组不可删除，id={}", id);
             return SaResult.error("系统内置权限组不可删除").setCode(403);
         }
 
@@ -229,6 +235,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroup::getId, groupId)
                         .eq(SysPermissionGroup::getIsDeleted, 0));
         if (group == null) {
+            log.warn("获取权限组关联权限失败：权限组不存在，groupId={}", groupId);
             return SaResult.error("权限组不存在").setCode(404);
         }
         List<SysPermission> permissions = sysPermissionMapper.selectPermissionsByGroupId(groupId);
@@ -245,6 +252,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         sysPermissionGroupMapper.selectById(groupId);
         SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
         if (newPerm == null) {
+            log.warn("权限组添加权限失败：权限不存在，groupId={}, permissionId={}", groupId, permissionId);
             return SaResult.error("权限不存在").setCode(404);
         }
 
@@ -253,6 +261,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroupItem::getGroupId, groupId)
                         .eq(SysPermissionGroupItem::getPermissionId, permissionId));
         if (count > 0) {
+            log.warn("权限组添加权限失败：该权限已在权限组中，groupId={}, permissionId={}", groupId, permissionId);
             return SaResult.error("该权限已在权限组中").setCode(400);
         }
 
@@ -302,6 +311,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroupItem::getGroupId, groupId)
                         .eq(SysPermissionGroupItem::getPermissionId, permissionId));
         if (deleted == 0) {
+            log.warn("权限组移除权限失败：该权限不在权限组中，groupId={}, permissionId={}", groupId, permissionId);
             return SaResult.error("该权限不在权限组中").setCode(400);
         }
 
@@ -479,9 +489,11 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     private SaResult validatePermissionGroup(Long groupId) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(groupId);
         if (group == null || (group.getIsDeleted() != null && group.getIsDeleted() == 1)) {
+            log.warn("权限组操作校验失败：权限组不存在，groupId={}", groupId);
             return SaResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
+            log.warn("权限组操作校验失败：系统内置权限组不可修改，groupId={}", groupId);
             return SaResult.error("系统内置权限组不可修改").setCode(403);
         }
         return null;

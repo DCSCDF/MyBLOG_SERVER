@@ -13,10 +13,13 @@
 
 > ### API对接 与数据库结构等文档
 > - [用户认证API文档 `Auth_API`](Document/Auth_Api.md)
-> - [角色与权限组API文档](Document/Role_And_PermissionGroup_Api.md)
-> - [数据库结构](Document/Myblog_Sql.md)
-> - [角色与权限组管理接口文档](Document/Role_And_PermissionGroup_Api.md)
-> - [账号管理（用户管理）接口文档](Document/User_Manage_Api.md)
+> - [角色与权限组API文档 `Role_And_PermissionGroup_Api`](Document/Role_And_PermissionGroup_Api.md)
+> - [数据库结构 `Myblog_Sql`](Document/Myblog_Sql.md)
+> - [SEO配置接口文档 `Seo_Api`](Document/Seo_Api.md)
+> - [账号管理（用户管理）接口文档 `User_Manage_Api`](Document/User_Manage_Api.md)
+> - [站点配置接口文档 `Config_Api`](Document/Config_Api.md)
+> - [限流逻辑说明文档 `RateLimit`](Document/RateLimit.md)
+
 
 ---
 

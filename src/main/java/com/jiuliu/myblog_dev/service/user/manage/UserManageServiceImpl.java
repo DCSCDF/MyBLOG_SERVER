@@ -112,6 +112,7 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
+            log.warn("获取用户详情失败：用户不存在，id={}", id);
             return SaResult.error("用户不存在").setCode(404);
         }
         return SaResult.data(toUserAdminResponseDTO(user));
@@ -123,6 +124,7 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, userId)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
+            log.warn("获取用户角色失败：用户不存在，userId={}", userId);
             return SaResult.error("用户不存在").setCode(404);
         }
 
@@ -138,6 +140,7 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
+            log.warn("更新用户失败：用户不存在，id={}", id);
             return SaResult.error("用户不存在").setCode(404);
         }
 
@@ -148,15 +151,18 @@ public class UserManageServiceImpl implements UserManageService {
                     .eq(SysRole::getIsDeleted, 0)
                     .eq(SysRole::getStatus, 1));
             if (role == null) {
+                log.warn("更新用户失败：角色不存在或已禁用，userId={}, roleId={}", id, dto.getRoleId());
                 return SaResult.error("角色不存在或已禁用").setCode(404);
             }
             // 超级管理员只能有一个，且只能分配给默认管理员账号
             boolean isSuperAdminRole = Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode());
             boolean isDefaultAdmin = "admin".equals(user.getUsername());
             if (isSuperAdminRole && !isDefaultAdmin) {
+                log.warn("更新用户失败：超级管理员角色只能分配给默认管理员账号，userId={}", id);
                 return SaResult.error("超级管理员角色只能分配给默认管理员账号（admin）").setCode(403);
             }
             if (isDefaultAdmin && !isSuperAdminRole) {
+                log.warn("更新用户失败：默认管理员必须保留超级管理员角色，userId={}", id);
                 return SaResult.error("默认管理员必须保留超级管理员角色").setCode(403);
             }
             sysUserRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
@@ -172,6 +178,7 @@ public class UserManageServiceImpl implements UserManageService {
             String v = dto.getAvatarUrl().trim();
             if (!v.isEmpty()) {
                 if (!isValidAvatarUrl(v)) {
+                    log.warn("更新用户失败：头像URL格式无效，userId={}, avatarUrl={}", id, dto.getAvatarUrl());
                     return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
                 }
                 avatarValueToSet = v;
@@ -188,13 +195,14 @@ public class UserManageServiceImpl implements UserManageService {
                 .set(SysUser::getUpdateTime, LocalDateTime.now());
 
         sysUserMapper.update(null, updateWrapper);
-
+        log.info("用户信息更新成功，id={}", id);
         return getUserById(id);
     }
 
     @Override
     public SaResult updateUserStatus(Long id, Integer status) {
         if (status == null || (status != 0 && status != 1)) {
+            log.warn("更新用户状态失败：status 参数错误，id={}, status={}", id, status);
             return SaResult.error("status 参数错误").setCode(400);
         }
 
@@ -202,11 +210,13 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
+            log.warn("更新用户状态失败：用户不存在，id={}", id);
             return SaResult.error("用户不存在").setCode(404);
         }
 
         // 避免禁用超级管理员账号
         if (status == 0 && isSuperAdminUser(id)) {
+            log.warn("更新用户状态失败：超级管理员账号不可禁用，id={}", id);
             return SaResult.error("超级管理员账号不可禁用").setCode(403);
         }
 
@@ -220,7 +230,7 @@ public class UserManageServiceImpl implements UserManageService {
         if (status == 0) {
             StpUtil.logout(id);
         }
-
+        log.info("用户状态更新成功，id={}, status={}", id, status);
         return SaResult.data("更新成功");
     }
 
@@ -231,10 +241,12 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
+            log.warn("删除用户失败：用户不存在，id={}", id);
             return SaResult.error("用户不存在").setCode(404);
         }
 
         if (isSuperAdminUser(id)) {
+            log.warn("删除用户失败：超级管理员账号不可删除，id={}", id);
             return SaResult.error("超级管理员账号不可删除").setCode(403);
         }
 
@@ -262,6 +274,7 @@ public class UserManageServiceImpl implements UserManageService {
 
         // 删除后强制下线
         StpUtil.logout(id);
+        log.info("用户删除成功（逻辑删除），id={}, username={}", id, user.getUsername());
         return SaResult.data("删除成功");
     }
 

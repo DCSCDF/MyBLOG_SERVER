@@ -141,6 +141,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRole::getId, id)
                         .eq(SysRole::getIsDeleted, 0));
         if (role == null) {
+            log.warn("获取角色详情失败：角色不存在，id={}", id);
             return SaResult.error("角色不存在").setCode(404);
         }
         return SaResult.data(toResponseDTO(role));
@@ -152,6 +153,7 @@ public class RoleServiceImpl implements RoleService {
         SysRole existingRole = sysRoleMapper.selectOne(
                 new LambdaQueryWrapper<SysRole>().eq(SysRole::getCode, dto.getCode()));
         if (existingRole != null) {
+            log.warn("创建角色失败：角色编码已存在，code={}", dto.getCode());
             return SaResult.error("角色编码已存在").setCode(400);
         }
 
@@ -174,18 +176,22 @@ public class RoleServiceImpl implements RoleService {
     public SaResult updateRole(RoleUpdateDTO dto) {
         SysRole role = sysRoleMapper.selectById(dto.getId());
         if (role == null) {
+            log.warn("更新角色失败：角色不存在，id={}", dto.getId());
             return SaResult.error("角色不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
+            log.warn("更新角色失败：超级管理员角色不可修改，id={}", dto.getId());
             return SaResult.error("超级管理员角色不可修改").setCode(403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
+            log.warn("更新角色失败：系统内置角色不可修改，id={}", dto.getId());
             return SaResult.error("系统内置角色不可修改").setCode(403);
         }
 
         if (dto.getStatus() != null && dto.getStatus() == 0) {
             long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, dto.getId()));
             if (userCount > 0) {
+                log.warn("更新角色失败：该角色正在被用户使用无法禁用，roleId={}, 关联用户数={}", dto.getId(), userCount);
                 return SaResult.error("该角色正在被用户使用，无法禁用。请先解除用户与该角色的关联").setCode(403);
             }
         }
@@ -208,22 +214,27 @@ public class RoleServiceImpl implements RoleService {
     public SaResult deleteRole(Long id) {
         SysRole role = sysRoleMapper.selectById(id);
         if (role == null) {
+            log.warn("删除角色失败：角色不存在，id={}", id);
             return SaResult.error("角色不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
+            log.warn("删除角色失败：超级管理员角色不可删除，id={}", id);
             return SaResult.error("超级管理员角色不可删除").setCode(403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
+            log.warn("删除角色失败：系统内置角色不可删除，id={}", id);
             return SaResult.error("系统内置角色不可删除").setCode(403);
         }
 
         String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
         if (StringUtils.hasText(defaultRoleCode) && defaultRoleCode.equals(role.getCode())) {
+            log.warn("删除角色失败：该角色已设为注册默认角色不可删除，id={}, code={}", id, role.getCode());
             return SaResult.error("该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role").setCode(403);
         }
 
         long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, id));
         if (userCount > 0) {
+            log.warn("删除角色失败：该角色正在被用户使用，id={}, 关联用户数={}", id, userCount);
             return SaResult.error("该角色正在被用户使用，无法删除。请先解除用户与该角色的关联").setCode(403);
         }
 
@@ -255,6 +266,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRole::getId, roleId)
                         .and(w -> w.eq(SysRole::getIsDeleted, 0).or().isNull(SysRole::getIsDeleted)));
         if (role == null) {
+            log.warn("获取角色权限详情失败：角色不存在，roleId={}", roleId);
             return SaResult.error("角色不存在").setCode(404);
         }
 
@@ -273,6 +285,7 @@ public class RoleServiceImpl implements RoleService {
         validateRoleForModification(roleId);
         SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
         if (newPerm == null) {
+            log.warn("角色添加权限失败：权限不存在，roleId={}, permissionId={}", roleId, permissionId);
             return SaResult.error("权限不存在").setCode(404);
         }
 
@@ -301,6 +314,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermission::getRoleId, roleId)
                         .eq(SysRolePermission::getPermissionId, permissionId));
         if (deleted == 0) {
+            log.warn("角色移除权限失败：该权限未分配给角色，roleId={}, permissionId={}", roleId, permissionId);
             return SaResult.error("该权限未分配给角色").setCode(400);
         }
         log.info("角色移除权限成功，roleId={}, permissionId={}", roleId, permissionId);
@@ -312,9 +326,11 @@ public class RoleServiceImpl implements RoleService {
         validateRoleForModification(roleId);
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(groupId);
         if (group == null || (group.getIsDeleted() != null && group.getIsDeleted() == 1)) {
+            log.warn("角色添加权限组失败：权限组不存在，roleId={}, groupId={}", roleId, groupId);
             return SaResult.error("权限组不存在").setCode(404);
         }
         if (group.getStatus() != null && group.getStatus() == 0) {
+            log.warn("角色添加权限组失败：禁用的权限组无法添加，roleId={}, groupId={}", roleId, groupId);
             return SaResult.error("禁用的权限组无法添加到角色").setCode(400);
         }
 
@@ -323,6 +339,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermissionGroup::getRoleId, roleId)
                         .eq(SysRolePermissionGroup::getGroupId, groupId));
         if (count > 0) {
+            log.warn("角色添加权限组失败：该权限组已分配给角色，roleId={}, groupId={}", roleId, groupId);
             return SaResult.error("该权限组已分配给角色").setCode(400);
         }
 
@@ -371,6 +388,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermissionGroup::getRoleId, roleId)
                         .eq(SysRolePermissionGroup::getGroupId, groupId));
         if (deleted == 0) {
+            log.warn("角色移除权限组失败：该权限组未分配给角色，roleId={}, groupId={}", roleId, groupId);
             return SaResult.error("该权限组未分配给角色").setCode(400);
         }
 

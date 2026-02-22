@@ -73,13 +73,15 @@ public class RateLimitAspect {
         String ip = getClientIpAddress(request);
         String limitKey = buildLimitKey(joinPoint, rateLimit, ip);
         long now = System.currentTimeMillis();
-        long periodMin = (long) rateLimit.period() * 60 * 1000;
+        int periodMinutes = rateLimit.period() <= 0 ? 1 : rateLimit.period();
+        long periodMs = (long) periodMinutes * 60 * 1000;
+        int maxCount = rateLimit.count() <= 0 ? 1 : rateLimit.count();
 
         log.debug("构建限流键: [key={}, ip={}, method={}]", limitKey, ip, getMethodSignature(joinPoint));
 
-        AtomicInteger count = getOrCreateCounter(limitKey, now, periodMin);
+        AtomicInteger count = getOrCreateCounter(limitKey, now, periodMs);
 
-        if (count.incrementAndGet() > rateLimit.count()) {
+        if (count.incrementAndGet() > maxCount) {
             log.warn("请求被限流: [ip={}, key={}, method={}]", ip, limitKey, getMethodSignature(joinPoint));
             throw new RateLimitException("请求过于频繁，请稍后再试");
         }
