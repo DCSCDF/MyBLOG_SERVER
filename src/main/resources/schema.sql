@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS sys_config
     is_deleted      TINYINT(1)            DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time     DATETIME              DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time     DATETIME              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    
+
     UNIQUE KEY uk_config_key (config_key) COMMENT '配置键唯一索引'
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -506,7 +506,8 @@ FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'SUPER_ADMIN'
   AND p.code NOT IN
-      ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo', 'config');
+      ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo',
+       'config');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -561,6 +562,13 @@ SET is_system  = 1,
     is_deleted = 0
 WHERE name IN ('系统管理组', '文章管理组', '用户管理组');
 
+-- 为权限组添加权限
+-- 重建系统内置权限组的默认分配（避免父子权限混入同一组）
+DELETE pgi
+FROM sys_permission_group_item pgi
+         JOIN sys_permission_group g ON pgi.group_id = g.id
+WHERE g.name IN ('系统管理组', '文章管理组', '用户管理组');
+
 /*
  * [schema.sql]
  * =======================================
@@ -572,15 +580,8 @@ WHERE name IN ('系统管理组', '文章管理组', '用户管理组');
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/2/23 11:30
  */
-
--- 为权限组添加权限
--- 重建系统内置权限组的默认分配（避免父子权限混入同一组）
-DELETE pgi
-FROM sys_permission_group_item pgi
-         JOIN sys_permission_group g ON pgi.group_id = g.id
-WHERE g.name IN ('系统管理组', '文章管理组', '用户管理组');
 
 -- 系统管理组权限
 INSERT IGNORE INTO sys_permission_group_item (group_id, permission_id, sort_order)

@@ -53,7 +53,7 @@ public class SysSeo {
     @TableField("canonical_url")
     private String canonicalUrl;      // 规范URL（canonical link）
 
-    private String robots;             // robots meta标签（如index,follow、noindex,nofollow）
+    private String robots;             // robots meta标签（如index,follow、no index,no follow）
 
     @TableField("is_deleted")
     private Integer isDeleted;         // 0=未删除，1=已删除
