@@ -484,6 +484,13 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('seo:edit', '编辑SEO', '编辑SEO配置', 3),
        ('seo:delete', '删除SEO', '删除SEO配置', 4),
 
+-- 友情链接管理
+       ('links', '友情链接管理', '友情链接管理菜单', 50),
+       ('links:list', '友情链接列表', '查看友情链接列表', 1),
+       ('links:create', '创建友情链接', '创建友情链接', 2),
+       ('links:edit', '编辑友情链接', '编辑友情链接', 3),
+       ('links:delete', '删除友情链接', '删除友情链接', 4),
+
 -- 网站配置管理
        ('config', '网站配置', '网站配置菜单', 55),
        ('config:system:list', '系统配置查询', '按 key 查询系统默认配置项', 1),
@@ -507,7 +514,7 @@ FROM sys_role r
 WHERE r.code = 'SUPER_ADMIN'
   AND p.code NOT IN
       ('system', 'system:user', 'system:role', 'system:permission_group', 'article', 'category', 'comment', 'seo',
-       'config');
+       'links', 'config');
 
 -- ADMIN：用户管理 + 内容管理（文章/分类/评论）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
@@ -520,6 +527,7 @@ WHERE r.code = 'ADMIN'
     OR p.code LIKE 'category:%'
     OR p.code LIKE 'comment:%'
     OR p.code LIKE 'seo:%'
+    OR p.code LIKE 'links:%'
     OR p.code LIKE 'config:%');
 
 -- AUTHOR：文章管理 + 分类列表 + 基础评论权限
