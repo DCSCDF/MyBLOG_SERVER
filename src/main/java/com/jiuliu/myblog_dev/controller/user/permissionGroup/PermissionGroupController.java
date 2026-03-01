@@ -90,7 +90,7 @@ public class PermissionGroupController {
     }
 
     /**
-     * 删除权限组（系统内置权限组不可删除，同时级联删除所有关联）
+     * 删除权限组（系统内置权限组不可删除；若角色引用则不可删除，需先从相关角色中移除该权限组）
      * 权限：system:permission_group:delete
      */
     @SaCheckPermission("system:permission_group:delete")
