@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.service.link;
 
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.link.FriendLinkCreateDTO;
+import com.jiuliu.myblog_dev.dto.link.FriendLinkStatusUpdateDTO;
 import com.jiuliu.myblog_dev.dto.link.FriendLinkUpdateDTO;
 import com.jiuliu.myblog_dev.dto.link.PageFriendLinkDTO;
 
@@ -26,6 +27,11 @@ public interface FriendLinkService {
     SaResult createFriendLink(FriendLinkCreateDTO dto);
 
     SaResult updateFriendLink(FriendLinkUpdateDTO dto);
+
+    /**
+     * 变更友链审核状态：待审核→通过/拒绝，通过↔拒绝
+     */
+    SaResult updateFriendLinkStatus(Long id, FriendLinkStatusUpdateDTO dto);
 
     SaResult deleteFriendLink(Long id);
 }

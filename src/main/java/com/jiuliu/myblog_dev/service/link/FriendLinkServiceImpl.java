@@ -90,8 +90,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         List<FilterOptionItem> statusOptions = List.of(
                 new FilterOptionItem(0, "待审核"),
                 new FilterOptionItem(1, "已通过"),
-                new FilterOptionItem(2, "已拒绝"),
-                new FilterOptionItem(3, "已删除")
+                new FilterOptionItem(2, "已拒绝")
+//                new FilterOptionItem(3, "已删除")
         );
         return Map.of("status", statusOptions);
     }
@@ -137,6 +137,28 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         friendLinkMapper.update(null, updateWrapper);
         log.info("外链更新成功，id={}", dto.getId());
         SysFriendLink updated = friendLinkMapper.selectById(dto.getId());
+        return SaResult.data(toResponseDTO(updated));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult updateFriendLinkStatus(Long id, FriendLinkStatusUpdateDTO dto) {
+        SysFriendLink existing = friendLinkMapper.selectById(id);
+        if (existing == null) {
+            log.warn("变更友链审核状态失败：记录不存在，id={}", id);
+            return SaResult.error("友链不存在").setCode(404);
+        }
+        if (existing.getIsDeleted() != null && existing.getIsDeleted() == 1) {
+            log.warn("变更友链审核状态失败：记录已删除，id={}", id);
+            return SaResult.error("友链已删除").setCode(404);
+        }
+        Integer newStatus = dto.getStatus();
+        friendLinkMapper.update(null, new LambdaUpdateWrapper<SysFriendLink>()
+                .eq(SysFriendLink::getId, id)
+                .set(SysFriendLink::getStatus, newStatus)
+                .set(SysFriendLink::getUpdateTime, LocalDateTime.now()));
+        log.info("友链审核状态变更成功，id={}, 新状态={}", id, newStatus);
+        SysFriendLink updated = friendLinkMapper.selectById(id);
         return SaResult.data(toResponseDTO(updated));
     }
 

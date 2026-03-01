@@ -59,7 +59,7 @@ public class SysFriendLink {
     private Integer sortOrder;
 
     /**
-     * 审核状态：0=待审核，1=已通过，2=已拒绝，3=已删除
+     * 审核状态：0=待审核，1=已通过，2=已拒绝
      */
     private Integer status;
 

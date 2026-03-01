@@ -69,6 +69,19 @@ public class FriendLinkController {
     }
 
     /**
+     * 变更友链审核状态：待审核→通过/拒绝，通过↔拒绝
+     * 请求体示例：{ "status": 1 }（0=待审核，1=已通过，2=已拒绝）
+     * 权限：links:edit
+     */
+    @SaCheckPermission("links:edit")
+    @PutMapping("/{id}/status")
+    public Response<FriendLinkResponseDTO> updateFriendLinkStatus(@PathVariable Long id,
+                                                                  @Valid @RequestBody FriendLinkStatusUpdateDTO dto) {
+        SaResult saResult = friendLinkService.updateFriendLinkStatus(id, dto);
+        return handleSaResult(saResult);
+    }
+ 
+    /**
      * 删除外链（逻辑删除）
      * 权限：links:delete
      */
