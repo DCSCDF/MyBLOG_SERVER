@@ -129,11 +129,15 @@ public class AdminController {
 }
 ```
 
-### AJ-Captcha 自动注册了以下接口（基于 /api/captcha 前缀）：
+### 行为验证码（Tianai-Captcha，基于 /api/captcha 前缀）：
 
-| 接口                | 方法   | 说明              |
-|-------------------|------|-----------------|
-| `/captcha/get`    | POST | 获取验证码（滑动 or 点选） |
-| `/captcha/check`  | POST | 核对用户操作结果        |
-| `/captcha/verify` | POST | 二次校验（用于登录等）     |
+当前项目使用 **Tianai-Captcha** 作为行为验证码组件，接口说明如下：
+
+| 接口                    | 方法  | 说明                                       |
+|-----------------------|-----|------------------------------------------|
+| `/api/captcha/gen`    | GET | 生成验证码（默认滑块，可通过 `type` 指定类型）      |
+| `/api/captcha/check`  | POST| 校验用户行为轨迹（滑动 / 旋转 / 文字点选等）           |
+| `/api/captcha/verify` | GET | 二次验证（需在配置中开启 `captcha.secondary.enabled`） |
+
+验证码背景图片从 `resources/images` 目录加载（例如 `a.png`、`b.png`、`c.png`、`48.png`），跨域策略统一复用项目的 `CorsConfig` 配置。 
 

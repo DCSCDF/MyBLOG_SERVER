@@ -49,9 +49,9 @@
 | `POST /api/auth/update-email`      | 6 次 / 60 分钟  | 修改邮箱       |
 | `POST /api/auth/profile`           | 80 次 / 4 分钟  | 获取当前用户信息   |
 | `POST /api/auth/logout`            | 80 次 / 4 分钟  | 登出         |
-| `POST /api/captcha/get`            | 10 次 / 1 分钟  | 获取验证码      |
+| `GET /api/captcha/gen`             | 10 次 / 1 分钟  | 获取验证码      |
 | `POST /api/captcha/check`          | 20 次 / 1 分钟  | 检查验证码      |
-| `POST /api/captcha/verify`         | 10 次 / 1 分钟  | 二次验证       |
+| `GET /api/captcha/verify`          | 10 次 / 1 分钟  | 二次验证       |
 
 ---
 

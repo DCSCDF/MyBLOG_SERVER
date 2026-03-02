@@ -14,21 +14,16 @@
 
 package com.jiuliu.myblog_dev.service.user.auth;
 
+import cloud.tianai.captcha.application.ImageCaptchaApplication;
+import cloud.tianai.captcha.spring.plugins.secondary.SecondaryVerificationApplication;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
-import com.anji.captcha.model.vo.CaptchaVO;
-import com.anji.captcha.service.CaptchaService;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
 import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
@@ -66,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TempLoginTokenService tempLoginTokenService;
-    private final CaptchaService captchaService;
+    private final ImageCaptchaApplication imageCaptchaApplication;
 
     public AuthServiceImpl(
             SysUserMapper sysUserMapper,
@@ -76,7 +71,7 @@ public class AuthServiceImpl implements AuthService {
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
             TempLoginTokenService tempLoginTokenService,
-            CaptchaService captchaService) {
+            ImageCaptchaApplication imageCaptchaApplication) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
@@ -84,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
         this.tempLoginTokenService = tempLoginTokenService;
-        this.captchaService = captchaService;
+        this.imageCaptchaApplication = imageCaptchaApplication;
     }
 
     //    400: '请求参数错误',
@@ -393,50 +388,34 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 验证码校验通用方法
+     * 验证码校验通用方法（基于 TianAi-Captcha 二次验证）。
      *
-     * @param captchaVerification 验证码验证字符串
+     * @param captchaVerification 前端传入的验证码校验 ID（来自行为验证码校验成功后的返回值）
      * @param username            用户名（用于日志记录）
-     * @return 如果验证失败返回错误结果，验证成功返回null
+     * @return 如果验证失败返回错误结果，验证成功返回 null
      */
     private SaResult validateCaptcha(String captchaVerification, String username) {
-        CaptchaVO captchaVO = new CaptchaVO();
-        captchaVO.setCaptchaVerification(captchaVerification);
-        com.anji.captcha.model.common.ResponseModel response = captchaService.verification(captchaVO);
-
-        if (!response.isSuccess()) {
-            String repCode = response.getRepCode();
-            String message;
-            int httpCode = 400;
-
-            switch (repCode) {
-                case "6110":
-                    message = "验证码已失效，请重新获取";
-                    break;
-                case "6111":
-                    message = "验证码验证失败";
-                    break;
-                case "6206":
-                    message = "无效验证码请求，请重新获取";
-                    break;
-                case "6202":
-                    message = "验证码验证失败次数过多，请稍后再试";
-                    httpCode = 429;
-                    break;
-                case "6201":
-                case "6204":
-                    message = "请求过于频繁，请稍后再试";
-                    httpCode = 429;
-                    break;
-                default:
-                    message = "验证码校验异常，请重试";
-            }
-
-            log.warn("验证码校验未通过，repCode={}, username={}", repCode, username);
-            return SaResult.error(message).setCode(httpCode);
+        if (!StringUtils.hasText(captchaVerification)) {
+            log.warn("验证码校验失败：验证码为空，username={}", username);
+            return SaResult.error("验证码已失效，请重新获取").setCode(400);
         }
 
-        return null; // 验证成功
+        if (!(imageCaptchaApplication instanceof SecondaryVerificationApplication secondary)) {
+            log.error("验证码校验失败：未开启行为验证码二次验证功能");
+            return SaResult.error("验证码服务异常，请稍后重试").setCode(500);
+        }
+
+        try {
+            boolean success = secondary.secondaryVerification(captchaVerification);
+            if (!success) {
+                log.warn("验证码校验未通过，username={}", username);
+                return SaResult.error("验证码验证失败，请重新获取").setCode(400);
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("验证码校验异常，username={}, ex={}", username, e.getMessage());
+            return SaResult.error("验证码校验异常，请重试").setCode(400);
+        }
     }
 
     @Override

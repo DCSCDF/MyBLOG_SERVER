@@ -143,12 +143,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.anji-plus</groupId>
-            <artifactId>captcha-spring-boot-starter</artifactId>
-            <version>1.4.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>cloud.tianai.captcha</groupId>
             <artifactId>tianai-captcha-springboot-starter</artifactId>
             <version>1.5.5</version>
