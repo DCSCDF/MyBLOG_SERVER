@@ -15,10 +15,9 @@
 package com.jiuliu.myblog_dev.mapper.blog.category;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.jiuliu.myblog_dev.entity.user.role.SysRole;
+import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import org.apache.ibatis.annotations.Mapper;
 
-
 @Mapper
-public interface SysCategoryMapper extends BaseMapper<SysRole> {
+public interface SysCategoryMapper extends BaseMapper<SysCategory> {
 }

@@ -147,6 +147,12 @@
             <artifactId>captcha-spring-boot-starter</artifactId>
             <version>1.4.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>cloud.tianai.captcha</groupId>
+            <artifactId>tianai-captcha-springboot-starter</artifactId>
+            <version>1.5.5</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>

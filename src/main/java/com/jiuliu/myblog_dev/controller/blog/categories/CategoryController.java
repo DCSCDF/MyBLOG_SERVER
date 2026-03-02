@@ -9,61 +9,92 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/2
  */
 
 package com.jiuliu.myblog_dev.controller.blog.categories;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.dto.blog.category.*;
+import com.jiuliu.myblog_dev.service.blog.category.CategoryService;
+import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/categories")
 public class CategoryController {
-//    @RestController
-//    @RequestMapping("/api/categories")
-//    public class CategoryController {
-//
-//        /**
-//         * 获取分类列表
-//         * GET /api/categories
-//         * 权限：category:list
-//         */
-//        @GetMapping
-//        @CheckPermission("category:list")
-//        public Result listCategories() {
-//            // 返回分类列表
-//        }
-//
-//        /**
-//         * 创建分类
-//         * POST /api/categories
-//         * 权限：category:create
-//         */
-//        @PostMapping
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("category:create")
-//        public Result createCategory(@RequestBody @Valid CategoryDTO dto) {
-//            // 创建分类
-//        }
-//
-//        /**
-//         * 更新分类
-//         * PUT /api/categories/{id}
-//         * 权限：category:edit
-//         */
-//        @PutMapping("/{id}")
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("category:edit")
-//        public Result updateCategory(@PathVariable Long id, @RequestBody @Valid CategoryDTO dto) {
-//            // 更新分类
-//        }
-//
-//        /**
-//         * 删除分类
-//         * DELETE /api/categories/{id}
-//         * 权限：category:delete
-//         */
-//        @DeleteMapping("/{id}")
-//        @PreAuthorize("hasRole('ADMIN')")
-//        @CheckPermission("category:delete")
-//        public Result deleteCategory(@PathVariable Long id) {
-//            // 删除分类
-//        }
-//    }
+
+    private final CategoryService categoryService;
+
+    public CategoryController(CategoryService categoryService) {
+        this.categoryService = categoryService;
+    }
+
+    /**
+     * 分页获取分类列表
+     * 权限：category:list
+     */
+    @SaCheckPermission("category:list")
+    @PostMapping("/list")
+    public Response<PageCategoryResponseDTO> getPageCategories(@Valid @RequestBody PageCategoryDTO pageDto) {
+
+        SaResult saResult = categoryService.getPageCategories(pageDto);
+        return handleSaResult(saResult);
+
+    }
+
+    /**
+     * 创建分类
+     * 权限：category:create
+     */
+    @SaCheckPermission("category:create")
+    @PostMapping
+    public Response<CategoryResponseDTO> createCategory(@Valid @RequestBody CategoryCreateDTO dto) {
+
+        SaResult saResult = categoryService.createCategory(dto);
+        return handleSaResult(saResult);
+
+    }
+
+    /**
+     * 更新分类（名称、描述、排序顺序、是否隐藏）
+     * 权限：category:edit
+     */
+    @SaCheckPermission("category:edit")
+    @PutMapping("/{id}")
+    public Response<CategoryResponseDTO> updateCategory(@PathVariable Long id,
+                                                        @Valid @RequestBody CategoryUpdateDTO dto) {
+        dto.setId(id);
+        SaResult saResult = categoryService.updateCategory(dto);
+        return handleSaResult(saResult);
+
+    }
+
+    /**
+     * 删除分类
+     * 权限：category:delete
+     */
+    @SaCheckPermission("category:delete")
+    @DeleteMapping("/{id}")
+    public Response<Object> deleteCategory(@PathVariable Long id) {
+
+        SaResult saResult = categoryService.deleteCategory(id);
+        return handleSaResult(saResult);
+
+    }
+
+    private <T> Response<T> handleSaResult(SaResult saResult) {
+        if (saResult.getCode() == 200) {
+
+            @SuppressWarnings("unchecked")
+            T data = (T) saResult.getData();
+            return ResponseUtil.success(data, 200);
+
+        }
+        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+    }
 }
+
