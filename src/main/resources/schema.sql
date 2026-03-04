@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS sys_category
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '分类ID',
     name        VARCHAR(50) NOT NULL COMMENT '分类名称',
     description VARCHAR(200) COMMENT '分类描述',
+    author_id   BIGINT COMMENT '作者ID',
     sort_order  INT        DEFAULT 0 COMMENT '排序顺序（数字越大越靠前）',
     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     is_hidden   TINYINT(1) DEFAULT 0 COMMENT '是否隐藏：0=显示，1=隐藏',

@@ -15,6 +15,7 @@
 package com.jiuliu.myblog_dev.controller.blog.categories;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.category.*;
@@ -41,7 +42,8 @@ public class CategoryController {
     @PostMapping("/list")
     public Response<PageCategoryResponseDTO> getPageCategories(@Valid @RequestBody PageCategoryDTO pageDto) {
 
-        SaResult saResult = categoryService.getPageCategories(pageDto);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        SaResult saResult = categoryService.getPageCategories(pageDto, currentUserId);
         return handleSaResult(saResult);
 
     }
@@ -54,7 +56,8 @@ public class CategoryController {
     @PostMapping
     public Response<CategoryResponseDTO> createCategory(@Valid @RequestBody CategoryCreateDTO dto) {
 
-        SaResult saResult = categoryService.createCategory(dto);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        SaResult saResult = categoryService.createCategory(dto, currentUserId);
         return handleSaResult(saResult);
 
     }
@@ -68,7 +71,8 @@ public class CategoryController {
     public Response<CategoryResponseDTO> updateCategory(@PathVariable Long id,
                                                         @Valid @RequestBody CategoryUpdateDTO dto) {
         dto.setId(id);
-        SaResult saResult = categoryService.updateCategory(dto);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        SaResult saResult = categoryService.updateCategory(dto, currentUserId);
         return handleSaResult(saResult);
 
     }
@@ -81,7 +85,8 @@ public class CategoryController {
     @DeleteMapping("/{id}")
     public Response<Object> deleteCategory(@PathVariable Long id) {
 
-        SaResult saResult = categoryService.deleteCategory(id);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        SaResult saResult = categoryService.deleteCategory(id, currentUserId);
         return handleSaResult(saResult);
 
     }

@@ -29,6 +29,9 @@ public class SysCategory {
     private String name;            // 分类名称
     private String description;     // 描述
 
+    @TableField("author_id")
+    private Long authorId;          // 作者ID
+
     @TableField("sort_order")
     private Integer sortOrder;
 
