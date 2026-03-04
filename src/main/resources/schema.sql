@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS sys_blog
     category_id   BIGINT COMMENT '分类ID',
     title         VARCHAR(200) NOT NULL COMMENT '文章标题',
     summary       VARCHAR(500) COMMENT '文章摘要',
-    content       LONGTEXT COMMENT '文章内容',
+    content_md    LONGTEXT COMMENT 'md文章内容',
+    content_html  LONGTEXT COMMENT 'HTML文章内容',
     cover_image   VARCHAR(200) COMMENT '封面图片URL',
     tags          VARCHAR(200) COMMENT '标签（逗号分隔）',
     author_id     BIGINT COMMENT '作者ID',
@@ -198,31 +199,31 @@ CREATE TABLE IF NOT EXISTS sys_comment_like
     FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='评论点赞表';
-
--- 标签表
-CREATE TABLE IF NOT EXISTS sys_tag
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '标签ID',
-    name        VARCHAR(50) NOT NULL UNIQUE COMMENT '标签名称',
-    is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
-    create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT ='标签表';
-
--- 文章-标签关联表
-CREATE TABLE IF NOT EXISTS sys_blog_tag
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '关联ID',
-    blog_id     BIGINT NOT NULL COMMENT '文章ID',
-    tag_id      BIGINT NOT NULL COMMENT '标签ID',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-
-    UNIQUE KEY uk_blog_tag (blog_id, tag_id) COMMENT '防止重复关联',
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
-    FOREIGN KEY (tag_id) REFERENCES sys_tag (id) ON DELETE NO ACTION
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT ='文章-标签关联表';
+#
+# -- 标签表
+# CREATE TABLE IF NOT EXISTS sys_tag
+# (
+#     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '标签ID',
+#     name        VARCHAR(50) NOT NULL UNIQUE COMMENT '标签名称',
+#     is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
+#     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+#     update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+# ) ENGINE = InnoDB
+#   DEFAULT CHARSET = utf8mb4 COMMENT ='标签表';
+#
+# -- 文章-标签关联表
+# CREATE TABLE IF NOT EXISTS sys_blog_tag
+# (
+#     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '关联ID',
+#     blog_id     BIGINT NOT NULL COMMENT '文章ID',
+#     tag_id      BIGINT NOT NULL COMMENT '标签ID',
+#     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+#
+#     UNIQUE KEY uk_blog_tag (blog_id, tag_id) COMMENT '防止重复关联',
+#     FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
+#     FOREIGN KEY (tag_id) REFERENCES sys_tag (id) ON DELETE NO ACTION
+# ) ENGINE = InnoDB
+#   DEFAULT CHARSET = utf8mb4 COMMENT ='文章-标签关联表';
 
 -- 文章点赞表
 CREATE TABLE IF NOT EXISTS sys_blog_like
