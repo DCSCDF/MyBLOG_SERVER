@@ -26,10 +26,12 @@ import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
 import org.slf4j.Logger;
@@ -45,7 +47,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -57,6 +62,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysUserMapper sysUserMapper;
     private final SysUserRoleMapper sysUserRoleMapper;
     private final SysRoleMapper sysRoleMapper;
+    private final SysPermissionMapper sysPermissionMapper;
     private final SysConfigMapper sysConfigMapper;
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -67,6 +73,7 @@ public class AuthServiceImpl implements AuthService {
             SysUserMapper sysUserMapper,
             SysUserRoleMapper sysUserRoleMapper,
             SysRoleMapper sysRoleMapper,
+            SysPermissionMapper sysPermissionMapper,
             SysConfigMapper sysConfigMapper,
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
@@ -75,6 +82,7 @@ public class AuthServiceImpl implements AuthService {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
+        this.sysPermissionMapper = sysPermissionMapper;
         this.sysConfigMapper = sysConfigMapper;
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
@@ -550,6 +558,48 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> data = new HashMap<>();
         data.put("message", "邮箱修改成功");
         return SaResult.data(data);
+    }
+
+    @Override
+    public SaResult getCurrentUserPermissions(Long currentUserId) {
+        // 基于角色 + 权限表，计算当前用户拥有的所有权限编码（父权限自动展开为所有子权限）
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null || user.getIsDeleted() != null && user.getIsDeleted() == 1) {
+            log.warn("获取当前用户权限失败：用户不存在或已删除，userId={}", currentUserId);
+            return SaResult.error("用户不存在").setCode(404);
+        }
+
+        List<SysRole> roles = sysRoleMapper.selectRolesByUserId(currentUserId);
+        if (roles.isEmpty()) {
+            return SaResult.data(List.of());
+        }
+
+        List<SysPermission> allPermissions = sysPermissionMapper.selectList(null);
+        List<String> allCodes = allPermissions.stream()
+                .map(SysPermission::getCode)
+                .filter(StringUtils::hasText)
+                .toList();
+
+        Set<String> resultCodes = new LinkedHashSet<>();
+
+        for (SysRole role : roles) {
+            List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByRoleId(role.getId());
+            for (SysPermission permission : rolePermissions) {
+                String code = permission.getCode();
+                if (!StringUtils.hasText(code)) {
+                    continue;
+                }
+                if (resultCodes.add(code)) {
+                    for (String candidate : allCodes) {
+                        if (com.jiuliu.myblog_dev.utils.PermissionOverlapHelper.isParentOf(code, candidate)) {
+                            resultCodes.add(candidate);
+                        }
+                    }
+                }
+            }
+        }
+
+        return SaResult.data(List.copyOf(resultCodes));
     }
 
     /**

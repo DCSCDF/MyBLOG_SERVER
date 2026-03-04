@@ -19,9 +19,14 @@ import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
+import com.jiuliu.myblog_dev.utils.PermissionOverlapHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,12 +54,36 @@ public class SaTokenService implements StpInterface {
         Long userId = convertToLong(loginId);
         List<SysRole> roleList = sysRoleMapper.selectRolesByUserId(userId);
 
-        return roleList.stream()
-                .flatMap(role ->
-                        sysPermissionMapper.selectPermissionsByRoleId(role.getId()).stream()
-                )
+        // 系统中所有已注册的权限编码，用于展开父权限 -> 子权限
+        List<SysPermission> allPermissions = sysPermissionMapper.selectList(null);
+        List<String> allPermissionCodes = allPermissions.stream()
                 .map(SysPermission::getCode)
-                .collect(Collectors.toList());
+                .filter(StringUtils::hasText)
+                .toList();
+
+        // 使用有序去重集合，保证返回列表无重复且顺序稳定
+        Set<String> resultCodes = new LinkedHashSet<>();
+
+        for (SysRole role : roleList) {
+            List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByRoleId(role.getId());
+            for (SysPermission permission : rolePermissions) {
+                String code = permission.getCode();
+                if (!StringUtils.hasText(code)) {
+                    continue;
+                }
+                // 先加入自身权限
+                if (resultCodes.add(code)) {
+                    // 再根据父子关系规则，将其所有子权限一并加入
+                    for (String candidate : allPermissionCodes) {
+                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
+                            resultCodes.add(candidate);
+                        }
+                    }
+                }
+            }
+        }
+
+        return new ArrayList<>(resultCodes);
     }
 
     private Long convertToLong(Object loginId) {

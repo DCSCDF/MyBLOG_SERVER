@@ -19,7 +19,9 @@
 > - [账号管理（用户管理）接口文档 `User_Manage_Api`](Document/User_Manage_Api.md)
 > - [站点配置接口文档 `Config_Api`](Document/Config_Api.md)
 > - [限流逻辑说明文档 `RateLimit`](Document/RateLimit.md)
-
+> - [权限层级与父子关系说明 `Permission_Hierarchy`](Document/Permission_Hierarchy.md)
+> - [分类API文档 `category_api`](Document/category_api.md)
+> - [网站友链API文档 `FriendLink_Api`](Document/FriendLink_Api.md) 
 
 ---
 

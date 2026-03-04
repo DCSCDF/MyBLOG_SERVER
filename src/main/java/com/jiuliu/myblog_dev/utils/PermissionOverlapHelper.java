@@ -53,4 +53,21 @@ public final class PermissionOverlapHelper {
         // B 是 A 的父级：A 以 "B:" 开头
         return codeA.startsWith(codeB + ":");
     }
+
+    /**
+     * 判断 parentCode 是否是 childCode 的父权限（严格父级，排除自身）
+     * 示例：
+     * parentCode = "system"  childCode = "system:role:list" -> true
+     * parentCode = "system:role"  childCode = "system:role:list" -> true
+     * parentCode = "system:role:list"  childCode = "system:role:list" -> false
+     */
+    public static boolean isParentOf(String parentCode, String childCode) {
+        if (parentCode == null || childCode == null) {
+            return false;
+        }
+        if (parentCode.equals(childCode)) {
+            return false;
+        }
+        return childCode.startsWith(parentCode + ":");
+    }
 }

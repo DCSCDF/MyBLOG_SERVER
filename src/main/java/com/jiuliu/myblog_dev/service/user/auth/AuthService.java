@@ -43,4 +43,9 @@ public interface AuthService {
     SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId);
 
     SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId);
+
+    /**
+     * 获取当前用户拥有的权限编码列表（包含父权限展开后的所有子权限）
+     */
+    SaResult getCurrentUserPermissions(Long currentUserId);
 }

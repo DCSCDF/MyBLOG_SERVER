@@ -130,4 +130,15 @@ public class AuthController {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResult(authService.updateEmail(dto, currentUserId));
     }
+
+    /**
+     * 获取当前登录用户拥有的权限编码列表
+     * 包含父权限自动展开得到的所有子权限
+     */
+    @PostMapping("/permissions")
+    @RateLimit(count = 80, period = 4)
+    public Response<Object> getCurrentUserPermissions() {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResultObject(authService.getCurrentUserPermissions(currentUserId));
+    }
 }
