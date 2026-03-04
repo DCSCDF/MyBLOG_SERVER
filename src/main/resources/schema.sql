@@ -422,13 +422,14 @@ SET is_system  = 1,
     is_deleted = 0
 WHERE code IN ('ADMIN', 'AUTHOR', 'USER');
 
+
 -- 系统管理权限
 INSERT IGNORE INTO sys_permission (code, name, description, sort_order)
 VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:user', '用户管理', '用户管理', 101),
        ('system:role', '角色管理', '角色管理', 102),
        ('system:permission', '权限管理', '权限管理', 103),
-       ('system:permission_group', '权限组管理', '权限组管理', 104),
+       ('system:permission:permission_group', '权限组管理', '权限组管理', 104),
 
 -- 用户管理 API 权限
        ('system:user:list', '用户列表', '查看用户列表', 1),
@@ -449,12 +450,12 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:role:removePermissionGroup', '角色移除权限组', '从角色移除权限组', 9),
 
 -- 权限组管理 API 权限
-       ('system:permission_group:list', '权限组列表', '查看权限组列表', 1),
-       ('system:permission_group:create', '创建权限组', '创建权限组', 2),
-       ('system:permission_group:edit', '编辑权限组', '编辑权限组', 3),
-       ('system:permission_group:delete', '删除权限组', '删除权限组', 4),
-       ('system:permission_group:addPermission', '权限组添加权限', '为权限组添加权限', 4),
-       ('system:permission_group:removePermission', '权限组移除权限', '从权限组移除权限', 5),
+       ('system:permission:permission_group:list', '权限组列表', '查看权限组列表', 1),
+       ('system:permission:permission_group:create', '创建权限组', '创建权限组', 2),
+       ('system:permission:permission_group:edit', '编辑权限组', '编辑权限组', 3),
+       ('system:permission:permission_group:delete', '删除权限组', '删除权限组', 4),
+       ('system:permission:permission_group:addPermission', '权限组添加权限', '为权限组添加权限', 4),
+       ('system:permission:permission_group:removePermission', '权限组移除权限', '从权限组移除权限', 5),
 
 -- SEO管理
        ('system:seo', 'SEO管理', 'SEO管理菜单', 60),
@@ -494,7 +495,6 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('article:create', '创建文章', '创建文章', 2),
        ('article:edit', '编辑文章', '编辑文章', 3),
        ('article:delete', '删除文章', '删除文章', 4),
-#        ('article:publish', '发布文章', '发布文章', 5),
 
 -- 分类管理
        ('category', '分类管理', '分类管理菜单', 80),
@@ -560,13 +560,13 @@ WHERE r.code = 'AUTHOR'
   AND (p.code LIKE 'article:%'
     OR p.code IN ('category:list', 'comment:create', 'comment:list'));
 
--- USER：文章列表 + 评论（创建/列表）
+-- USER： 评论（创建/列表）
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id
 FROM sys_role r
          CROSS JOIN sys_permission p
 WHERE r.code = 'USER'
-  AND p.code IN ('article:list', 'comment:create', 'comment:list');
+  AND p.code IN ('comment:create', 'comment:list');
 
 -- 插入默认权限组
 INSERT IGNORE INTO sys_permission_group (name, description, sort_order, status, is_system)
@@ -621,6 +621,12 @@ WHERE g.name = '系统管理组'
   AND (p.code = 'system:permission'
     OR p.code LIKE 'system:role:%'
     OR p.code LIKE 'system:permission_group:%'
+    OR p.code LIKE 'system:user:%'
+    OR p.code LIKE 'system:seo:%'
+    OR p.code LIKE 'system:config:%'
+    OR p.code LIKE 'system:article:%'
+    OR p.code LIKE 'system:category:%'
+    OR p.code LIKE 'system:comment:%'
     OR p.code LIKE 'config:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
@@ -636,7 +642,8 @@ WHERE g.name = '文章管理组'
   AND (p.code LIKE 'article:%'
     OR p.code LIKE 'category:%'
     OR p.code LIKE 'comment:%'
-    OR p.code LIKE 'seo:%')
+    OR p.code LIKE 'seo:%'
+    OR p.code LIKE 'links:%')
   AND NOT EXISTS (SELECT 1
                   FROM sys_permission_group_item pgi
                   WHERE pgi.group_id = g.id

@@ -46,7 +46,7 @@ public class PermissionGroupController {
      * 分页获取权限组列表
      * 权限：system:permission_group:list
      */
-    @SaCheckPermission("system:permission_group:list")
+    @SaCheckPermission("system:permission:permission_group:list")
     @PostMapping("/list")
     public Response<PagePermissionGroupResponseDTO> getPagePermissionGroups(
             @Valid @RequestBody PagePermissionGroupDTO pageDto) {
@@ -58,7 +58,7 @@ public class PermissionGroupController {
      * 根据ID获取权限组详情
      * 权限：system:permission_group:list
      */
-    @SaCheckPermission("system:permission_group:list")
+    @SaCheckPermission("system:permission:permission_group:list")
     @GetMapping("/{id}")
     public Response<PermissionGroupResponseDTO> getPermissionGroupById(@PathVariable Long id) {
         SaResult saResult = permissionGroupService.getPermissionGroupById(id);
@@ -69,7 +69,7 @@ public class PermissionGroupController {
      * 创建权限组
      * 权限：system:permission_group:create
      */
-    @SaCheckPermission("system:permission_group:create")
+    @SaCheckPermission("system:permission:permission_group:create")
     @PostMapping
     public Response<PermissionGroupResponseDTO> createPermissionGroup(@Valid @RequestBody PermissionGroupCreateDTO dto) {
         SaResult saResult = permissionGroupService.createPermissionGroup(dto);
@@ -80,7 +80,7 @@ public class PermissionGroupController {
      * 修改权限组（系统内置权限组不可修改）
      * 权限：system:permission_group:edit
      */
-    @SaCheckPermission("system:permission_group:edit")
+    @SaCheckPermission("system:permission:permission_group:edit")
     @PutMapping("/{id}")
     public Response<PermissionGroupResponseDTO> updatePermissionGroup(
             @PathVariable Long id, @Valid @RequestBody PermissionGroupUpdateDTO dto) {
@@ -93,7 +93,7 @@ public class PermissionGroupController {
      * 删除权限组（系统内置权限组不可删除；若角色引用则不可删除，需先从相关角色中移除该权限组）
      * 权限：system:permission_group:delete
      */
-    @SaCheckPermission("system:permission_group:delete")
+    @SaCheckPermission("system:permission:permission_group:delete")
     @DeleteMapping("/{id}")
     public Response<Object> deletePermissionGroup(@PathVariable Long id) {
         SaResult saResult = permissionGroupService.deletePermissionGroup(id);
@@ -104,7 +104,7 @@ public class PermissionGroupController {
      * 获取权限组关联的权限列表
      * 权限：system:permission_group:list
      */
-    @SaCheckPermission("system:permission_group:list")
+    @SaCheckPermission("system:permission:permission_group:list")
     @GetMapping("/{id}/permissions")
     public Response<?> getPermissionsByGroupId(@PathVariable Long id) {
         SaResult saResult = permissionGroupService.getPermissionsByGroupId(id);
@@ -115,7 +115,7 @@ public class PermissionGroupController {
      * 为权限组添加权限（仅非系统内置权限组可操作）
      * 权限：system:permission_group:addPermission
      */
-    @SaCheckPermission("system:permission_group:addPermission")
+    @SaCheckPermission("system:permission:permission_group:addPermission")
     @PostMapping("/{id}/permissions")
     public Response<Object> addPermissionToGroup(
             @PathVariable Long id, @Valid @RequestBody PermissionGroupItemDTO dto) {
@@ -127,7 +127,7 @@ public class PermissionGroupController {
      * 从权限组移除权限（仅非系统内置权限组可操作）
      * 权限：system:permission_group:removePermission
      */
-    @SaCheckPermission("system:permission_group:removePermission")
+    @SaCheckPermission("system:permission:permission_group:removePermission")
     @DeleteMapping("/{id}/permissions/{permissionId}")
     public Response<Object> removePermissionFromGroup(
             @PathVariable Long id, @PathVariable Long permissionId) {
