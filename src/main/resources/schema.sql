@@ -455,13 +455,45 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:permission_group:addPermission', '权限组添加权限', '为权限组添加权限', 4),
        ('system:permission_group:removePermission', '权限组移除权限', '从权限组移除权限', 5),
 
+-- SEO管理
+       ('system:seo', 'SEO管理', 'SEO管理菜单', 60),
+       ('system:seo:list', 'SEO列表', '查看SEO列表', 1),
+       ('system:seo:create', '创建SEO', '创建SEO配置', 2),
+       ('system:seo:edit', '编辑SEO', '编辑SEO配置', 3),
+       ('system:seo:delete', '删除SEO', '删除SEO配置', 4),
+
+-- 网站配置管理
+       ('system:config', '网站配置', '网站配置菜单', 55),
+       ('system:config:system:list', '系统配置查询', '按 key 查询系统默认配置项', 1),
+       ('system:config:custom:list', '自定义配置列表', '分页查询用户自定义配置项', 2),
+       ('system:config:create', '创建自定义配置', '添加用户自定义配置项', 3),
+       ('system:config:edit', '修改配置', '修改网站配置项的值', 4),
+       ('system:config:delete', '删除自定义配置', '删除非系统内置的配置项', 5),
+
+-- 全局文章、分类、评论等管理
+       ('system:article', '全局文章管理', '全局文章管理菜单', 56),
+       ('system:article:list', '全局文章列表', '查看全局文章列表', 56),
+       ('system:article:delete', '全局删除文章', '全局删除文章', 56),
+       ('system:article:edit', '全局编辑文章', '全局编辑文章', 56),
+
+       ('system:category', '全局分类管理', '全局分类管理菜单', 1),
+       ('system:category:list', '全局分类列表', '全局分类列表', 1),
+       ('system:category:delete', '全局删除分类', '全局删除分类', 1),
+       ('system:category:edit', '全局编辑分类', '全局编辑分类', 1),
+
+       ('system:comment', '全局评论管理', '全局评论管理菜单', 2),
+       ('system:comment:list', '全局评论列表', '全局评论列表', 2),
+       ('system:comment:delete', '全局删除评论', '全局删除评论', 2),
+       ('system:comment:edit', '全局编辑评论', '全局编辑评论', 2),
+       ('system:comment:approve', '全局审核评论', '全局审核评论', 5),
+
 -- 文章管理
        ('article', '文章管理', '文章管理菜单', 90),
        ('article:list', '文章列表', '查看文章列表', 1),
        ('article:create', '创建文章', '创建文章', 2),
        ('article:edit', '编辑文章', '编辑文章', 3),
        ('article:delete', '删除文章', '删除文章', 4),
-       ('article:publish', '发布文章', '发布文章', 5),
+#        ('article:publish', '发布文章', '发布文章', 5),
 
 -- 分类管理
        ('category', '分类管理', '分类管理菜单', 80),
@@ -476,29 +508,16 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('comment:create', '创建评论', '创建评论', 2),
        ('comment:edit', '编辑评论', '编辑评论', 3),
        ('comment:delete', '删除评论', '删除评论', 4),
-       ('comment:approve', '审核评论', '审核评论', 5),
 
--- SEO管理
-       ('seo', 'SEO管理', 'SEO管理菜单', 60),
-       ('seo:list', 'SEO列表', '查看SEO列表', 1),
-       ('seo:create', '创建SEO', '创建SEO配置', 2),
-       ('seo:edit', '编辑SEO', '编辑SEO配置', 3),
-       ('seo:delete', '删除SEO', '删除SEO配置', 4),
 
 -- 友情链接管理
        ('links', '友情链接管理', '友情链接管理菜单', 50),
        ('links:list', '友情链接列表', '查看友情链接列表', 1),
        ('links:create', '创建友情链接', '创建友情链接', 2),
        ('links:edit', '编辑友情链接', '编辑友情链接', 3),
-       ('links:delete', '删除友情链接', '删除友情链接', 4),
+       ('links:delete', '删除友情链接', '删除友情链接', 4);
 
--- 网站配置管理
-       ('config', '网站配置', '网站配置菜单', 55),
-       ('config:system:list', '系统配置查询', '按 key 查询系统默认配置项', 1),
-       ('config:custom:list', '自定义配置列表', '分页查询用户自定义配置项', 2),
-       ('config:create', '创建自定义配置', '添加用户自定义配置项', 3),
-       ('config:edit', '修改配置', '修改网站配置项的值', 4),
-       ('config:delete', '删除自定义配置', '删除非系统内置的配置项', 5);
+
 
 -- 为超级管理员角色分配所有权限（使用NOT EXISTS检查）
 -- 重新分配默认角色权限（避免父子权限同时分配导致后续“权限重叠”问题）

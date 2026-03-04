@@ -27,7 +27,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/seo/list`
-- **需要权限**: `seo:list`
+- **需要权限**: `system:seo:list`
 
 #### 请求参数
 
@@ -113,7 +113,7 @@
 
 - **请求方法**: `GET`
 - **请求路径**: `/api/seo/{id}`
-- **需要权限**: `seo:list`
+- **需要权限**: `system:seo:list`
 
 #### 路径参数
 
@@ -167,7 +167,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/seo`
-- **需要权限**: `seo:create`
+- **需要权限**: `system:seo:create`
 
 #### 请求参数
 
@@ -249,7 +249,7 @@
 
 - **请求方法**: `PUT`
 - **请求路径**: `/api/seo/{id}`
-- **需要权限**: `seo:edit`
+- **需要权限**: `system:seo:edit`
 
 #### 路径参数
 
@@ -346,7 +346,7 @@
 
 - **请求方法**: `DELETE`
 - **请求路径**: `/api/seo/{id}`
-- **需要权限**: `seo:delete`
+- **需要权限**: `system:seo:delete`
 
 #### 路径参数
 
@@ -395,10 +395,10 @@
 
 SEO配置管理功能需要以下权限：
 
-- `seo:list` - 查看SEO配置列表和详情
-- `seo:create` - 创建SEO配置
-- `seo:edit` - 编辑SEO配置（系统内置的也可以编辑）
-- `seo:delete` - 删除SEO配置（系统内置的不可删除）
+- `system:seo:list` - 查看SEO配置列表和详情
+- `system:seo:create` - 创建SEO配置
+- `system:seo:edit` - 编辑SEO配置（系统内置的也可以编辑）
+- `system:seo:delete` - 删除SEO配置（系统内置的不可删除）
 
 ---
 

@@ -37,7 +37,7 @@ public class SeoController {
      * 分页获取SEO列表
      * 权限：seo:list
      */
-    @SaCheckPermission("seo:list")
+    @SaCheckPermission("system:seo:list")
     @PostMapping("/list")
     public Response<PageSeoResponseDTO> getPageSeos(@Valid @RequestBody PageSeoDTO pageDto) {
         SaResult saResult = seoService.getPageSeos(pageDto);
@@ -48,7 +48,7 @@ public class SeoController {
      * 根据ID获取SEO详情
      * 权限：seo:list
      */
-    @SaCheckPermission("seo:list")
+    @SaCheckPermission("system:seo:list")
     @GetMapping("/{id}")
     public Response<SeoResponseDTO> getSeoById(@PathVariable Long id) {
         SaResult saResult = seoService.getSeoById(id);
@@ -59,7 +59,7 @@ public class SeoController {
      * 创建SEO配置
      * 权限：seo:create
      */
-    @SaCheckPermission("seo:create")
+    @SaCheckPermission("system:seo:create")
     @PostMapping
     public Response<SeoResponseDTO> createSeo(@Valid @RequestBody SeoCreateDTO dto) {
         SaResult saResult = seoService.createSeo(dto);
@@ -70,7 +70,7 @@ public class SeoController {
      * 修改SEO配置（系统内置的也可以编辑）
      * 权限：seo:edit
      */
-    @SaCheckPermission("seo:edit")
+    @SaCheckPermission("system:seo:edit")
     @PutMapping("/{id}")
     public Response<SeoResponseDTO> updateSeo(@PathVariable Long id, @Valid @RequestBody SeoUpdateDTO dto) {
         dto.setId(id);
@@ -82,7 +82,7 @@ public class SeoController {
      * 删除SEO配置（系统内置的不可删除）
      * 权限：seo:delete
      */
-    @SaCheckPermission("seo:delete")
+    @SaCheckPermission("system:seo:delete")
     @DeleteMapping("/{id}")
     public Response<Object> deleteSeo(@PathVariable Long id) {
         SaResult saResult = seoService.deleteSeo(id);

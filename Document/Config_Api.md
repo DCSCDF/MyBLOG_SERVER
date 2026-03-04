@@ -25,7 +25,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/config/system/list`
-- **需要权限**: `config:system:list`
+- **需要权限**: `system:config:system:list`
 
 #### 请求参数
 
@@ -103,7 +103,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/config/custom/list`
-- **需要权限**: `config:custom:list`
+- **需要权限**: `system:config:custom:list`
 
 #### 请求参数
 
@@ -168,7 +168,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/config/custom`
-- **需要权限**: `config:create`
+- **需要权限**: `system:config:create`
 
 #### 请求参数
 
@@ -242,7 +242,7 @@
 
 - **请求方法**: `PUT`
 - **请求路径**: `/api/config`
-- **需要权限**: `config:edit`
+- **需要权限**: `system:config:edit`
 
 #### 请求参数
 
@@ -309,7 +309,7 @@
 
 - **请求方法**: `DELETE`
 - **请求路径**: `/api/config/custom/{id}`
-- **需要权限**: `config:delete`
+- **需要权限**: `system:config:delete`
 
 #### 路径参数
 
@@ -369,11 +369,11 @@
 
 网站配置管理功能需要以下权限：
 
-- `config:system:list` - 按 key 查询系统默认配置项
-- `config:custom:list` - 分页查询用户自定义配置项
-- `config:create` - 创建用户自定义配置项
-- `config:edit` - 修改配置项的值（仅 `config_value`）
-- `config:delete` - 删除非系统内置的配置项
+- `system:config:system:list` - 按 key 查询系统默认配置项
+- `system:config:custom:list` - 分页查询用户自定义配置项
+- `system:config:create` - 创建用户自定义配置项
+- `system:config:edit` - 修改配置项的值（仅 `config_value`）
+- `system:config:delete` - 删除非系统内置的配置项
 
 ---
 

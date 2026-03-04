@@ -39,7 +39,7 @@ public class ConfigController {
      * 系统默认配置项查询：前端传入 config_key 数组，仅返回系统内置项
      * 权限：config:system:list
      */
-    @SaCheckPermission("config:system:list")
+    @SaCheckPermission("system:config:system:list")
     @PostMapping("/system/list")
     public Response<List<ConfigItemResponseDTO>> getSystemConfigByKeys(@Valid @RequestBody ConfigSystemKeysDTO dto) {
         SaResult saResult = sysConfigService.getSystemConfigByKeys(dto);
@@ -50,7 +50,7 @@ public class ConfigController {
      * 用户自定义配置项分页列表：仅非系统内置项
      * 权限：config:custom:list
      */
-    @SaCheckPermission("config:custom:list")
+    @SaCheckPermission("system:config:custom:list")
     @PostMapping("/custom/list")
     public Response<PageConfigCustomResponseDTO> getPageCustomConfigs(@Valid @RequestBody PageConfigCustomDTO pageDto) {
         SaResult saResult = sysConfigService.getPageCustomConfigs(pageDto);
@@ -61,7 +61,7 @@ public class ConfigController {
      * 添加用户自定义配置项
      * 权限：config:create
      */
-    @SaCheckPermission("config:create")
+    @SaCheckPermission("system:config:create")
     @PostMapping("/custom")
     public Response<ConfigItemResponseDTO> createCustomConfig(@Valid @RequestBody ConfigCreateDTO dto) {
         SaResult saResult = sysConfigService.createCustomConfig(dto);
@@ -72,7 +72,7 @@ public class ConfigController {
      * 修改网站配置项：仅允许修改 config_value
      * 权限：config:edit
      */
-    @SaCheckPermission("config:edit")
+    @SaCheckPermission("system:config:edit")
     @PutMapping
     public Response<ConfigItemResponseDTO> updateConfig(@Valid @RequestBody ConfigUpdateDTO dto) {
         SaResult saResult = sysConfigService.updateConfigValue(dto);
@@ -83,7 +83,7 @@ public class ConfigController {
      * 删除非系统内置的配置项
      * 权限：config:delete
      */
-    @SaCheckPermission("config:delete")
+    @SaCheckPermission("system:config:delete")
     @DeleteMapping("/custom/{id}")
     public Response<Object> deleteCustomConfig(@PathVariable Long id) {
         SaResult saResult = sysConfigService.deleteCustomConfig(id);
