@@ -24,9 +24,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import java.util.Properties;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+
 
 @Configuration
 public class MailConfig {
@@ -41,7 +39,7 @@ public class MailConfig {
     private static final String KEY_SMTP_SSL_ENABLED = "smtp.ssl.enabled";
 
     private final SysConfigMapper sysConfigMapper;
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
 
     private JavaMailSenderImpl mailSender;
 
