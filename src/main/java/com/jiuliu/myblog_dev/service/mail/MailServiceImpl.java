@@ -16,12 +16,14 @@ package com.jiuliu.myblog_dev.service.mail;
 
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.config.MailConfig;
+import com.jiuliu.myblog_dev.utils.mail.SmtpConnectionTester;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -33,10 +35,12 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
     private final MailConfig mailConfig;
+    private final SmtpConnectionTester smtpConnectionTester;
 
-    public MailServiceImpl(JavaMailSender mailSender, MailConfig mailConfig) {
+    public MailServiceImpl(JavaMailSender mailSender, MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester) {
         this.mailSender = mailSender;
         this.mailConfig = mailConfig;
+        this.smtpConnectionTester = smtpConnectionTester;
     }
 
     @Override
@@ -57,6 +61,12 @@ public class MailServiceImpl implements MailService {
         if (!mailConfig.isConfigured()) {
             log.warn("发送测试邮件失败：SMTP 配置未完成");
             return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+        }
+
+        // 在发送邮件前，先测试 SMTP 连接
+        SaResult connectionTestResult = testSmtpConnection();
+        if (connectionTestResult.getCode() != 200) {
+            return connectionTestResult;
         }
 
         try {
@@ -124,9 +134,37 @@ public class MailServiceImpl implements MailService {
     public SaResult checkSmtpConfiguration() {
         boolean configured = mailConfig.isConfigured();
         if (configured) {
-            return SaResult.data("SMTP 配置已完成");
+            // 同时测试连接
+            SaResult connectionTestResult = testSmtpConnection();
+            if (connectionTestResult.getCode() == 200) {
+                return SaResult.data("SMTP 配置已完成且连接正常");
+            } else {
+                return SaResult.error("SMTP 配置已完成，但无法连接到服务器：" + connectionTestResult.getMsg()).setCode(400);
+            }
         } else {
             return SaResult.error("SMTP 配置未完成").setCode(400);
         }
+    }
+
+    /**
+     * 测试 SMTP 连接
+     *
+     * @return SaResult 测试结果
+     */
+    private SaResult testSmtpConnection() {
+        JavaMailSenderImpl mailSenderImpl = mailConfig.getMailSenderImpl();
+        if (mailSenderImpl == null) {
+            log.warn("SMTP 连接测试失败：无法获取 JavaMailSenderImpl 实例");
+            return SaResult.error("邮件发送器未正确初始化").setCode(500);
+        }
+
+        SmtpConnectionTester.ConnectionTestResult result = smtpConnectionTester.testConnection(mailSenderImpl);
+        if (!result.isSuccess()) {
+            log.warn("SMTP 连接测试失败：{}", result.getMessage());
+            return SaResult.error(result.getMessage()).setCode(500);
+        }
+
+        log.info("SMTP 连接测试通过");
+        return SaResult.ok("SMTP 连接正常");
     }
 }

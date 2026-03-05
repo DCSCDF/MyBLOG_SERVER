@@ -143,4 +143,16 @@ public class MailConfig {
         }
         return configured;
     }
+
+    /**
+     * 获取当前的 JavaMailSenderImpl 实例
+     *
+     * @return JavaMailSenderImpl 实例，如果未初始化则返回 null
+     */
+    public JavaMailSenderImpl getMailSenderImpl() {
+        if (mailSender != null) {
+            return mailSender;
+        }
+        return null;
+    }
 }
