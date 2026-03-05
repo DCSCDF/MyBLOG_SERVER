@@ -309,6 +309,9 @@ public class AuthServiceImpl implements AuthService {
         return SaResult.data(data);
     }
 
+    // 默认角色编码
+    private static final String DEFAULT_ROLE_CODE = "USER";
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult register(RegisterDTO dto) {
@@ -360,16 +363,41 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱已被注册").setCode(400);
         }
 
-        // 5. 获取默认注册角色
-        String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
-        if (!StringUtils.hasText(defaultRoleCode)) {
-            log.error("系统配置 user_register_default_role 未设置");
-            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+        // 5. 获取默认注册角色（检查角色存在、未删除、已启用）
+        String configRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
+        SysRole defaultRole = null;
+
+        if (StringUtils.hasText(configRoleCode)) {
+            // 检查配置的角色是否存在且有效（未删除且启用）
+            defaultRole = sysRoleMapper.selectOne(
+                    new QueryWrapper<SysRole>()
+                            .eq("code", configRoleCode)
+                            .eq("is_deleted", 0)
+                            .eq("status", 1));
+            if (defaultRole != null) {
+                log.info("使用配置的角色注册，roleCode={}", configRoleCode);
+            } else {
+                log.warn("配置的角色无效，roleCode={}，尝试使用默认USER角色", configRoleCode);
+            }
+        } else {
+            log.warn("系统配置 user_register_default_role 未设置，尝试使用默认USER角色");
         }
-        SysRole defaultRole = sysRoleMapper.selectOne(
-                new QueryWrapper<SysRole>().eq("code", defaultRoleCode).eq("is_deleted", 0));
+
+        // 如果配置的角色无效，尝试使用默认USER角色
         if (defaultRole == null) {
-            log.error("默认注册角色不存在，roleCode={}", defaultRoleCode);
+            defaultRole = sysRoleMapper.selectOne(
+                    new QueryWrapper<SysRole>()
+                            .eq("code", DEFAULT_ROLE_CODE)
+                            .eq("is_deleted", 0)
+                            .eq("status", 1));
+            if (defaultRole != null) {
+                log.info("使用默认USER角色注册");
+            }
+        }
+
+        // 如果没有可用的角色，返回错误
+        if (defaultRole == null) {
+            log.error("无可用的注册角色，配置角色={}，默认角色USER也不可用", configRoleCode);
             return SaResult.error("系统配置异常，暂无法注册").setCode(500);
         }
 

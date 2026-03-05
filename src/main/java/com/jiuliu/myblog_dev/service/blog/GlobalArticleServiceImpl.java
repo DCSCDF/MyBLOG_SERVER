@@ -41,6 +41,24 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import lombok.Data;
+
+/**
+ * 用户信息 DTO，包含昵称和状态
+ */
+@Data
+class UserInfo {
+    private String nickname;
+    private Integer status;
+    private Integer isDeleted;
+
+    public UserInfo(String nickname, Integer status, Integer isDeleted) {
+        this.nickname = nickname;
+        this.status = status;
+        this.isDeleted = isDeleted;
+    }
+}
+
 /**
  * 全局文章管理Service实现类
  */
@@ -95,17 +113,17 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
                 .collect(Collectors.toList());
 
         // 批量查询用户信息
-        Map<Long, String> userNicknameMap = new HashMap<>();
+        Map<Long, UserInfo> userInfoMap = new HashMap<>();
         if (!authorIds.isEmpty()) {
             List<SysUser> users = userMapper.selectList(new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
             for (SysUser user : users) {
-                userNicknameMap.put(user.getId(), user.getNickname());
+                userInfoMap.put(user.getId(), new UserInfo(user.getNickname(), user.getStatus(), user.getIsDeleted()));
             }
         }
 
         // 转换为响应DTO
         List<GlobalArticleResponseDTO> records = pageResult.getRecords().stream()
-                .map(blog -> convertToGlobalArticleResponseDTO(blog, userNicknameMap))
+                .map(blog -> convertToGlobalArticleResponseDTO(blog, userInfoMap))
                 .collect(Collectors.toList());
 
         // 构建响应
@@ -182,7 +200,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
     /**
      * 将实体转换为全局文章响应DTO
      */
-    private GlobalArticleResponseDTO convertToGlobalArticleResponseDTO(SysBlog blog, Map<Long, String> userNicknameMap) {
+    private GlobalArticleResponseDTO convertToGlobalArticleResponseDTO(SysBlog blog, Map<Long, UserInfo> userInfoMap) {
         GlobalArticleResponseDTO dto = new GlobalArticleResponseDTO();
         dto.setId(blog.getId());
         dto.setCategoryId(blog.getCategoryId());
@@ -199,8 +217,20 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         dto.setIsRecommend(blog.getRecommend());
         // 处理作者信息
         dto.setAuthorId(blog.getAuthorId());
-        String nickname = userNicknameMap.get(blog.getAuthorId());
-        dto.setAuthorNickname(nickname != null ? nickname : "用户已注销");
+        UserInfo userInfo = userInfoMap.get(blog.getAuthorId());
+        String nickname;
+        if (userInfo == null) {
+            nickname = "用户已注销";
+        } else {
+            nickname = userInfo.getNickname();
+            // 如果用户被禁用或删除，添加相应标记
+            if (userInfo.getIsDeleted() != null && userInfo.getIsDeleted() == 1) {
+                nickname += "（已删除）";
+            } else if (userInfo.getStatus() != null && userInfo.getStatus() == 0) {
+                nickname += "（已禁用）";
+            }
+        }
+        dto.setAuthorNickname(nickname);
         return dto;
     }
 
