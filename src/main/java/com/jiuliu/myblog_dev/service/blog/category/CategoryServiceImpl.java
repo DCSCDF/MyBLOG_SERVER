@@ -45,10 +45,9 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public SaResult getPageCategories(PageCategoryDTO pageDto, Long authorId) {
+    public SaResult getPageCategories(PageCategoryDTO pageDto) {
         try {
             LambdaQueryWrapper<SysCategory> wrapper = new LambdaQueryWrapper<SysCategory>()
-                    .eq(SysCategory::getAuthorId, authorId)
                     .orderByDesc(SysCategory::getSortOrder)
                     .orderByDesc(SysCategory::getCreateTime);
 
@@ -94,12 +93,11 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult createCategory(CategoryCreateDTO dto, Long authorId) {
+    public SaResult createCategory(CategoryCreateDTO dto) {
         SysCategory category = new SysCategory();
         category.setName(dto.getName());
         category.setDescription(dto.getDescription());
         category.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
-        category.setAuthorId(authorId);
         // 默认不隐藏
         category.setHidden(false);
 
@@ -110,21 +108,15 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateCategory(CategoryUpdateDTO dto, Long authorId) {
+    public SaResult updateCategory(CategoryUpdateDTO dto) {
         SysCategory existing = categoryMapper.selectById(dto.getId());
         if (existing == null) {
             log.warn("更新分类失败：记录不存在，id={}", dto.getId());
             return SaResult.error("分类不存在").setCode(404);
         }
 
-        if (existing.getAuthorId() == null || !existing.getAuthorId().equals(authorId)) {
-            log.warn("更新分类失败：无权限，id={}，authorId={}", dto.getId(), authorId);
-            return SaResult.error("无权限修改该分类").setCode(403);
-        }
-
         LambdaUpdateWrapper<SysCategory> updateWrapper = new LambdaUpdateWrapper<SysCategory>()
                 .eq(SysCategory::getId, dto.getId())
-                .eq(SysCategory::getAuthorId, authorId)
                 .set(dto.getName() != null, SysCategory::getName, dto.getName())
                 .set(dto.getDescription() != null, SysCategory::getDescription, dto.getDescription())
                 .set(dto.getSortOrder() != null, SysCategory::getSortOrder, dto.getSortOrder())
@@ -139,16 +131,11 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteCategory(Long id, Long authorId) {
+    public SaResult deleteCategory(Long id) {
         SysCategory existing = categoryMapper.selectById(id);
         if (existing == null) {
             log.warn("删除分类失败：记录不存在，id={}", id);
             return SaResult.error("分类不存在").setCode(404);
-        }
-
-        if (existing.getAuthorId() == null || !existing.getAuthorId().equals(authorId)) {
-            log.warn("删除分类失败：无权限，id={}，authorId={}", id, authorId);
-            return SaResult.error("无权限删除该分类").setCode(403);
         }
 
         categoryMapper.deleteById(id);

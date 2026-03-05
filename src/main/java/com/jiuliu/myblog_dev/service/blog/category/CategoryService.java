@@ -21,12 +21,12 @@ import com.jiuliu.myblog_dev.dto.blog.category.PageCategoryDTO;
 
 public interface CategoryService {
 
-    SaResult getPageCategories(PageCategoryDTO pageDto, Long authorId);
+    SaResult getPageCategories(PageCategoryDTO pageDto);
 
-    SaResult createCategory(CategoryCreateDTO dto, Long authorId);
+    SaResult createCategory(CategoryCreateDTO dto);
 
-    SaResult updateCategory(CategoryUpdateDTO dto, Long authorId);
+    SaResult updateCategory(CategoryUpdateDTO dto);
 
-    SaResult deleteCategory(Long id, Long authorId);
+    SaResult deleteCategory(Long id);
 }
 

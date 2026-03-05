@@ -15,7 +15,6 @@
 package com.jiuliu.myblog_dev.controller.blog.categories;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.category.*;
@@ -41,11 +40,8 @@ public class CategoryController {
     @SaCheckPermission("category:list")
     @PostMapping("/list")
     public Response<PageCategoryResponseDTO> getPageCategories(@Valid @RequestBody PageCategoryDTO pageDto) {
-
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = categoryService.getPageCategories(pageDto, currentUserId);
+        SaResult saResult = categoryService.getPageCategories(pageDto);
         return handleSaResult(saResult);
-
     }
 
     /**
@@ -55,11 +51,8 @@ public class CategoryController {
     @SaCheckPermission("category:create")
     @PostMapping
     public Response<CategoryResponseDTO> createCategory(@Valid @RequestBody CategoryCreateDTO dto) {
-
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = categoryService.createCategory(dto, currentUserId);
+        SaResult saResult = categoryService.createCategory(dto);
         return handleSaResult(saResult);
-
     }
 
     /**
@@ -71,10 +64,8 @@ public class CategoryController {
     public Response<CategoryResponseDTO> updateCategory(@PathVariable Long id,
                                                         @Valid @RequestBody CategoryUpdateDTO dto) {
         dto.setId(id);
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = categoryService.updateCategory(dto, currentUserId);
+        SaResult saResult = categoryService.updateCategory(dto);
         return handleSaResult(saResult);
-
     }
 
     /**
@@ -84,11 +75,8 @@ public class CategoryController {
     @SaCheckPermission("category:delete")
     @DeleteMapping("/{id}")
     public Response<Object> deleteCategory(@PathVariable Long id) {
-
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = categoryService.deleteCategory(id, currentUserId);
+        SaResult saResult = categoryService.deleteCategory(id);
         return handleSaResult(saResult);
-
     }
 
     private <T> Response<T> handleSaResult(SaResult saResult) {
