@@ -438,21 +438,21 @@ public class BlogServiceImpl implements BlogService {
 
         // 隐藏状态筛选项
         List<FilterOptionItem> hiddenOptions = new ArrayList<>();
-        hiddenOptions.add(new FilterOptionItem(null, "全部"));
+//        hiddenOptions.add(new FilterOptionItem(null, "全部"));
         hiddenOptions.add(new FilterOptionItem(false, "显示"));
         hiddenOptions.add(new FilterOptionItem(true, "隐藏"));
         filterOptions.put("isHidden", hiddenOptions);
 
         // 置顶状态筛选项
         List<FilterOptionItem> topOptions = new ArrayList<>();
-        topOptions.add(new FilterOptionItem(null, "全部"));
+//        topOptions.add(new FilterOptionItem(null, "全部"));
         topOptions.add(new FilterOptionItem(false, "不置顶"));
         topOptions.add(new FilterOptionItem(true, "置顶"));
         filterOptions.put("isTop", topOptions);
 
         // 推荐状态筛选项
         List<FilterOptionItem> recommendOptions = new ArrayList<>();
-        recommendOptions.add(new FilterOptionItem(null, "全部"));
+//        recommendOptions.add(new FilterOptionItem(null, "全部"));
         recommendOptions.add(new FilterOptionItem(false, "不推荐"));
         recommendOptions.add(new FilterOptionItem(true, "推荐"));
         filterOptions.put("isRecommend", recommendOptions);
