@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.config.*;
 import com.jiuliu.myblog_dev.entity.config.SysConfig;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
+import com.jiuliu.myblog_dev.config.MailConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -37,9 +38,11 @@ public class SysConfigServiceImpl implements SysConfigService {
     private static final Logger log = LoggerFactory.getLogger(SysConfigServiceImpl.class);
 
     private final SysConfigMapper sysConfigMapper;
+    private final MailConfig mailConfig;
 
-    public SysConfigServiceImpl(SysConfigMapper sysConfigMapper) {
+    public SysConfigServiceImpl(SysConfigMapper sysConfigMapper, MailConfig mailConfig) {
         this.sysConfigMapper = sysConfigMapper;
+        this.mailConfig = mailConfig;
     }
 
     @Override
@@ -124,6 +127,13 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .set(SysConfig::getConfigValue, dto.getConfigValue())
                 .set(SysConfig::getUpdateTime, LocalDateTime.now());
         sysConfigMapper.update(null, updateWrapper);
+        
+        // 如果是邮件相关配置，立即刷新邮件发送器
+        if (isMailRelatedConfig(dto.getConfigKey())) {
+            mailConfig.refreshMailSender();
+            log.info("邮件配置已更新，已触发邮件发送器立即刷新");
+        }
+        
         log.info("网站配置更新成功，configKey={}", dto.getConfigKey());
         SysConfig updated = sysConfigMapper.selectOne(wrapper);
         return SaResult.data(toItemResponse(updated));
@@ -173,5 +183,12 @@ public class SysConfigServiceImpl implements SysConfigService {
         ConfigItemResponseDTO dto = toItemResponse(c);
         dto.setId(c.getId());
         return dto;
+    }
+
+    /**
+     * 判断配置键是否与邮件相关
+     */
+    private boolean isMailRelatedConfig(String configKey) {
+        return configKey != null && configKey.startsWith("smtp.");
     }
 }

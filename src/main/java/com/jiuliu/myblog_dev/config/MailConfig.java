@@ -52,7 +52,7 @@ public class MailConfig {
     @PostConstruct
     public void init() {
         refreshMailSender();
-        scheduler.scheduleAtFixedRate(this::refreshMailSender, 5, 5, TimeUnit.MINUTES);
+        // 已移除定时刷新任务，改为在配置修改时手动触发刷新
     }
 
     @Bean
