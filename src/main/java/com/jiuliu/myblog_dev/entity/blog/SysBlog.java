@@ -20,7 +20,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_blog")//博客/文章表
+@TableName("sys_blog")
 public class SysBlog {
 
     @TableId(type = IdType.AUTO)
@@ -31,7 +31,14 @@ public class SysBlog {
 
     private String title;           // 标题
     private String summary;         // 摘要
-    private String content;         // 内容（LONGTEXT）
+
+    @TableField("content_md")
+    private String content;         // MD内容（LONGTEXT）
+
+    @TableField("content_html")
+    private String htmlContent;     // HTML内容
+
+    @TableField("cover_image")
     private String coverImage;      // 封面图
 
     private String tags;            // 标签（逗号分隔）
@@ -56,6 +63,10 @@ public class SysBlog {
 
     @TableField("is_recommend")
     private Boolean recommend;      // 是否推荐
+
+    @TableLogic
+    @TableField("is_deleted")
+    private Integer isDeleted;       // 逻辑删除
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

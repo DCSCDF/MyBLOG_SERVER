@@ -9,88 +9,128 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/5
  */
 
 package com.jiuliu.myblog_dev.controller.blog;
 
+import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.dto.blog.*;
+import com.jiuliu.myblog_dev.service.blog.BlogService;
+import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/blogs")
 public class BlogController {
-//    @RestController
-//    @RequestMapping("/api/blogs")
-//    public class BlogController {
-//
-//        /**
-//         * 获取博客列表
-//         * GET /api/blogs
-//         * 权限：article:list
-//         */
-//        @GetMapping
-//        @CheckPermission("article:list")
-//        public Result listBlogs(
-//                @RequestParam(defaultValue = "1") Integer page,
-//                @RequestParam(defaultValue = "10") Integer size,
-//                @RequestParam(required = false) Long categoryId,
-//                @RequestParam(required = false) String keyword) {
-//            // 分页查询博客
-//        }
-// 
-//        /**
-//         * 获取博客详情
-//         * GET /api/blogs/{id}
-//         * 权限：article:list
-//         */
-//        @GetMapping("/{id}")
-//        @CheckPermission("article:list")
-//        public Result getBlogById(@PathVariable Long id) {
-//            // 获取博客详情
-//        }
-//
-//        /**
-//         * 创建博客
-//         * POST /api/blogs
-//         * 权限：article:create
-//         */
-//        @PostMapping
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("article:create")
-//        public Result createBlog(@RequestBody @Valid BlogDTO dto) {
-//            // 创建博客
-//        }
-//
-//        /**
-//         * 更新博客
-//         * PUT /api/blogs/{id}
-//         * 权限：article:edit
-//         */
-//        @PutMapping("/{id}")
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("article:edit")
-//        public Result updateBlog(@PathVariable Long id, @RequestBody @Valid BlogDTO dto) {
-//            // 更新博客（作者只能更新自己的博客）
-//        }
-//
-//        /**
-//         * 删除博客
-//         * DELETE /api/blogs/{id}
-//         * 权限：article:delete
-//         */
-//        @DeleteMapping("/{id}")
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("article:delete")
-//        public Result deleteBlog(@PathVariable Long id) {
-//            // 删除博客（作者只能删除自己的博客）
-//        }
-//
-//        /**
-//         * 发布博客
-//         * PUT /api/blogs/{id}/publish
-//         * 权限：article:publish
-//         */
-//        @PutMapping("/{id}/publish")
-//        @PreAuthorize("hasRole('ADMIN') or hasRole('AUTHOR')")
-//        @CheckPermission("article:publish")
-//        public Result publishBlog(@PathVariable Long id) {
-//            // 发布博客
-//        }
-//    }
+
+    private final BlogService blogService;
+
+    public BlogController(BlogService blogService) {
+        this.blogService = blogService;
+    }
+
+    /**
+     * 处理返回Map类型的SaResult结果
+     *
+     * @param saResult Sa-Token返回的结果
+     * @return 统一响应格式
+     */
+    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
+        if (saResult.getCode() == 200) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) saResult.getData();
+            return ResponseUtil.success(data, 200);
+        } else {
+            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        }
+    }
+
+    /**
+     * 通用方法：处理SaResult结果
+     */
+    private <T> Response<T> handleSaResultGeneral(SaResult saResult) {
+        if (saResult.getCode() == 200) {
+            @SuppressWarnings("unchecked")
+            T data = (T) saResult.getData();
+            return ResponseUtil.success(data, 200);
+        } else {
+            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        }
+    }
+
+    /**
+     * 创建文章
+     * POST /api/blogs
+     * 权限：article:create
+     */
+    @PostMapping
+    @RateLimit(count = 20, period = 60)
+    public Response<Map<String, Object>> createBlog(@Valid @RequestBody BlogCreateDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(blogService.createBlog(dto, currentUserId));
+    }
+
+    /**
+     * 分页获取当前用户的文章列表
+     * POST /api/blogs/list
+     * 权限：article:list
+     */
+    @PostMapping("/list")
+    public Response<PageUserBlogResponseDTO> getPageUserBlogs(@Valid @RequestBody PageUserBlogDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResultGeneral(blogService.getPageUserBlogs(dto, currentUserId));
+    }
+
+    /**
+     * 获取文章详情
+     * GET /api/blogs/{id}
+     * 权限：article:detail
+     */
+    @GetMapping("/{id}")
+    public Response<BlogDetailResponseDTO> getBlogDetail(@PathVariable Long id) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResultGeneral(blogService.getBlogDetail(id, currentUserId));
+    }
+
+    /**
+     * 更新文章状态（隐藏、置顶、推荐）
+     * PUT /api/blogs/{id}/status
+     * 权限：article:edit
+     */
+    @PutMapping("/{id}/status")
+    public Response<Map<String, Object>> updateBlogStatus(@PathVariable Long id,
+                                                           @Valid @RequestBody BlogStatusUpdateDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(blogService.updateBlogStatus(id, dto, currentUserId));
+    }
+
+    /**
+     * 更新文章内容
+     * PUT /api/blogs/{id}
+     * 权限：article:edit
+     */
+    @PutMapping("/{id}")
+    public Response<Map<String, Object>> updateBlogContent(@PathVariable Long id,
+                                                           @Valid @RequestBody BlogContentUpdateDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(blogService.updateBlogContent(id, dto, currentUserId));
+    }
+
+    /**
+     * 删除文章（逻辑删除）
+     * DELETE /api/blogs/{id}
+     * 权限：article:delete
+     */
+    @DeleteMapping("/{id}")
+    public Response<Map<String, Object>> deleteBlog(@PathVariable Long id) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(blogService.deleteBlog(id, currentUserId));
+    }
 }

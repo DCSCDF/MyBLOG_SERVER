@@ -1,0 +1,452 @@
+/*
+ * [BlogServiceImpl.java]
+ * =======================================
+ * This software is licensed under the MIT License.
+ * However, any distribution or modification must retain this copyright notice.
+ * See LICENSE for full terms.
+ * =======================================
+ * author: "Jiu Liu"
+ * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
+ * license: "MIT"
+ * license_exception: "Mandatory attribution retention"
+ * UpdateTime: 2026/3/5
+ */
+
+package com.jiuliu.myblog_dev.service.blog;
+
+import cn.dev33.satoken.util.SaResult;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jiuliu.myblog_dev.dto.blog.*;
+import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
+import com.jiuliu.myblog_dev.entity.blog.SysBlog;
+import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+@Service
+public class BlogServiceImpl implements BlogService {
+
+    private static final Logger log = LoggerFactory.getLogger(BlogServiceImpl.class);
+
+    private final SysBlogMapper blogMapper;
+
+    public BlogServiceImpl(SysBlogMapper blogMapper) {
+        this.blogMapper = blogMapper;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult createBlog(BlogCreateDTO dto, Long authorId) {
+        log.info("开始创建文章，作者ID：{}，标题：{}", authorId, dto.getTitle());
+
+        if (!StringUtils.hasText(dto.getTitle())) {
+            log.warn("文章创建失败：标题为空");
+            return SaResult.error("文章标题不能为空").setCode(400);
+        }
+
+        if (dto.getSummary() != null && dto.getSummary().length() > 200) {
+            log.warn("文章创建失败：摘要长度超过200字符");
+            return SaResult.error("文章摘要不能超过200字符").setCode(400);
+        }
+
+        if (StringUtils.hasText(dto.getCoverImage())) {
+            if (isValidUrl(dto.getCoverImage())) {
+                log.warn("文章创建失败：封面图URL格式无效，url={}", dto.getCoverImage());
+                return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+            }
+        }
+
+        SysBlog blog = new SysBlog();
+        blog.setTitle(dto.getTitle().trim());
+        blog.setCategoryId(dto.getCategoryId());
+
+        if (StringUtils.hasText(dto.getSummary())) {
+            blog.setSummary(dto.getSummary().trim());
+        }
+
+        blog.setContent(dto.getContent());
+        blog.setHtmlContent(dto.getHtmlContent());
+
+        if (StringUtils.hasText(dto.getCoverImage())) {
+            blog.setCoverImage(dto.getCoverImage().trim());
+        }
+
+        if (StringUtils.hasText(dto.getTags())) {
+            blog.setTags(dto.getTags().trim());
+        }
+
+        blog.setAuthorId(authorId);
+
+        blogMapper.insert(blog);
+
+        log.info("文章创建成功，id={}，标题={}，作者ID={}", blog.getId(), blog.getTitle(), authorId);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", blog.getId());
+        data.put("message", "文章创建成功");
+        return SaResult.data(data);
+    }
+
+    private boolean isValidUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return true;
+        }
+        try {
+            URL u = new URL(url);
+            String scheme = u.getProtocol();
+            return !"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme);
+        } catch (MalformedURLException e) {
+            return true;
+        }
+    }
+
+    @Override
+    public SaResult getPageUserBlogs(PageUserBlogDTO dto, Long userId) {
+        log.info("分页获取用户文章列表，用户ID：{}，当前页：{}，每页：{}", userId, dto.getCurrentPage(), dto.getPageSize());
+
+        // 构建查询条件
+        LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SysBlog::getAuthorId, userId);
+
+        // 关键词搜索（标题）
+        if (StringUtils.hasText(dto.getKeyword())) {
+            queryWrapper.like(SysBlog::getTitle, dto.getKeyword());
+        }
+
+        // 状态筛选
+        if (dto.getIsHidden() != null) {
+            queryWrapper.eq(SysBlog::getHidden, dto.getIsHidden());
+        }
+        if (dto.getIsTop() != null) {
+            queryWrapper.eq(SysBlog::getTop, dto.getIsTop());
+        }
+        if (dto.getIsRecommend() != null) {
+            queryWrapper.eq(SysBlog::getRecommend, dto.getIsRecommend());
+        }
+
+        // 按置顶和创建时间排序
+        queryWrapper.orderByDesc(SysBlog::getTop, SysBlog::getCreateTime);
+
+        // 分页查询
+        Page<SysBlog> page = new Page<>(dto.getCurrentPage(), dto.getPageSize());
+        IPage<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
+
+        // 转换为响应DTO
+        List<BlogResponseDTO> records = pageResult.getRecords().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+
+        // 构建响应
+        PageUserBlogResponseDTO response = new PageUserBlogResponseDTO();
+        response.setRecords(records);
+        response.setTotal(pageResult.getTotal());
+        response.setSize(pageResult.getSize());
+        response.setCurrent(pageResult.getCurrent());
+        response.setPages(pageResult.getPages());
+
+        // 设置筛选项
+        response.setFilterOptions(buildFilterOptions());
+
+        log.info("获取用户文章列表成功，总数：{}", pageResult.getTotal());
+        return SaResult.data(response);
+    }
+
+    @Override
+    public SaResult getBlogDetail(Long blogId, Long userId) {
+        log.info("获取文章详情，文章ID：{}，用户ID：{}", blogId, userId);
+
+        SysBlog blog = blogMapper.selectById(blogId);
+
+        if (blog == null) {
+            return SaResult.error("文章不存在").setCode(404);
+        }
+
+        // 检查是否是作者本人
+        if (!blog.getAuthorId().equals(userId)) {
+            log.warn("无权限访问其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
+            return SaResult.error("无权限访问该文章").setCode(403);
+        }
+
+        BlogDetailResponseDTO response = convertToDetailResponseDTO(blog);
+
+        log.info("获取文章详情成功，文章ID：{}", blogId);
+        return SaResult.data(response);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId) {
+        log.info("更新文章状态，文章ID：{}，用户ID：{}", blogId, userId);
+
+        SysBlog blog = blogMapper.selectById(blogId);
+
+        if (blog == null) {
+
+            return SaResult.error("文章不存在").setCode(404);
+        }
+
+        // 检查是否是作者本人
+        if (!blog.getAuthorId().equals(userId)) {
+            log.warn("无权限修改其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
+            return SaResult.error("无权限修改该文章").setCode(403);
+        }
+
+        // 更新状态
+        if (dto.getIsHidden() != null) {
+            blog.setHidden(dto.getIsHidden());
+        }
+        if (dto.getIsTop() != null) {
+            blog.setTop(dto.getIsTop());
+        }
+        if (dto.getIsRecommend() != null) {
+            blog.setRecommend(dto.getIsRecommend());
+        }
+
+        blogMapper.updateById(blog);
+
+        log.info("文章状态更新成功，文章ID：{}", blogId);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", blog.getId());
+        data.put("message", "文章状态更新成功");
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId) {
+        log.info("更新文章内容，文章ID：{}，用户ID：{}", blogId, userId);
+
+        SysBlog blog = blogMapper.selectById(blogId);
+
+        if (blog == null) {
+            return SaResult.error("文章不存在").setCode(404);
+        }
+
+        // 检查是否是作者本人
+        if (!blog.getAuthorId().equals(userId)) {
+            log.warn("无权修改其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
+            return SaResult.error("无权限修改该文章").setCode(403);
+        }
+
+        // 验证标题
+        if (StringUtils.hasText(dto.getTitle())) {
+            if (dto.getTitle().length() > 200) {
+                log.warn("文章更新失败：标题长度超过200字符");
+                return SaResult.error("文章标题不能超过200字符").setCode(400);
+            }
+            blog.setTitle(dto.getTitle().trim());
+        }
+
+        // 验证摘要
+        if (dto.getSummary() != null) {
+            if (dto.getSummary().length() > 200) {
+                log.warn("文章更新失败：摘要长度超过200字符");
+                return SaResult.error("文章摘要不能超过200字符").setCode(400);
+            }
+            blog.setSummary(dto.getSummary().trim());
+        }
+
+        // 验证封面图URL
+        if (StringUtils.hasText(dto.getCoverImage())) {
+            if (isValidUrl(dto.getCoverImage())) {
+                log.warn("文章更新失败：封面图URL格式无效，url={}", dto.getCoverImage());
+                return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+            }
+            blog.setCoverImage(dto.getCoverImage().trim());
+        } else if (dto.getCoverImage() != null && dto.getCoverImage().isEmpty()) {
+            blog.setCoverImage(null);
+        }
+
+        // 更新其他字段
+        if (dto.getContent() != null) {
+            blog.setContent(dto.getContent());
+        }
+        if (dto.getHtmlContent() != null) {
+            blog.setHtmlContent(dto.getHtmlContent());
+        }
+        if (dto.getTags() != null) {
+            blog.setTags(dto.getTags().trim());
+        }
+        if (dto.getCategoryId() != null) {
+            blog.setCategoryId(dto.getCategoryId());
+        }
+
+        blogMapper.updateById(blog);
+
+        log.info("文章内容更新成功，文章ID：{}", blogId);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", blog.getId());
+        data.put("message", "文章更新成功");
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult deleteBlog(Long blogId, Long userId) {
+        log.info("删除文章，文章ID：{}，用户ID：{}", blogId, userId);
+
+        SysBlog blog = blogMapper.selectById(blogId);
+
+        if (blog == null) {
+            log.warn("文章不存在，文章ID：{}", blogId);
+            return SaResult.error("文章不存在").setCode(404);
+        }
+
+        // 检查是否是作者本人
+        if (!blog.getAuthorId().equals(userId)) {
+            log.warn("无权限删除其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
+            return SaResult.error("无权限删除该文章").setCode(403);
+        }
+
+        // 逻辑删除
+        blogMapper.deleteById(blogId);
+
+        log.info("文章删除成功，文章ID：{}", blogId);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", blogId);
+        data.put("message", "文章删除成功");
+        return SaResult.data(data);
+    }
+
+    /**
+     * 将实体转换为列表响应DTO
+     */
+    private BlogResponseDTO convertToResponseDTO(SysBlog blog) {
+        BlogResponseDTO dto = new BlogResponseDTO();
+        dto.setId(blog.getId());
+        dto.setCategoryId(blog.getCategoryId());
+        dto.setTitle(blog.getTitle());
+        // 处理摘要：如果为空则从HTML内容中提取
+        dto.setSummary(getSummary(blog));
+        dto.setCoverImage(blog.getCoverImage());
+        dto.setTags(blog.getTags());
+        dto.setViewCount(blog.getViewCount());
+        dto.setCommentCount(blog.getCommentCount());
+        dto.setLikeCount(blog.getLikeCount());
+        dto.setIsHidden(blog.getHidden());
+        dto.setIsTop(blog.getTop());
+        dto.setIsRecommend(blog.getRecommend());
+        return dto;
+    }
+
+    /**
+     * 将实体转换为详情响应DTO
+     */
+    private BlogDetailResponseDTO convertToDetailResponseDTO(SysBlog blog) {
+        BlogDetailResponseDTO dto = new BlogDetailResponseDTO();
+        dto.setId(blog.getId());
+        dto.setCategoryId(blog.getCategoryId());
+        dto.setTitle(blog.getTitle());
+        dto.setSummary(blog.getSummary());
+        dto.setContent(blog.getContent());
+        dto.setHtmlContent(blog.getHtmlContent());
+        dto.setCoverImage(blog.getCoverImage());
+        dto.setTags(blog.getTags());
+        dto.setAuthorId(blog.getAuthorId());
+        dto.setViewCount(blog.getViewCount());
+        dto.setCommentCount(blog.getCommentCount());
+        dto.setLikeCount(blog.getLikeCount());
+        dto.setIsHidden(blog.getHidden());
+        dto.setIsTop(blog.getTop());
+        dto.setIsRecommend(blog.getRecommend());
+        dto.setCreateTime(blog.getCreateTime());
+        dto.setUpdateTime(blog.getUpdateTime());
+        return dto;
+    }
+
+    /**
+     * 获取摘要：如果为空则从HTML内容中提取
+     */
+    private String getSummary(SysBlog blog) {
+        if (StringUtils.hasText(blog.getSummary())) {
+            return blog.getSummary();
+        }
+        // 从HTML内容中提取纯文本并截取50字
+        if (StringUtils.hasText(blog.getHtmlContent())) {
+            String plainText = stripHtmlTags(blog.getHtmlContent());
+            if (plainText.length() > 50) {
+                return plainText.substring(0, 50) + "...";
+            }
+            return plainText;
+        }
+        return null;
+    }
+
+    /**
+     * 去除HTML标签
+     */
+    private String stripHtmlTags(String htmlContent) {
+        if (htmlContent == null || htmlContent.isEmpty()) {
+            return "";
+        }
+        // 去除script和style标签及其内容
+        Pattern scriptPattern = Pattern.compile("<script[^>]*>[\\s\\S]*?</script>", Pattern.CASE_INSENSITIVE);
+        htmlContent = scriptPattern.matcher(htmlContent).replaceAll("");
+
+        Pattern stylePattern = Pattern.compile("<style[^>]*>[\\s\\S]*?</style>", Pattern.CASE_INSENSITIVE);
+        htmlContent = stylePattern.matcher(htmlContent).replaceAll("");
+
+        // 去除所有HTML标签
+        Pattern htmlPattern = Pattern.compile("<[^>]+>");
+        htmlContent = htmlPattern.matcher(htmlContent).replaceAll("");
+
+        // 替换HTML实体
+        htmlContent = htmlContent.replaceAll("&nbsp;", " ")
+                .replaceAll("&lt;", "<")
+                .replaceAll("&gt;", ">")
+                .replaceAll("&amp;", "&")
+                .replaceAll("&quot;", "\"")
+                .replaceAll("&#39;", "'")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        return htmlContent;
+    }
+
+    /**
+     * 构建筛选项
+     */
+    private Map<String, List<FilterOptionItem>> buildFilterOptions() {
+        Map<String, List<FilterOptionItem>> filterOptions = new HashMap<>();
+
+        // 隐藏状态筛选项
+        List<FilterOptionItem> hiddenOptions = new ArrayList<>();
+        hiddenOptions.add(new FilterOptionItem(null, "全部"));
+        hiddenOptions.add(new FilterOptionItem(false, "显示"));
+        hiddenOptions.add(new FilterOptionItem(true, "隐藏"));
+        filterOptions.put("isHidden", hiddenOptions);
+
+        // 置顶状态筛选项
+        List<FilterOptionItem> topOptions = new ArrayList<>();
+        topOptions.add(new FilterOptionItem(null, "全部"));
+        topOptions.add(new FilterOptionItem(false, "不置顶"));
+        topOptions.add(new FilterOptionItem(true, "置顶"));
+        filterOptions.put("isTop", topOptions);
+
+        // 推荐状态筛选项
+        List<FilterOptionItem> recommendOptions = new ArrayList<>();
+        recommendOptions.add(new FilterOptionItem(null, "全部"));
+        recommendOptions.add(new FilterOptionItem(false, "不推荐"));
+        recommendOptions.add(new FilterOptionItem(true, "推荐"));
+        filterOptions.put("isRecommend", recommendOptions);
+
+        return filterOptions;
+    }
+}

@@ -20,7 +20,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.blog.category.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
+import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
+import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +41,11 @@ public class CategoryServiceImpl implements CategoryService {
     private static final Logger log = LoggerFactory.getLogger(CategoryServiceImpl.class);
 
     private final SysCategoryMapper categoryMapper;
+    private final SysBlogMapper blogMapper;
 
-    public CategoryServiceImpl(SysCategoryMapper categoryMapper) {
+    public CategoryServiceImpl(SysCategoryMapper categoryMapper, SysBlogMapper blogMapper) {
         this.categoryMapper = categoryMapper;
+        this.blogMapper = blogMapper;
     }
 
     @Override
@@ -137,6 +141,12 @@ public class CategoryServiceImpl implements CategoryService {
             log.warn("删除分类失败：记录不存在，id={}", id);
             return SaResult.error("分类不存在").setCode(404);
         }
+
+        // 将使用该分类的文章的 categoryId 设为 null
+        LambdaUpdateWrapper<SysBlog> blogWrapper = new LambdaUpdateWrapper<SysBlog>()
+                .eq(SysBlog::getCategoryId, id)
+                .set(SysBlog::getCategoryId, null);
+        blogMapper.update(null, blogWrapper);
 
         categoryMapper.deleteById(id);
         log.info("分类删除成功，id={}", id);
