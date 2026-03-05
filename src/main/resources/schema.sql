@@ -667,7 +667,7 @@ VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称',
        ('smtp.port', '587', 'integer', 'range=1-65535', 'SMTP端口号', 1),
        ('smtp.username', 'your-email@example.com', 'email', NULL, 'SMTP用户名', 1),
        ('smtp.password', 'your-password', 'string', NULL, 'SMTP密码', 1),
-       ('smtp.from', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1),
+       ('smtp.fromName', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1),
        ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1);
 
 -- 插入默认SEO配置
