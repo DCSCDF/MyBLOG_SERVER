@@ -220,9 +220,9 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
             nickname = userInfo.getNickname();
             // 如果用户被禁用或删除，添加相应标记
             if (userInfo.getIsDeleted() != null && userInfo.getIsDeleted() == 1) {
-                nickname += "（已删除）";
+                nickname += "[已注销]";
             } else if (userInfo.getStatus() != null && userInfo.getStatus() == 0) {
-                nickname += "（已禁用）";
+                nickname += "[已禁用]";
             }
         }
         dto.setAuthorNickname(nickname);
