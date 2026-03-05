@@ -225,19 +225,19 @@ CREATE TABLE IF NOT EXISTS sys_comment
 # ) ENGINE = InnoDB
 #   DEFAULT CHARSET = utf8mb4 COMMENT ='文章-标签关联表';
 
--- 文章点赞表
-CREATE TABLE IF NOT EXISTS sys_blog_like
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '点赞记录ID',
-    blog_id     BIGINT NOT NULL COMMENT '文章ID',
-    user_id     BIGINT NOT NULL COMMENT '用户ID',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-
-    UNIQUE KEY uk_blog_user (blog_id, user_id) COMMENT '防止重复点赞',
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT ='文章点赞表';
+# -- 文章点赞表
+# CREATE TABLE IF NOT EXISTS sys_blog_like
+# (
+#     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '点赞记录ID',
+#     blog_id     BIGINT NOT NULL COMMENT '文章ID',
+#     user_id     BIGINT NOT NULL COMMENT '用户ID',
+#     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+#
+#     UNIQUE KEY uk_blog_user (blog_id, user_id) COMMENT '防止重复点赞',
+#     FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
+#     FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
+# ) ENGINE = InnoDB
+#   DEFAULT CHARSET = utf8mb4 COMMENT ='文章点赞表';
 
 -- 网站配置表
 CREATE TABLE IF NOT EXISTS sys_config

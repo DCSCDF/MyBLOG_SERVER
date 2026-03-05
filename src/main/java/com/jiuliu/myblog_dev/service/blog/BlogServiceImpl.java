@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.service.blog;
 
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.blog.*;
@@ -243,50 +244,59 @@ public class BlogServiceImpl implements BlogService {
             return SaResult.error("无权限修改该文章").setCode(403);
         }
 
-        // 验证标题
-        if (StringUtils.hasText(dto.getTitle())) {
+        // 验证封面图URL - 支持传空字符串清空
+        String coverImageValueToSet = null;
+        if (dto.getCoverImage() != null) {
+            String v = dto.getCoverImage().trim();
+            if (!v.isEmpty()) {
+                if (isValidUrl(v)) {
+                    log.warn("文章更新失败：封面图URL格式无效，url={}", dto.getCoverImage());
+                    return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+                }
+                coverImageValueToSet = v;
+            }
+            // v为空时，coverImageValueToSet保持null，表示清空封面图
+        }
+
+        // 使用 LambdaUpdateWrapper 来更新，可以正确处理 null 值
+        LambdaUpdateWrapper<SysBlog> updateWrapper = new LambdaUpdateWrapper<SysBlog>()
+                .eq(SysBlog::getId, blogId);
+
+        if (dto.getTitle() != null && StringUtils.hasText(dto.getTitle())) {
             if (dto.getTitle().length() > 200) {
                 log.warn("文章更新失败：标题长度超过200字符");
                 return SaResult.error("文章标题不能超过200字符").setCode(400);
             }
-            blog.setTitle(dto.getTitle().trim());
+            updateWrapper.set(SysBlog::getTitle, dto.getTitle().trim());
         }
 
-        // 验证摘要
         if (dto.getSummary() != null) {
             if (dto.getSummary().length() > 200) {
                 log.warn("文章更新失败：摘要长度超过200字符");
                 return SaResult.error("文章摘要不能超过200字符").setCode(400);
             }
-            blog.setSummary(dto.getSummary().trim());
+            updateWrapper.set(SysBlog::getSummary, dto.getSummary().trim());
         }
 
-        // 验证封面图URL
-        if (StringUtils.hasText(dto.getCoverImage())) {
-            if (isValidUrl(dto.getCoverImage())) {
-                log.warn("文章更新失败：封面图URL格式无效，url={}", dto.getCoverImage());
-                return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
-            }
-            blog.setCoverImage(dto.getCoverImage().trim());
-        } else if (dto.getCoverImage() != null && dto.getCoverImage().isEmpty()) {
-            blog.setCoverImage(null);
+        // 只有当 coverImage 不为 null 时才更新（支持清空）
+        if (dto.getCoverImage() != null) {
+            updateWrapper.set(SysBlog::getCoverImage, coverImageValueToSet);
         }
 
-        // 更新其他字段
         if (dto.getContent() != null) {
-            blog.setContent(dto.getContent());
+            updateWrapper.set(SysBlog::getContent, dto.getContent());
         }
         if (dto.getHtmlContent() != null) {
-            blog.setHtmlContent(dto.getHtmlContent());
+            updateWrapper.set(SysBlog::getHtmlContent, dto.getHtmlContent());
         }
         if (dto.getTags() != null) {
-            blog.setTags(dto.getTags().trim());
+            updateWrapper.set(SysBlog::getTags, dto.getTags().trim());
         }
         if (dto.getCategoryId() != null) {
-            blog.setCategoryId(dto.getCategoryId());
+            updateWrapper.set(SysBlog::getCategoryId, dto.getCategoryId());
         }
 
-        blogMapper.updateById(blog);
+        blogMapper.update(null, updateWrapper);
 
         log.info("文章内容更新成功，文章ID：{}", blogId);
 
