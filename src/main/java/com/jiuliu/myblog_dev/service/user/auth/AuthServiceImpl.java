@@ -19,6 +19,7 @@ import cloud.tianai.captcha.spring.plugins.secondary.SecondaryVerificationApplic
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.jiuliu.myblog_dev.config.RsaKeyConfig;
 import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
@@ -490,15 +491,13 @@ public class AuthServiceImpl implements AuthService {
             // v为空时，avatarUrl保持null，表示清空头像
         }
 
-        user.setAvatarUrl(avatarUrl);
-        long timestamp = System.currentTimeMillis();
-        LocalDateTime localDateTime = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(timestamp),
-                ZoneId.systemDefault()
-        );
-        user.setUpdateTime(localDateTime);
+        // 使用 LambdaUpdateWrapper 来更新，可以正确处理 null 值
+        LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, currentUserId)
+                .set(SysUser::getAvatarUrl, avatarUrl)
+                .set(SysUser::getUpdateTime, LocalDateTime.now());
 
-        int rows = sysUserMapper.updateById(user);
+        int rows = sysUserMapper.update(null, updateWrapper);
         if (rows != 1) {
             log.error("头像URL修改失败：数据库更新失败，userId={}", currentUserId);
             return SaResult.error("头像URL修改失败，请重试").setCode(400);

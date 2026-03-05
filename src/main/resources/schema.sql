@@ -187,18 +187,18 @@ CREATE TABLE IF NOT EXISTS sys_comment
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='评论表';
 
--- 评论点赞表
-CREATE TABLE IF NOT EXISTS sys_comment_like
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '点赞记录ID',
-    comment_id  BIGINT NOT NULL COMMENT '评论ID',
-    user_id     BIGINT NOT NULL COMMENT '用户ID',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    UNIQUE KEY uk_comment_user (comment_id, user_id) COMMENT '防止重复点赞',
-    FOREIGN KEY (comment_id) REFERENCES sys_comment (id) ON DELETE NO ACTION,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4 COMMENT ='评论点赞表';
+# -- 评论点赞表
+# CREATE TABLE IF NOT EXISTS sys_comment_like
+# (
+#     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '点赞记录ID',
+#     comment_id  BIGINT NOT NULL COMMENT '评论ID',
+#     user_id     BIGINT NOT NULL COMMENT '用户ID',
+#     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+#     UNIQUE KEY uk_comment_user (comment_id, user_id) COMMENT '防止重复点赞',
+#     FOREIGN KEY (comment_id) REFERENCES sys_comment (id) ON DELETE NO ACTION,
+#     FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
+# ) ENGINE = InnoDB
+#   DEFAULT CHARSET = utf8mb4 COMMENT ='评论点赞表';
 #
 # -- 标签表
 # CREATE TABLE IF NOT EXISTS sys_tag
@@ -343,10 +343,10 @@ ALTER TABLE sys_comment
     DROP INDEX idx_comment_status;
 ALTER TABLE sys_comment
     DROP INDEX idx_comment_create_time;
-ALTER TABLE sys_comment_like
-    DROP INDEX idx_comment_like_comment;
-ALTER TABLE sys_comment_like
-    DROP INDEX idx_comment_like_user;
+# ALTER TABLE sys_comment_like
+#     DROP INDEX idx_comment_like_comment;
+# ALTER TABLE sys_comment_like
+#     DROP INDEX idx_comment_like_user;
 ALTER TABLE sys_seo
     DROP INDEX idx_seo_page_type;
 ALTER TABLE sys_seo
@@ -377,8 +377,8 @@ CREATE INDEX idx_comment_parent ON sys_comment (parent_id) COMMENT '评论父评
 CREATE INDEX idx_comment_user ON sys_comment (user_id) COMMENT '评论用户索引';
 CREATE INDEX idx_comment_status ON sys_comment (status) COMMENT '评论状态索引';
 CREATE INDEX idx_comment_create_time ON sys_comment (create_time) COMMENT '评论创建时间索引';
-CREATE INDEX idx_comment_like_comment ON sys_comment_like (comment_id) COMMENT '点赞评论索引';
-CREATE INDEX idx_comment_like_user ON sys_comment_like (user_id) COMMENT '点赞用户索引';
+# CREATE INDEX idx_comment_like_comment ON sys_comment_like (comment_id) COMMENT '点赞评论索引';
+# CREATE INDEX idx_comment_like_user ON sys_comment_like (user_id) COMMENT '点赞用户索引';
 CREATE INDEX idx_seo_page_type ON sys_seo (page_type) COMMENT 'SEO页面类型索引';
 CREATE INDEX idx_seo_page_id ON sys_seo (page_id) COMMENT 'SEO页面ID索引';
 CREATE INDEX idx_friend_link_status ON sys_friend_link (status) COMMENT '外链审核状态索引';
