@@ -100,7 +100,7 @@ public class BlogController {
     }
 
     /**
-     * 更新文章状态（隐藏、置顶、推荐）
+     * 更新文章状态（隐藏）
      * PUT /api/blogs/{id}/status
      * 权限：article:edit
      */

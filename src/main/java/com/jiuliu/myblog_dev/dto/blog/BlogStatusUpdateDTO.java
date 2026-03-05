@@ -24,13 +24,13 @@ public class BlogStatusUpdateDTO {
      */
     private Boolean isHidden;
 
-    /**
-     * 是否置顶 (null=不修改)
-     */
-    private Boolean isTop;
-
-    /**
-     * 是否推荐 (null=不修改)
-     */
-    private Boolean isRecommend;
+//    /**
+//     * 是否置顶 (null=不修改)
+//     */
+//    private Boolean isTop;
+//
+//    /**
+//     * 是否推荐 (null=不修改)
+//     */
+//    private Boolean isRecommend;
 }

@@ -210,12 +210,12 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getIsHidden() != null) {
             blog.setHidden(dto.getIsHidden());
         }
-        if (dto.getIsTop() != null) {
-            blog.setTop(dto.getIsTop());
-        }
-        if (dto.getIsRecommend() != null) {
-            blog.setRecommend(dto.getIsRecommend());
-        }
+//        if (dto.getIsTop() != null) {
+//            blog.setTop(dto.getIsTop());
+//        }
+//        if (dto.getIsRecommend() != null) {
+//            blog.setRecommend(dto.getIsRecommend());
+//        }
 
         blogMapper.updateById(blog);
 

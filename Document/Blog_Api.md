@@ -315,7 +315,7 @@
 
 ### 4. 更新文章状态
 
-更新文章的隐藏、置顶、推荐状态。
+更新文章的隐藏状态。
 
 - **请求方法**: `PUT`
 - **请求路径**: `/api/blogs/{id}/status`
@@ -323,18 +323,14 @@
 
 #### 请求参数
 
-| 参数          | 类型      | 必填 | 说明                                |
-|-------------|---------|----|-----------------------------------|
-| id          | Long    | 是  | 文章ID                              |
-| isHidden    | Boolean | 否  | 是否隐藏：null=不修改, true=隐藏, false=显示  |
-| isTop       | Boolean | 否  | 是否置顶：null=不修改, true=置顶, false=不置顶 |
-| isRecommend | Boolean | 否  | 是否推荐：null=不修改, true=推荐, false=不推荐 |
+| 参数       | 类型      | 必填 | 说明                                |
+|-----------|---------|----|-----------------------------------|
+| id        | Long    | 是  | 文章ID                              |
+| isHidden  | Boolean | 否  | 是否隐藏：null=不修改, true=隐藏, false=显示  |
 
 ```json
 {
-  "isHidden": true,
-  "isTop": false,
-  "isRecommend": null
+  "isHidden": true
 }
 ```
 
