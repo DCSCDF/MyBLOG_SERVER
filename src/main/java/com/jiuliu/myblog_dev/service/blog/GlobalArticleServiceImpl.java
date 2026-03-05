@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -86,17 +87,17 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         Page<SysBlog> page = new Page<>(dto.getCurrentPage(), dto.getPageSize());
         IPage<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
 
-        // 收集所有作者ID
+        // 收集所有作者 ID
         List<Long> authorIds = pageResult.getRecords().stream()
                 .map(SysBlog::getAuthorId)
-                .filter(id -> id != null)
+                .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
 
         // 批量查询用户信息
         Map<Long, String> userNicknameMap = new HashMap<>();
         if (!authorIds.isEmpty()) {
-            List<SysUser> users = userMapper.selectBatchIds(authorIds);
+            List<SysUser> users = userMapper.selectList(new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
             for (SysUser user : users) {
                 userNicknameMap.put(user.getId(), user.getNickname());
             }
