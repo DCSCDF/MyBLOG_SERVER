@@ -25,4 +25,34 @@ public class CacheUtil {
      * 系统配置缓存 - 缓存键前缀
      */
     public static final String CACHE_KEY_SYS_CONFIG = "sys_config:";
+
+    /**
+     * 用户评论列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_USER_COMMENT_LIST = "user_comment_list:";
+
+    /**
+     * 全局评论列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_GLOBAL_COMMENT_LIST = "global_comment_list:";
+
+    /**
+     * 文章列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_ARTICLE_LIST = "article_list:";
+
+    /**
+     * SEO列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_SEO_LIST = "seo_list:";
+
+    /**
+     * 友链列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_FRIEND_LINK_LIST = "friend_link_list:";
+
+    /**
+     * 分类列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_CATEGORY_LIST = "category_list:";
 }

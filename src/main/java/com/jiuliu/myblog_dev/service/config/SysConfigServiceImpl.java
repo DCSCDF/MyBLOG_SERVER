@@ -32,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -66,24 +65,49 @@ public class SysConfigServiceImpl implements SysConfigService {
             log.warn("系统配置查询失败：配置键列表为空");
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
-        List<String> keys = dto.getKeys().stream().filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+        List<String> keys = dto.getKeys().stream().filter(StringUtils::hasText).distinct().toList();
         if (keys.isEmpty()) {
             log.warn("系统配置查询失败：过滤后配置键列表为空");
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
 
-        // 从缓存中获取配置，组装缓存key
-        String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + String.join(",", keys);
+        // 从缓存中获取配置，先尝试从缓存读取每个key
+        List<SysConfig> resultList = new java.util.ArrayList<>();
+        List<String> missingKeys = new java.util.ArrayList<>();
 
-        // 尝试从缓存获取
-        List<SysConfig> cachedList = Collections.singletonList(configCache.getIfPresent(cacheKey));
-        log.debug("从缓存获取系统配置，keys={}", keys);
-        List<ConfigItemResponseDTO> result = cachedList.stream()
+        for (String key : keys) {
+            String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + key;
+            SysConfig cached = configCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                resultList.add(cached);
+                log.debug("从缓存获取系统配置，key={}", key);
+            } else {
+                missingKeys.add(key);
+            }
+        }
+
+        // 缓存未命中，从数据库查询
+        if (!missingKeys.isEmpty()) {
+            LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
+                    .in(SysConfig::getConfigKey, missingKeys)
+                    .eq(SysConfig::getIsSystem, 1)
+                    .eq(SysConfig::getIsDeleted, 0);
+            List<SysConfig> dbConfigs = sysConfigMapper.selectList(wrapper);
+
+            // 将数据库查询结果放入缓存
+            for (SysConfig config : dbConfigs) {
+                String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + config.getConfigKey();
+                configCache.put(cacheKey, config);
+                resultList.add(config);
+            }
+
+            log.debug("从数据库查询系统配置，keys={}", missingKeys);
+        }
+
+        List<ConfigItemResponseDTO> result = resultList.stream()
                 .map(this::toItemResponse)
                 .collect(Collectors.toList());
         return SaResult.data(result);
-
-        // 缓存未命中，从数据库查询
     }
 
     @Override

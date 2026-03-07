@@ -26,6 +26,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
+import com.jiuliu.myblog_dev.utils.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -56,7 +57,7 @@ public class CategoryServiceImpl implements CategoryService {
      * 分类列表缓存 - 缓存所有启用的分类列表
      * 缓存时间：30分钟
      */
-    private final Cache<String, List<SysCategory>> categoryListCache = CacheBuilder.newBuilder()
+    private final Cache<String, PageCategoryResponseDTO> categoryListCache = CacheBuilder.newBuilder()
             .maximumSize(50)
             .expireAfterWrite(30, TimeUnit.MINUTES)
             .build();
@@ -72,6 +73,17 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public SaResult getPageCategories(PageCategoryDTO pageDto) {
         try {
+            // 构建缓存键
+            String cacheKey = CacheUtil.CACHE_KEY_CATEGORY_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
+                    pageDto.getHidden() + "-" + pageDto.getKeyword();
+
+            // 尝试从缓存获取
+            PageCategoryResponseDTO cached = categoryListCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("从缓存获取分类列表，key={}", cacheKey);
+                return SaResult.data(cached);
+            }
+
             LambdaQueryWrapper<SysCategory> wrapper = new LambdaQueryWrapper<SysCategory>()
                     .orderByDesc(SysCategory::getSortOrder)
                     .orderByDesc(SysCategory::getCreateTime);
@@ -100,6 +112,9 @@ public class CategoryServiceImpl implements CategoryService {
             response.setCurrent(pageResult.getCurrent());
             response.setPages(pageResult.getPages());
             response.setFilterOptions(buildFilterOptions());
+
+            // 存入缓存
+            categoryListCache.put(cacheKey, response);
 
             return SaResult.data(response);
         } catch (Exception e) {

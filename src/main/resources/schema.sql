@@ -165,14 +165,14 @@ CREATE TABLE IF NOT EXISTS sys_blog
 CREATE TABLE IF NOT EXISTS sys_comment
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '评论ID',
-    blog_id     BIGINT      NOT NULL COMMENT '关联的文章ID',
+    blog_id     BIGINT NOT NULL COMMENT '关联的文章ID',
     parent_id   BIGINT     DEFAULT 0 COMMENT '父评论ID，0表示顶级评论',
-    user_id     BIGINT COMMENT '用户ID（已登录用户）',
-    username    VARCHAR(50) NOT NULL COMMENT '评论者名称',
+    user_id     BIGINT NULL COMMENT '用户ID（已登录用户）',
+    username    VARCHAR(50) COMMENT '评论者名称',
     email       VARCHAR(100) COMMENT '邮箱',
     avatar_url  VARCHAR(200) COMMENT '头像URL',
     website     VARCHAR(200) COMMENT '个人网站',
-    content     TEXT        NOT NULL COMMENT '评论内容',
+    content     TEXT   NOT NULL COMMENT '评论内容',
     status      TINYINT    DEFAULT 0 COMMENT '状态：0=待审核，1=已通过，2=垃圾评论',
     like_count  INT        DEFAULT 0 COMMENT '点赞数',
     device_info VARCHAR(200) COMMENT '设备信息',
@@ -182,8 +182,7 @@ CREATE TABLE IF NOT EXISTS sys_comment
     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
 
-    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION,
-    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE NO ACTION
+    FOREIGN KEY (blog_id) REFERENCES sys_blog (id) ON DELETE NO ACTION
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='评论表';
 

@@ -1,5 +1,5 @@
 /*
- * [SysBlogTagMapper.java]
+ * [CommentStatusUpdateDTO.java]
  * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -9,15 +9,20 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8
  */
 
-package com.jiuliu.myblog_dev.mapper.blog.tag;
+package com.jiuliu.myblog_dev.dto.comment;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.jiuliu.myblog_dev.entity.user.role.SysRole;
-import org.apache.ibatis.annotations.Mapper;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 
-@Mapper
-public interface SysBlogTagMapper extends BaseMapper<SysRole> {
+/**
+ * 更新评论状态DTO（审核用）
+ */
+@Data
+public class CommentStatusUpdateDTO {
+
+    @NotNull(message = "状态不能为空")
+    private Integer status;
 }

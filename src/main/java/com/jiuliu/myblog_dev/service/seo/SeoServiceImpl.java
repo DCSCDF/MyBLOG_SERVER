@@ -24,6 +24,7 @@ import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.seo.*;
 import com.jiuliu.myblog_dev.entity.seo.SysSeo;
 import com.jiuliu.myblog_dev.mapper.seo.SysSeoMapper;
+import com.jiuliu.myblog_dev.utils.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -56,7 +57,7 @@ public class SeoServiceImpl implements SeoService {
      * SEO列表缓存 - 缓存SEO配置列表
      * 缓存时间：30分钟
      */
-    private final Cache<String, List<SysSeo>> seoListCache = CacheBuilder.newBuilder()
+    private final Cache<String, PageSeoResponseDTO> seoListCache = CacheBuilder.newBuilder()
             .maximumSize(50)
             .expireAfterWrite(30, TimeUnit.MINUTES)
             .build();
@@ -70,6 +71,17 @@ public class SeoServiceImpl implements SeoService {
     @Override
     public SaResult getPageSeos(PageSeoDTO pageDto) {
         try {
+            // 构建缓存键
+            String cacheKey = CacheUtil.CACHE_KEY_SEO_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
+                    pageDto.getPageType() + "-" + pageDto.getIsSystem() + "-" + pageDto.getKeyword();
+
+            // 尝试从缓存获取
+            PageSeoResponseDTO cached = seoListCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("从缓存获取SEO列表，key={}", cacheKey);
+                return SaResult.data(cached);
+            }
+
             LambdaQueryWrapper<SysSeo> wrapper = new LambdaQueryWrapper<SysSeo>()
                     .eq(SysSeo::getIsDeleted, 0)
                     .eq(StringUtils.hasText(pageDto.getPageType()), SysSeo::getPageType, pageDto.getPageType())
@@ -100,6 +112,9 @@ public class SeoServiceImpl implements SeoService {
             // 页面类型筛选项来自数据库中的不重复类型名称，用户也可在新增时自定义传入类型名称
             List<String> distinctPageTypes = sysSeoMapper.selectDistinctPageTypes();
             response.setFilterOptions(buildSeoListFilterOptions(distinctPageTypes));
+
+            // 存入缓存
+            seoListCache.put(cacheKey, response);
 
             return SaResult.data(response);
         } catch (Exception e) {

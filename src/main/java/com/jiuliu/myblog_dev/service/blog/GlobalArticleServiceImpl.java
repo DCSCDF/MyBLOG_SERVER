@@ -26,6 +26,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.utils.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -58,7 +59,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
      * 文章列表缓存 - 缓存文章列表
      * 缓存时间：30分钟
      */
-    private final Cache<String, List<SysBlog>> articleListCache = CacheBuilder.newBuilder()
+    private final Cache<String, PageGlobalArticleResponseDTO> globalArticleListCache = CacheBuilder.newBuilder()
             .maximumSize(50)
             .expireAfterWrite(30, TimeUnit.MINUTES)
             .build();
@@ -74,65 +75,84 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
 
     @Override
     public SaResult getPageGlobalArticles(PageGlobalArticleDTO dto) {
-        // 构建查询条件
-        LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
+        try {
+            // 构建缓存键
+            String cacheKey = CacheUtil.CACHE_KEY_ARTICLE_LIST + dto.getCurrentPage() + "-" + dto.getPageSize() + "-" +
+                    dto.getKeyword() + "-" + dto.getIsHidden() + "-" + dto.getIsTop() + "-" + dto.getIsRecommend();
 
-        // 关键词搜索（标题）
-        if (StringUtils.hasText(dto.getKeyword())) {
-            queryWrapper.like(SysBlog::getTitle, dto.getKeyword());
-        }
-
-        // 状态筛选
-        if (dto.getIsHidden() != null) {
-            queryWrapper.eq(SysBlog::getHidden, dto.getIsHidden());
-        }
-        if (dto.getIsTop() != null) {
-            queryWrapper.eq(SysBlog::getTop, dto.getIsTop());
-        }
-        if (dto.getIsRecommend() != null) {
-            queryWrapper.eq(SysBlog::getRecommend, dto.getIsRecommend());
-        }
-
-        // 按置顶和创建时间排序
-        queryWrapper.orderByDesc(SysBlog::getTop, SysBlog::getCreateTime);
-
-        // 分页查询
-        Page<SysBlog> page = new Page<>(dto.getCurrentPage(), dto.getPageSize());
-        IPage<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
-
-        // 收集所有作者 ID
-        List<Long> authorIds = pageResult.getRecords().stream()
-                .map(SysBlog::getAuthorId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-
-        // 批量查询用户信息
-        Map<Long, UserInfo> userInfoMap = new HashMap<>();
-        if (!authorIds.isEmpty()) {
-            List<SysUser> users = userMapper.selectList(new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
-            for (SysUser user : users) {
-                userInfoMap.put(user.getId(), new UserInfo(user.getNickname(), user.getStatus(), user.getIsDeleted()));
+            // 尝试从缓存获取
+            PageGlobalArticleResponseDTO cached = globalArticleListCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("从缓存获取全局文章列表，key={}", cacheKey);
+                return SaResult.data(cached);
             }
+
+            // 构建查询条件
+            LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
+
+            // 关键词搜索（标题）
+            if (StringUtils.hasText(dto.getKeyword())) {
+                queryWrapper.like(SysBlog::getTitle, dto.getKeyword());
+            }
+
+            // 状态筛选
+            if (dto.getIsHidden() != null) {
+                queryWrapper.eq(SysBlog::getHidden, dto.getIsHidden());
+            }
+            if (dto.getIsTop() != null) {
+                queryWrapper.eq(SysBlog::getTop, dto.getIsTop());
+            }
+            if (dto.getIsRecommend() != null) {
+                queryWrapper.eq(SysBlog::getRecommend, dto.getIsRecommend());
+            }
+
+            // 按置顶和创建时间排序
+            queryWrapper.orderByDesc(SysBlog::getTop, SysBlog::getCreateTime);
+
+            // 分页查询
+            Page<SysBlog> page = new Page<>(dto.getCurrentPage(), dto.getPageSize());
+            IPage<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
+
+            // 收集所有作者 ID
+            List<Long> authorIds = pageResult.getRecords().stream()
+                    .map(SysBlog::getAuthorId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 批量查询用户信息
+            Map<Long, UserInfo> userInfoMap = new HashMap<>();
+            if (!authorIds.isEmpty()) {
+                List<SysUser> users = userMapper.selectList(new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
+                for (SysUser user : users) {
+                    userInfoMap.put(user.getId(), new UserInfo(user.getNickname(), user.getStatus(), user.getIsDeleted()));
+                }
+            }
+
+            // 转换为响应DTO
+            List<GlobalArticleResponseDTO> records = pageResult.getRecords().stream()
+                    .map(blog -> convertToGlobalArticleResponseDTO(blog, userInfoMap))
+                    .collect(Collectors.toList());
+
+            // 构建响应
+            PageGlobalArticleResponseDTO response = new PageGlobalArticleResponseDTO();
+            response.setRecords(records);
+            response.setTotal(pageResult.getTotal());
+            response.setSize(pageResult.getSize());
+            response.setCurrent(pageResult.getCurrent());
+            response.setPages(pageResult.getPages());
+
+            // 设置筛选项
+            response.setFilterOptions(buildFilterOptions());
+
+            // 存入缓存
+            globalArticleListCache.put(cacheKey, response);
+
+            return SaResult.data(response);
+        } catch (Exception e) {
+            log.error("分页获取全局文章列表异常", e);
+            return SaResult.error("获取文章列表失败").setCode(500);
         }
-
-        // 转换为响应DTO
-        List<GlobalArticleResponseDTO> records = pageResult.getRecords().stream()
-                .map(blog -> convertToGlobalArticleResponseDTO(blog, userInfoMap))
-                .collect(Collectors.toList());
-
-        // 构建响应
-        PageGlobalArticleResponseDTO response = new PageGlobalArticleResponseDTO();
-        response.setRecords(records);
-        response.setTotal(pageResult.getTotal());
-        response.setSize(pageResult.getSize());
-        response.setCurrent(pageResult.getCurrent());
-        response.setPages(pageResult.getPages());
-
-        // 设置筛选项
-        response.setFilterOptions(buildFilterOptions());
-
-        return SaResult.data(response);
     }
 
     @Override
@@ -198,7 +218,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
      */
     private void clearArticleCache(Long blogId) {
         articleCache.invalidate(blogId);
-        articleListCache.invalidateAll();
+        globalArticleListCache.invalidateAll();
         log.debug("文章缓存已清除，blogId={}", blogId);
     }
 

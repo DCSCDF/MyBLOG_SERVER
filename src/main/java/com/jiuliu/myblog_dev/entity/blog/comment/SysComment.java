@@ -36,7 +36,11 @@ public class SysComment {
     private Long userId;            // 已登录用户ID（可为空）
 
     private String username;        // 评论者名称（必填）
+
+    @TableField("email")
     private String email;
+
+    @TableField("avatar_url")
     private String avatarUrl;
     private String website;
     private String content;         // 评论内容
@@ -52,6 +56,10 @@ public class SysComment {
 
     @TableField("is_admin")
     private Boolean admin = false;  // 是否管理员评论
+
+    @TableLogic
+    @TableField("is_deleted")
+    private Integer isDeleted;       // 逻辑删除：0=未删除，1=已删除
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

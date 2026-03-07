@@ -1,5 +1,5 @@
 /*
- * [SysBlogTag.java]
+ * [CommentUpdateDTO.java]
  * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -9,29 +9,30 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8
  */
 
-package com.jiuliu.myblog_dev.entity.blog.tag;
+package com.jiuliu.myblog_dev.dto.comment;
 
-import com.baomidou.mybatisplus.annotation.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
+/**
+ * 更新评论DTO
+ */
 @Data
-@TableName("sys_blog_tag")//文章-标签关联表
-public class SysBlogTag {
+public class CommentUpdateDTO {
 
-    @TableId(type = IdType.AUTO)
+    @NotNull(message = "评论ID不能为空")
     private Long id;
 
-    @TableField("blog_id")
-    private Long blogId;
+    /**
+     * 评论内容
+     */
+    private String content;
 
-    @TableField("tag_id")
-    private Long tagId;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
+    /**
+     * 个人网站
+     */
+    private String website;
 }

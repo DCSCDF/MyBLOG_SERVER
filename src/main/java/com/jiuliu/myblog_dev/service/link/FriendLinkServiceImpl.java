@@ -24,6 +24,7 @@ import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.link.*;
 import com.jiuliu.myblog_dev.entity.link.SysFriendLink;
 import com.jiuliu.myblog_dev.mapper.link.SysFriendLinkMapper;
+import com.jiuliu.myblog_dev.utils.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,7 +55,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
      * 友链列表缓存 - 缓存通过审核的友链列表（前台展示用）
      * 缓存时间：30分钟
      */
-    private final Cache<String, List<SysFriendLink>> friendLinkListCache = CacheBuilder.newBuilder()
+    private final Cache<String, PageFriendLinkResponseDTO> friendLinkListCache = CacheBuilder.newBuilder()
             .maximumSize(50)
             .expireAfterWrite(30, TimeUnit.MINUTES)
             .build();
@@ -68,6 +69,17 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     @Override
     public SaResult getPageFriendLinks(PageFriendLinkDTO pageDto) {
         try {
+            // 构建缓存键
+            String cacheKey = CacheUtil.CACHE_KEY_FRIEND_LINK_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
+                    pageDto.getStatus() + "-" + pageDto.getKeyword();
+
+            // 尝试从缓存获取
+            PageFriendLinkResponseDTO cached = friendLinkListCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("从缓存获取友链列表，key={}", cacheKey);
+                return SaResult.data(cached);
+            }
+
             LambdaQueryWrapper<SysFriendLink> wrapper = new LambdaQueryWrapper<SysFriendLink>()
                     .eq(SysFriendLink::getIsDeleted, 0)
                     .orderByDesc(SysFriendLink::getSortOrder)
@@ -99,6 +111,9 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             response.setCurrent(pageResult.getCurrent());
             response.setPages(pageResult.getPages());
             response.setFilterOptions(buildStatusFilterOptions());
+
+            // 存入缓存
+            friendLinkListCache.put(cacheKey, response);
 
             return SaResult.data(response);
         } catch (Exception e) {
