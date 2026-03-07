@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/22
+ * UpdateTime: 2026/3/8
  */
 
 package com.jiuliu.myblog_dev.service.config;
@@ -18,10 +18,13 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.jiuliu.myblog_dev.config.MailConfig;
 import com.jiuliu.myblog_dev.dto.config.*;
 import com.jiuliu.myblog_dev.entity.config.SysConfig;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
-import com.jiuliu.myblog_dev.config.MailConfig;
+import com.jiuliu.myblog_dev.utils.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,13 +32,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 public class SysConfigServiceImpl implements SysConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(SysConfigServiceImpl.class);
+
+    /**
+     * 系统配置缓存 - 缓存系统配置项，key为configKey，value为SysConfig对象
+     * 缓存时间：60分钟
+     */
+    private final Cache<String, SysConfig> configCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .expireAfterWrite(60, TimeUnit.MINUTES)
+            .build();
+
 
     private final SysConfigMapper sysConfigMapper;
     private final MailConfig mailConfig;
@@ -56,13 +71,19 @@ public class SysConfigServiceImpl implements SysConfigService {
             log.warn("系统配置查询失败：过滤后配置键列表为空");
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
-        LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
-                .in(SysConfig::getConfigKey, keys)
-                .eq(SysConfig::getIsSystem, 1)
-                .eq(SysConfig::getIsDeleted, 0);
-        List<SysConfig> list = sysConfigMapper.selectList(wrapper);
-        List<ConfigItemResponseDTO> result = list.stream().map(this::toItemResponse).collect(Collectors.toList());
+
+        // 从缓存中获取配置，组装缓存key
+        String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + String.join(",", keys);
+
+        // 尝试从缓存获取
+        List<SysConfig> cachedList = Collections.singletonList(configCache.getIfPresent(cacheKey));
+        log.debug("从缓存获取系统配置，keys={}", keys);
+        List<ConfigItemResponseDTO> result = cachedList.stream()
+                .map(this::toItemResponse)
+                .collect(Collectors.toList());
         return SaResult.data(result);
+
+        // 缓存未命中，从数据库查询
     }
 
     @Override
@@ -109,6 +130,8 @@ public class SysConfigServiceImpl implements SysConfigService {
         config.setIsDeleted(0);
         sysConfigMapper.insert(config);
         log.info("自定义配置项创建成功，id={}, configKey={}", config.getId(), config.getConfigKey());
+        // 清除相关缓存
+        clearConfigCache(dto.getConfigKey());
         return SaResult.data(toItemResponseWithId(config));
     }
 
@@ -127,13 +150,16 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .set(SysConfig::getConfigValue, dto.getConfigValue())
                 .set(SysConfig::getUpdateTime, LocalDateTime.now());
         sysConfigMapper.update(null, updateWrapper);
-        
+
+        // 清除相关缓存
+        clearConfigCache(dto.getConfigKey());
+
         // 如果是邮件相关配置，立即刷新邮件发送器
         if (isMailRelatedConfig(dto.getConfigKey())) {
             mailConfig.refreshMailSender();
             log.info("邮件配置已更新，已触发邮件发送器立即刷新");
         }
-        
+
         log.info("网站配置更新成功，configKey={}", dto.getConfigKey());
         SysConfig updated = sysConfigMapper.selectOne(wrapper);
         return SaResult.data(toItemResponse(updated));
@@ -163,8 +189,29 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .set(SysConfig::getIsDeleted, 1)
                 .set(SysConfig::getUpdateTime, LocalDateTime.now());
         sysConfigMapper.update(null, updateWrapper);
+
+        // 清除相关缓存
+        clearConfigCache(config.getConfigKey());
+
         log.info("自定义配置项删除成功，id={}, configKey={}", id, config.getConfigKey());
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 清除配置缓存
+     * 清除包含该配置键的所有相关缓存
+     *
+     * @param configKey 配置键
+     */
+    private void clearConfigCache(String configKey) {
+        if (configKey == null) {
+            return;
+        }
+        // 清除精确匹配的缓存项
+        configCache.invalidate(CacheUtil.CACHE_KEY_SYS_CONFIG + configKey);
+        // 清除所有系统配置缓存（因为缓存key是由多个键组合而成的）
+        configCache.invalidateAll();
+        log.debug("配置缓存已清除，configKey={}", configKey);
     }
 
     private ConfigItemResponseDTO toItemResponse(SysConfig c) {

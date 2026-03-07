@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/2
+ * UpdateTime: 2026/3/8
  */
 
 package com.jiuliu.myblog_dev.service.blog.category;
@@ -18,6 +18,8 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.blog.category.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
@@ -33,12 +35,31 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
     private static final Logger log = LoggerFactory.getLogger(CategoryServiceImpl.class);
+
+    /**
+     * 分类缓存 - 缓存单个分类，key为分类ID，value为SysCategory对象
+     * 缓存时间：30分钟
+     */
+    private final Cache<Long, SysCategory> categoryCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
+
+    /**
+     * 分类列表缓存 - 缓存所有启用的分类列表
+     * 缓存时间：30分钟
+     */
+    private final Cache<String, List<SysCategory>> categoryListCache = CacheBuilder.newBuilder()
+            .maximumSize(50)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
 
     private final SysCategoryMapper categoryMapper;
     private final SysBlogMapper blogMapper;
@@ -107,6 +128,8 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryMapper.insert(category);
         log.info("分类创建成功，id={}, name={}", category.getId(), category.getName());
+        // 清除分类缓存
+        clearCategoryCache();
         return SaResult.data(toResponseDTO(categoryMapper.selectById(category.getId())));
     }
 
@@ -129,6 +152,8 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryMapper.update(null, updateWrapper);
         log.info("分类更新成功，id={}", dto.getId());
+        // 清除分类缓存
+        clearCategoryCache();
         SysCategory updated = categoryMapper.selectById(dto.getId());
         return SaResult.data(toResponseDTO(updated));
     }
@@ -150,7 +175,18 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoryMapper.deleteById(id);
         log.info("分类删除成功，id={}", id);
+        // 清除分类缓存
+        clearCategoryCache();
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 清除分类缓存
+     */
+    private void clearCategoryCache() {
+        categoryCache.invalidateAll();
+        categoryListCache.invalidateAll();
+        log.debug("分类缓存已清除");
     }
 
     private CategoryResponseDTO toResponseDTO(SysCategory category) {

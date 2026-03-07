@@ -12,7 +12,7 @@
  * UpdateTime: 2026/2/18 11:52
  */
 
-package com.jiuliu.myblog_dev.service.satoken;
+package com.jiuliu.myblog_dev.service.authentication;
 
 import cn.dev33.satoken.stp.StpInterface;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
@@ -30,16 +30,18 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-public class SaTokenService implements StpInterface {
+public class AuthenticationService implements StpInterface {
 
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
 
-    public SaTokenService(SysRoleMapper sysRoleMapper, SysPermissionMapper sysPermissionMapper) {
+    public AuthenticationService(SysRoleMapper sysRoleMapper, SysPermissionMapper sysPermissionMapper) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
     }
 
+    //缓存 实现前要确保变更角色的权限后要刷新缓存
+    //@Cacheable(value = "userRoles", key = "#loginId"
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
 
@@ -49,6 +51,7 @@ public class SaTokenService implements StpInterface {
         return roleList.stream().map(SysRole::getCode).collect(Collectors.toList());
     }
 
+    //@Cacheable(value = "userPermissions", key = "#loginId")
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
         Long userId = convertToLong(loginId);

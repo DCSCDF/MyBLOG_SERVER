@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/23
+ * UpdateTime: 2026/3/8
  */
 
 package com.jiuliu.myblog_dev.service.link;
@@ -18,6 +18,8 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.link.*;
 import com.jiuliu.myblog_dev.entity.link.SysFriendLink;
@@ -31,12 +33,31 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 public class FriendLinkServiceImpl implements FriendLinkService {
 
     private static final Logger log = LoggerFactory.getLogger(FriendLinkServiceImpl.class);
+
+    /**
+     * 友链缓存 - 缓存单个友链，key为友链ID，value为SysFriendLink对象
+     * 缓存时间：30分钟
+     */
+    private final Cache<Long, SysFriendLink> friendLinkCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
+
+    /**
+     * 友链列表缓存 - 缓存通过审核的友链列表（前台展示用）
+     * 缓存时间：30分钟
+     */
+    private final Cache<String, List<SysFriendLink>> friendLinkListCache = CacheBuilder.newBuilder()
+            .maximumSize(50)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
 
     private final SysFriendLinkMapper friendLinkMapper;
 
@@ -112,6 +133,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
         friendLinkMapper.insert(link);
         log.info("外链创建成功，id={}, name={}", link.getId(), link.getName());
+        // 清除友链缓存
+        clearFriendLinkCache();
         return SaResult.data(toResponseDTO(friendLinkMapper.selectById(link.getId())));
     }
 
@@ -136,6 +159,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
         friendLinkMapper.update(null, updateWrapper);
         log.info("外链更新成功，id={}", dto.getId());
+        // 清除友链缓存
+        clearFriendLinkCache();
         SysFriendLink updated = friendLinkMapper.selectById(dto.getId());
         return SaResult.data(toResponseDTO(updated));
     }
@@ -158,6 +183,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
                 .set(SysFriendLink::getStatus, newStatus)
                 .set(SysFriendLink::getUpdateTime, LocalDateTime.now()));
         log.info("友链审核状态变更成功，id={}, 新状态={}", id, newStatus);
+        // 清除友链缓存
+        clearFriendLinkCache();
         SysFriendLink updated = friendLinkMapper.selectById(id);
         return SaResult.data(toResponseDTO(updated));
     }
@@ -182,7 +209,18 @@ public class FriendLinkServiceImpl implements FriendLinkService {
                 .set(SysFriendLink::getUpdateTime, LocalDateTime.now()));
 
         log.info("外链删除成功，id={}", id);
+        // 清除友链缓存
+        clearFriendLinkCache();
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 清除友链缓存
+     */
+    private void clearFriendLinkCache() {
+        friendLinkCache.invalidateAll();
+        friendLinkListCache.invalidateAll();
+        log.debug("友链缓存已清除");
     }
 
     private FriendLinkResponseDTO toResponseDTO(SysFriendLink link) {

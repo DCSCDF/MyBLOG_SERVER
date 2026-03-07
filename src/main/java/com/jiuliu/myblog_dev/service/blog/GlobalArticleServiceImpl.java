@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/6
+ * UpdateTime: 2026/3/8
  */
 
 package com.jiuliu.myblog_dev.service.blog;
@@ -18,16 +18,14 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.jiuliu.myblog_dev.dto.blog.global.GlobalArticleResponseDTO;
-import com.jiuliu.myblog_dev.dto.blog.global.GlobalArticleStatusUpdateDTO;
-import com.jiuliu.myblog_dev.dto.blog.global.PageGlobalArticleDTO;
-import com.jiuliu.myblog_dev.dto.blog.global.PageGlobalArticleResponseDTO;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.jiuliu.myblog_dev.dto.blog.global.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -35,32 +33,36 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * 用户信息 DTO，包含昵称和状态
- */
-@Data
-class UserInfo {
-    private String nickname;
-    private Integer status;
-    private Integer isDeleted;
-
-    public UserInfo(String nickname, Integer status, Integer isDeleted) {
-        this.nickname = nickname;
-        this.status = status;
-        this.isDeleted = isDeleted;
-    }
-}
-
-/**
- * 全局文章管理Service实现类
+ * 全局文章管理 Service 实现类
  */
 @Service
 public class GlobalArticleServiceImpl implements GlobalArticleService {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalArticleServiceImpl.class);
+
+    /**
+     * 文章缓存 - 缓存单个文章，key为文章ID，value为SysBlog对象
+     * 缓存时间：30分钟
+     */
+    private final Cache<Long, SysBlog> articleCache = CacheBuilder.newBuilder()
+            .maximumSize(1000)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
+
+    /**
+     * 文章列表缓存 - 缓存文章列表
+     * 缓存时间：30分钟
+     */
+    private final Cache<String, List<SysBlog>> articleListCache = CacheBuilder.newBuilder()
+            .maximumSize(50)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
+
 
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
@@ -161,6 +163,9 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
 
         blogMapper.updateById(blog);
 
+        // 清除文章缓存
+        clearArticleCache(blogId);
+
         log.info("文章状态更新成功，文章ID：{}", blogId);
 
         Map<String, Object> data = new HashMap<>();
@@ -184,12 +189,26 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         // 逻辑删除
         blogMapper.deleteById(blogId);
 
+        // 清除文章缓存
+        clearArticleCache(blogId);
+
         log.info("文章删除成功，文章ID：{}", blogId);
 
         Map<String, Object> data = new HashMap<>();
         data.put("id", blogId);
         data.put("message", "文章删除成功");
         return SaResult.data(data);
+    }
+
+    /**
+     * 清除文章缓存
+     *
+     * @param blogId 文章ID
+     */
+    private void clearArticleCache(Long blogId) {
+        articleCache.invalidate(blogId);
+        articleListCache.invalidateAll();
+        log.debug("文章缓存已清除，blogId={}", blogId);
     }
 
     /**

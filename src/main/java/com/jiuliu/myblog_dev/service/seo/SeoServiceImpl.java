@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/21
+ * UpdateTime: 2026/3/8
  */
 
 package com.jiuliu.myblog_dev.service.seo;
@@ -18,6 +18,8 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.seo.*;
 import com.jiuliu.myblog_dev.entity.seo.SysSeo;
@@ -33,12 +35,31 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 public class SeoServiceImpl implements SeoService {
 
     private static final Logger log = LoggerFactory.getLogger(SeoServiceImpl.class);
+
+    /**
+     * SEO配置缓存 - 缓存单个SEO配置，key为SEO ID，value为SysSeo对象
+     * 缓存时间：30分钟
+     */
+    private final Cache<Long, SysSeo> seoCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
+
+    /**
+     * SEO列表缓存 - 缓存SEO配置列表
+     * 缓存时间：30分钟
+     */
+    private final Cache<String, List<SysSeo>> seoListCache = CacheBuilder.newBuilder()
+            .maximumSize(50)
+            .expireAfterWrite(30, TimeUnit.MINUTES)
+            .build();
 
     private final SysSeoMapper sysSeoMapper;
 
@@ -136,6 +157,8 @@ public class SeoServiceImpl implements SeoService {
 
         sysSeoMapper.insert(seo);
         log.info("SEO配置创建成功，id={}, pageType={}, pageId={}", seo.getId(), seo.getPageType(), seo.getPageId());
+        // 清除SEO缓存
+        clearSeoCache();
         return SaResult.data(toResponseDTO(seo));
     }
 
@@ -201,6 +224,8 @@ public class SeoServiceImpl implements SeoService {
 
         sysSeoMapper.update(null, updateWrapper);
         log.info("SEO配置更新成功，id={}", dto.getId());
+        // 清除SEO缓存
+        clearSeoCache();
         return SaResult.data(toResponseDTO(sysSeoMapper.selectById(dto.getId())));
     }
 
@@ -228,7 +253,18 @@ public class SeoServiceImpl implements SeoService {
                 .set(SysSeo::getUpdateTime, LocalDateTime.now()));
 
         log.info("SEO配置删除成功，id={}", id);
+        // 清除SEO缓存
+        clearSeoCache();
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 清除SEO缓存
+     */
+    private void clearSeoCache() {
+        seoCache.invalidateAll();
+        seoListCache.invalidateAll();
+        log.debug("SEO缓存已清除");
     }
 
     private SeoResponseDTO toResponseDTO(SysSeo seo) {
