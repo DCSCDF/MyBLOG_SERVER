@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS sys_comment
     avatar_url  VARCHAR(200) COMMENT '头像URL',
     website     VARCHAR(200) COMMENT '个人网站',
     content     TEXT        NOT NULL COMMENT '评论内容',
-    status      TINYINT    DEFAULT 0 COMMENT '状态：0=待审核，1=已通过，2=垃圾评论，3=已删除',
+    status      TINYINT    DEFAULT 0 COMMENT '状态：0=待审核，1=已通过，2=垃圾评论',
     like_count  INT        DEFAULT 0 COMMENT '点赞数',
     device_info VARCHAR(200) COMMENT '设备信息',
     ip_address  VARCHAR(50) COMMENT 'IP地址',
