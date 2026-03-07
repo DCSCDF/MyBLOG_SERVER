@@ -14,6 +14,7 @@
 
 package com.jiuliu.myblog_dev.controller.blog;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
@@ -71,6 +72,7 @@ public class BlogController {
      * 权限：article:create
      */
     @PostMapping
+    @SaCheckPermission("article:create")
     @RateLimit(count = 20, period = 60)
     public Response<Map<String, Object>> createBlog(@Valid @RequestBody BlogCreateDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
@@ -83,6 +85,7 @@ public class BlogController {
      * 权限：article:list
      */
     @PostMapping("/list")
+    @SaCheckPermission("article:list")
     public Response<PageUserBlogResponseDTO> getPageUserBlogs(@Valid @RequestBody PageUserBlogDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResultGeneral(blogService.getPageUserBlogs(dto, currentUserId));
@@ -91,9 +94,10 @@ public class BlogController {
     /**
      * 获取文章详情
      * GET /api/blogs/{id}
-     * 权限：article:detail
+     * 权限：article:list
      */
     @GetMapping("/{id}")
+    @SaCheckPermission("article:list")
     public Response<BlogDetailResponseDTO> getBlogDetail(@PathVariable Long id) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResultGeneral(blogService.getBlogDetail(id, currentUserId));
@@ -105,8 +109,9 @@ public class BlogController {
      * 权限：article:edit
      */
     @PutMapping("/{id}/status")
+    @SaCheckPermission("article:edit")
     public Response<Map<String, Object>> updateBlogStatus(@PathVariable Long id,
-                                                           @Valid @RequestBody BlogStatusUpdateDTO dto) {
+                                                          @Valid @RequestBody BlogStatusUpdateDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResult(blogService.updateBlogStatus(id, dto, currentUserId));
     }
@@ -117,6 +122,7 @@ public class BlogController {
      * 权限：article:edit
      */
     @PutMapping("/{id}")
+    @SaCheckPermission("article:edit")
     public Response<Map<String, Object>> updateBlogContent(@PathVariable Long id,
                                                            @Valid @RequestBody BlogContentUpdateDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
@@ -129,6 +135,7 @@ public class BlogController {
      * 权限：article:delete
      */
     @DeleteMapping("/{id}")
+    @SaCheckPermission("article:delete")
     public Response<Map<String, Object>> deleteBlog(@PathVariable Long id) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResult(blogService.deleteBlog(id, currentUserId));
