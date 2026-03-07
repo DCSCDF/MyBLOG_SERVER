@@ -40,7 +40,7 @@ import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupItemM
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
-import com.jiuliu.myblog_dev.utils.PermissionOverlapHelper;
+import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

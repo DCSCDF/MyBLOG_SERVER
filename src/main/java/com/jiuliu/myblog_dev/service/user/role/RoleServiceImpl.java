@@ -45,7 +45,7 @@ import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMappe
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
-import com.jiuliu.myblog_dev.utils.PermissionOverlapHelper;
+import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

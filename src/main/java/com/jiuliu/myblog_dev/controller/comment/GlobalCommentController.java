@@ -17,13 +17,9 @@ package com.jiuliu.myblog_dev.controller.comment;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.comment.CommentStatusUpdateDTO;
-import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
-import com.jiuliu.myblog_dev.dto.comment.CommentResponseDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageGlobalCommentDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageGlobalCommentResponseDTO;
+import com.jiuliu.myblog_dev.dto.comment.*;
 import com.jiuliu.myblog_dev.service.comment.GlobalCommentService;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -70,7 +66,7 @@ public class GlobalCommentController {
     @PutMapping("/{id}")
     @SaCheckPermission("system:comment:edit")
     public Response<CommentResponseDTO> updateComment(@PathVariable Long id,
-                                                       @Valid @RequestBody CommentUpdateDTO dto) {
+                                                      @Valid @RequestBody CommentUpdateDTO dto) {
         dto.setId(id);
         SaResult saResult = globalCommentService.updateComment(dto);
         return handleSaResult(saResult);

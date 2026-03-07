@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/6
+ * UpdateTime: 2026/3/8 04:37
  */
 
-package com.jiuliu.myblog_dev.config;
+package com.jiuliu.myblog_dev.config.business;
 
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import jakarta.annotation.PostConstruct;

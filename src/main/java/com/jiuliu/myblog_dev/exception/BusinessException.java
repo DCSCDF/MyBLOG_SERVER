@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8 03:19
  */
 
 /*
@@ -39,9 +39,9 @@ public class BusinessException extends RuntimeException {
         this.code = code;
     }
 
-    public BusinessException(String message, int code, Throwable cause) {
-        super(message, cause);
-        this.code = code;
-    }
+//    public BusinessException(String message, int code, Throwable cause) {
+//        super(message, cause);
+//        this.code = code;
+//    }
 
 }

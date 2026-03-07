@@ -19,7 +19,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.link.*;
 import com.jiuliu.myblog_dev.service.link.FriendLinkService;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -80,7 +80,7 @@ public class FriendLinkController {
         SaResult saResult = friendLinkService.updateFriendLinkStatus(id, dto);
         return handleSaResult(saResult);
     }
- 
+
     /**
      * 删除外链（逻辑删除）
      * 权限：links:delete

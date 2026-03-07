@@ -19,7 +19,7 @@ import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
-import com.jiuliu.myblog_dev.utils.PermissionOverlapHelper;
+import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 

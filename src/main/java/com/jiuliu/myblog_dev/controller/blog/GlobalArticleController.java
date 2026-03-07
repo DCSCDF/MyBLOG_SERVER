@@ -17,9 +17,11 @@ package com.jiuliu.myblog_dev.controller.blog;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.dto.blog.global.*;
+import com.jiuliu.myblog_dev.dto.blog.global.GlobalArticleStatusUpdateDTO;
+import com.jiuliu.myblog_dev.dto.blog.global.PageGlobalArticleDTO;
+import com.jiuliu.myblog_dev.dto.blog.global.PageGlobalArticleResponseDTO;
 import com.jiuliu.myblog_dev.service.blog.GlobalArticleService;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 

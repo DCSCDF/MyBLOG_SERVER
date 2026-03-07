@@ -21,7 +21,7 @@ import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
 import com.jiuliu.myblog_dev.service.user.permission.PermissionService;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

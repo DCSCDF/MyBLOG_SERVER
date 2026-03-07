@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/8
+ * UpdateTime: 2026/3/8 04:37
  */
 
-package com.jiuliu.myblog_dev.utils;
+package com.jiuliu.myblog_dev.utils.cache;
 
 /**
  * 内存缓存工具类

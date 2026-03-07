@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8 04:37
  */
 
-package com.jiuliu.myblog_dev.config;
+package com.jiuliu.myblog_dev.config.web;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import org.apache.ibatis.reflection.MetaObject;

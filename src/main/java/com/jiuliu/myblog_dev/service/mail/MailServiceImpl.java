@@ -15,7 +15,7 @@
 package com.jiuliu.myblog_dev.service.mail;
 
 import cn.dev33.satoken.util.SaResult;
-import com.jiuliu.myblog_dev.config.MailConfig;
+import com.jiuliu.myblog_dev.config.business.MailConfig;
 import com.jiuliu.myblog_dev.utils.mail.SmtpConnectionTester;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;

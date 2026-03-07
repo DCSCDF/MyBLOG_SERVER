@@ -22,6 +22,10 @@
 > - [权限层级与父子关系说明 `Permission_Hierarchy`](Document/Permission_Hierarchy.md)
 > - [分类API文档 `category_api`](Document/category_api.md)
 > - [网站友链API文档 `FriendLink_Api`](Document/FriendLink_Api.md) 
+> - [文章管理文档 `blog_api`](Document/Blog_Api.md)
+> - [评论与全局评论API文档 `comment_api`](Document/Comment_Api.md)
+> - [全局文章API文档 `globalarticle_api`](Document/GlobalArticle_Api.md)
+> - [邮箱接口文档 `mail_api`](Document/Mail_Api.md)
 
 ---
 
@@ -75,7 +79,8 @@ src/main/java/com/jiuliu/myblog_dev/
 
 您可以这样使用鉴权：
 
-```java
+``` java
+
 // 获取权限列表
 List<String> permissionList = StpUtil.getPermissionList();
 
@@ -109,7 +114,7 @@ StpUtil.checkRoleOr("ADMIN","SUPER_ADMIN");
 
 控制器中使用权限验证：
 
-```java
+``` java
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {

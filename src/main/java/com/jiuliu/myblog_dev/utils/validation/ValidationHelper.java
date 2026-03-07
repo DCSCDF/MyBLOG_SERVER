@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8 04:37
  */
 
-package com.jiuliu.myblog_dev.config.validation;
+package com.jiuliu.myblog_dev.utils.validation;
 
 
 import org.slf4j.Logger;
@@ -108,15 +108,15 @@ public class ValidationHelper {
     public static boolean validateEmail(String email) {
         if (!StringUtils.hasText(email)) {
             log.warn("邮箱不能为空");
-            return false;
+            return true;
         }
 
         // 简单的邮箱格式验证
         if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
             log.warn("邮箱格式不正确");
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
 

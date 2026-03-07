@@ -22,7 +22,7 @@ import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentResponseDTO;
 import com.jiuliu.myblog_dev.service.comment.CommentService;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -70,7 +70,7 @@ public class CommentController {
     @PutMapping("/{id}")
     @SaCheckPermission("comment:edit")
     public Response<Object> updateComment(@PathVariable Long id,
-                                           @Valid @RequestBody CommentUpdateDTO dto) {
+                                          @Valid @RequestBody CommentUpdateDTO dto) {
         dto.setId(id);
         Long currentUserId = StpUtil.getLoginIdAsLong();
         SaResult saResult = commentService.updateComment(dto, currentUserId);

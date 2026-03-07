@@ -20,9 +20,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.jiuliu.myblog_dev.config.RsaKeyConfig;
-import com.jiuliu.myblog_dev.config.rsa.RsaUtils;
-import com.jiuliu.myblog_dev.config.validation.ValidationHelper;
+import com.jiuliu.myblog_dev.config.business.RsaKeyConfig;
 import com.jiuliu.myblog_dev.dto.user.UserResponseDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
@@ -34,7 +32,10 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
-import com.jiuliu.myblog_dev.utils.user.auth.TempLoginTokenService;
+import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
+import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
+import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
+import com.jiuliu.myblog_dev.utils.validation.ValidationHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -47,11 +48,7 @@ import java.net.URL;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -324,7 +321,7 @@ public class AuthServiceImpl implements AuthService {
         if (ValidationHelper.validateUsername(username)) {
             return SaResult.error("用户名格式错误").setCode(400);
         }
-        if (!ValidationHelper.validateEmail(email)) {
+        if (ValidationHelper.validateEmail(email)) {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
@@ -529,7 +526,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱不能为空").setCode(400);
         }
 
-        if (!ValidationHelper.validateEmail(email)) {
+        if (ValidationHelper.validateEmail(email)) {
             log.warn("邮箱修改失败：邮箱格式不正确，userId={}", currentUserId);
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
@@ -599,7 +596,7 @@ public class AuthServiceImpl implements AuthService {
                 }
                 if (resultCodes.add(code)) {
                     for (String candidate : allCodes) {
-                        if (com.jiuliu.myblog_dev.utils.PermissionOverlapHelper.isParentOf(code, candidate)) {
+                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
                             resultCodes.add(candidate);
                         }
                     }

@@ -9,18 +9,17 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
+ * UpdateTime: 2026/3/8 04:37
  */
 
-package com.jiuliu.myblog_dev.config;
+package com.jiuliu.myblog_dev.exception;
 
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.jiuliu.myblog_dev.dto.Response;
-import com.jiuliu.myblog_dev.exception.BusinessException;
-import com.jiuliu.myblog_dev.utils.ResponseUtil;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
+import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;

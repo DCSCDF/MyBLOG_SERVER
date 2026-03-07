@@ -24,7 +24,7 @@ import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.link.*;
 import com.jiuliu.myblog_dev.entity.link.SysFriendLink;
 import com.jiuliu.myblog_dev.mapper.link.SysFriendLinkMapper;
-import com.jiuliu.myblog_dev.utils.CacheUtil;
+import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
