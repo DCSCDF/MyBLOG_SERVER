@@ -74,8 +74,6 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
 
     @Override
     public SaResult getPageGlobalArticles(PageGlobalArticleDTO dto) {
-        log.info("分页获取全局文章列表，当前页：{}，每页：{}", dto.getCurrentPage(), dto.getPageSize());
-
         // 构建查询条件
         LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
 
@@ -134,19 +132,15 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         // 设置筛选项
         response.setFilterOptions(buildFilterOptions());
 
-        log.info("获取全局文章列表成功，总数：{}", pageResult.getTotal());
         return SaResult.data(response);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult updateArticleStatus(Long blogId, GlobalArticleStatusUpdateDTO dto) {
-        log.info("更新文章状态，文章ID：{}", blogId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            log.warn("该文章不存在，文章ID：{}", blogId);
             return SaResult.error("文章不存在").setCode(404);
         }
 
@@ -177,12 +171,9 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult deleteArticle(Long blogId) {
-        log.info("删除文章，文章ID：{}", blogId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            log.warn("文章不存在，文章ID：{}", blogId);
             return SaResult.error("文章不存在").setCode(404);
         }
 

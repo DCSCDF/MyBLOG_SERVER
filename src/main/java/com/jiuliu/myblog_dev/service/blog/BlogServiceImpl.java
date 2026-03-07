@@ -52,8 +52,6 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult createBlog(BlogCreateDTO dto, Long authorId) {
-        log.info("开始创建文章，作者ID：{}，标题：{}", authorId, dto.getTitle());
-
         if (!StringUtils.hasText(dto.getTitle())) {
             log.warn("文章创建失败：标题为空");
             return SaResult.error("文章标题不能为空").setCode(400);
@@ -117,8 +115,6 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public SaResult getPageUserBlogs(PageUserBlogDTO dto, Long userId) {
-        log.info("分页获取用户文章列表，用户ID：{}，当前页：{}，每页：{}", userId, dto.getCurrentPage(), dto.getPageSize());
-
         // 构建查询条件
         LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(SysBlog::getAuthorId, userId);
@@ -162,14 +158,11 @@ public class BlogServiceImpl implements BlogService {
         // 设置筛选项
         response.setFilterOptions(buildFilterOptions());
 
-        log.info("获取用户文章列表成功，总数：{}", pageResult.getTotal());
         return SaResult.data(response);
     }
 
     @Override
     public SaResult getBlogDetail(Long blogId, Long userId) {
-        log.info("获取文章详情，文章ID：{}，用户ID：{}", blogId, userId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
@@ -184,15 +177,12 @@ public class BlogServiceImpl implements BlogService {
 
         BlogDetailResponseDTO response = convertToDetailResponseDTO(blog);
 
-        log.info("获取文章详情成功，文章ID：{}", blogId);
         return SaResult.data(response);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId) {
-        log.info("更新文章状态，文章ID：{}，用户ID：{}", blogId, userId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
@@ -230,8 +220,6 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId) {
-        log.info("更新文章内容，文章ID：{}，用户ID：{}", blogId, userId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
@@ -309,8 +297,6 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult deleteBlog(Long blogId, Long userId) {
-        log.info("删除文章，文章ID：{}，用户ID：{}", blogId, userId);
-
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {

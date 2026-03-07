@@ -104,7 +104,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult getPublicKey() {
-//        log.info("获取 RSA 公钥及临时 Token");
         Map<String, Object> data = new HashMap<>();
         data.put("publicKey", rsaKeyConfig.getPublicKeyBase64());
 
@@ -112,14 +111,11 @@ public class AuthServiceImpl implements AuthService {
         String tempToken = tempLoginTokenService.generateTempToken();
         data.put("tempToken", tempToken);
 
-//        log.debug("公钥已返回，临时 Token: {}", tempToken);
         return SaResult.data(data);
     }
 
     @Override
     public SaResult login(LoginDTO dto) {
-        log.info("用户尝试登录，用户名: {}", dto.getUsername());
-
         // 验证码校验
         SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
@@ -183,11 +179,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult getUserProfile(Long userId) {
-//        log.info("获取用户资料，userId={}", userId);
-
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
-            log.warn("获取用户资料失败：用户不存在，userId={}", userId);
             return SaResult.error("用户不存在").setCode(400);
         }
 
@@ -220,7 +213,6 @@ public class AuthServiceImpl implements AuthService {
         try {
             if (wasLoggedIn) {
                 StpUtil.logout(); // 只有在用户已登录时才执行登出
-//                log.info("用户已成功登出");
 
                 // 登出成功返回成功信息
                 return SaResult.data(Map.of(
@@ -242,8 +234,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {
-        log.info("用户尝试修改密码，currentUserId={}", currentUserId);
-
         String encryptedOldPassword = dto.getOld_password();
         String encryptedNewPassword = dto.getNew_password();
 
@@ -315,8 +305,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult register(RegisterDTO dto) {
-        log.info("用户尝试注册，用户名: {}", dto.getUsername());
-
         // 1. 验证码校验
         SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
@@ -457,8 +445,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId) {
-        log.info("用户尝试修改昵称，currentUserId={}", currentUserId);
-
         String nickname = dto.getNickname().trim();
         if (!StringUtils.hasText(nickname)) {
             log.warn("昵称修改失败：昵称为空，userId={}", currentUserId);
@@ -498,8 +484,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId) {
-        log.info("用户尝试修改头像URL，currentUserId={}", currentUserId);
-
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("头像URL修改失败：用户不存在，userId={}", currentUserId);
@@ -539,8 +523,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId) {
-        log.info("用户尝试修改邮箱，currentUserId={}", currentUserId);
-
         String email = dto.getEmail().trim();
         if (!StringUtils.hasText(email)) {
             log.warn("邮箱修改失败：邮箱为空，userId={}", currentUserId);
@@ -592,7 +574,6 @@ public class AuthServiceImpl implements AuthService {
         // 基于角色 + 权限表，计算当前用户拥有的所有权限编码（父权限自动展开为所有子权限）
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null || user.getIsDeleted() != null && user.getIsDeleted() == 1) {
-            log.warn("获取当前用户权限失败：用户不存在或已删除，userId={}", currentUserId);
             return SaResult.error("用户不存在").setCode(404);
         }
 

@@ -112,7 +112,6 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
-            log.warn("获取用户详情失败：用户不存在，id={}", id);
             return SaResult.error("用户不存在").setCode(404);
         }
         return SaResult.data(toUserAdminResponseDTO(user));
@@ -124,7 +123,6 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getId, userId)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
-            log.warn("获取用户角色失败：用户不存在，userId={}", userId);
             return SaResult.error("用户不存在").setCode(404);
         }
 
