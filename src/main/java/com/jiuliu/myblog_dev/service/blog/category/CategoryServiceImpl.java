@@ -71,6 +71,27 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public SaResult getAvailableCategories() {
+        try {
+            LambdaQueryWrapper<SysCategory> wrapper = new LambdaQueryWrapper<SysCategory>()
+                    .eq(SysCategory::getHidden, false)
+                    .orderByAsc(SysCategory::getSortOrder)
+                    .orderByAsc(SysCategory::getCreateTime);
+
+            List<SysCategory> categories = categoryMapper.selectList(wrapper);
+
+            List<CategoryResponseDTO> records = categories.stream()
+                    .map(this::toResponseDTO)
+                    .collect(Collectors.toList());
+
+            return SaResult.data(records);
+        } catch (Exception e) {
+            log.error("获取可用分类列表异常", e);
+            return SaResult.error("获取分类列表失败").setCode(500);
+        }
+    }
+
+    @Override
     public SaResult getPageCategories(PageCategoryDTO pageDto) {
         try {
             // 构建缓存键
@@ -155,6 +176,18 @@ public class CategoryServiceImpl implements CategoryService {
         if (existing == null) {
             log.warn("更新分类失败：记录不存在，id={}", dto.getId());
             return SaResult.error("分类不存在").setCode(404);
+        }
+
+        // 如果要将分类设置为隐藏，检查是否有文章使用了该分类
+        if (dto.getHidden() != null && dto.getHidden()) {
+            Long articleCount = blogMapper.selectCount(
+                    new LambdaQueryWrapper<SysBlog>()
+                            .eq(SysBlog::getCategoryId, dto.getId())
+            );
+            if (articleCount > 0) {
+                log.warn("隐藏分类失败：分类已被文章使用，分类id={}, 文章数量={}", dto.getId(), articleCount);
+                return SaResult.error("该分类下已有文章，无法隐藏").setCode(400);
+            }
         }
 
         LambdaUpdateWrapper<SysCategory> updateWrapper = new LambdaUpdateWrapper<SysCategory>()

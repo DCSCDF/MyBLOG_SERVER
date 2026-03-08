@@ -23,6 +23,8 @@ import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/categories")
 public class CategoryController {
@@ -41,6 +43,18 @@ public class CategoryController {
     @PostMapping("/list")
     public Response<PageCategoryResponseDTO> getPageCategories(@Valid @RequestBody PageCategoryDTO pageDto) {
         SaResult saResult = categoryService.getPageCategories(pageDto);
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 获取可用分类列表（未隐藏）
+     * 用于文章创建/编辑时的分类选择
+     * 权限：category:list
+     */
+    @SaCheckPermission("category:list")
+    @GetMapping("/available")
+    public Response<List<CategoryResponseDTO>> getAvailableCategories() {
+        SaResult saResult = categoryService.getAvailableCategories();
         return handleSaResult(saResult);
     }
 

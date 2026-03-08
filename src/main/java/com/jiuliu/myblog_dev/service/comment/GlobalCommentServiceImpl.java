@@ -20,11 +20,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.jiuliu.myblog_dev.dto.comment.CommentResponseDTO;
-import com.jiuliu.myblog_dev.dto.comment.CommentStatusUpdateDTO;
-import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageGlobalCommentDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageGlobalCommentResponseDTO;
+import com.jiuliu.myblog_dev.dto.comment.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
@@ -161,6 +157,9 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         }
 
         updateWrapper.set(SysComment::getUpdateTime, LocalDateTime.now());
+
+        // 编辑评论后，重新设置为待审核状态
+        //updateWrapper.set(SysComment::getStatus, 0);
 
         commentMapper.update(null, updateWrapper);
         log.info("全局评论更新成功，id={}", dto.getId());

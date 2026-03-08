@@ -23,6 +23,8 @@ public interface CategoryService {
 
     SaResult getPageCategories(PageCategoryDTO pageDto);
 
+    SaResult getAvailableCategories();
+
     SaResult createCategory(CategoryCreateDTO dto);
 
     SaResult updateCategory(CategoryUpdateDTO dto);

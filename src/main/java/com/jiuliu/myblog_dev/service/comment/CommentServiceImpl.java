@@ -155,6 +155,8 @@ public class CommentServiceImpl implements CommentService {
         }
 
         updateWrapper.set(SysComment::getUpdateTime, LocalDateTime.now());
+        // 用户编辑评论后，重新设置为待审核状态
+        updateWrapper.set(SysComment::getStatus, 0);
 
         commentMapper.update(null, updateWrapper);
         log.info("评论更新成功，id={}", dto.getId());

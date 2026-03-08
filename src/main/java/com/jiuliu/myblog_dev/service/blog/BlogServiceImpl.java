@@ -22,7 +22,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.blog.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
+import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
+import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -44,9 +46,11 @@ public class BlogServiceImpl implements BlogService {
     private static final Logger log = LoggerFactory.getLogger(BlogServiceImpl.class);
 
     private final SysBlogMapper blogMapper;
+    private final SysCategoryMapper categoryMapper;
 
-    public BlogServiceImpl(SysBlogMapper blogMapper) {
+    public BlogServiceImpl(SysBlogMapper blogMapper, SysCategoryMapper categoryMapper) {
         this.blogMapper = blogMapper;
+        this.categoryMapper = categoryMapper;
     }
 
     @Override
@@ -66,6 +70,19 @@ public class BlogServiceImpl implements BlogService {
             if (isValidUrl(dto.getCoverImage())) {
                 log.warn("文章创建失败：封面图URL格式无效，url={}", dto.getCoverImage());
                 return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+            }
+        }
+
+        // 验证分类是否存在且未隐藏
+        if (dto.getCategoryId() != null) {
+            SysCategory category = categoryMapper.selectById(dto.getCategoryId());
+            if (category == null) {
+                log.warn("文章创建失败：分类不存在，categoryId={}", dto.getCategoryId());
+                return SaResult.error("分类不存在").setCode(400);
+            }
+            if (category.getHidden()) {
+                log.warn("文章创建失败：分类已隐藏，categoryId={}", dto.getCategoryId());
+                return SaResult.error("该分类已隐藏，无法选择").setCode(400);
             }
         }
 
@@ -280,7 +297,18 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getTags() != null) {
             updateWrapper.set(SysBlog::getTags, dto.getTags().trim());
         }
+
+        // 验证分类是否存在且未隐藏
         if (dto.getCategoryId() != null) {
+            SysCategory category = categoryMapper.selectById(dto.getCategoryId());
+            if (category == null) {
+                log.warn("文章更新失败：分类不存在，categoryId={}", dto.getCategoryId());
+                return SaResult.error("分类不存在").setCode(400);
+            }
+            if (category.getHidden()) {
+                log.warn("文章更新失败：分类已隐藏，categoryId={}", dto.getCategoryId());
+                return SaResult.error("该分类已隐藏，无法选择").setCode(400);
+            }
             updateWrapper.set(SysBlog::getCategoryId, dto.getCategoryId());
         }
 
