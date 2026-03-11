@@ -262,4 +262,54 @@ public class SysConfigServiceImpl implements SysConfigService {
     private boolean isMailRelatedConfig(String configKey) {
         return configKey != null && configKey.startsWith("smtp.");
     }
+
+    @Override
+    public SaResult getPublicConfigByKeys(List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            log.warn("公开配置查询失败：配置键列表为空");
+            return SaResult.error("配置键列表不能为空").setCode(400);
+        }
+        List<String> validKeys = keys.stream().filter(StringUtils::hasText).distinct().toList();
+        if (validKeys.isEmpty()) {
+            log.warn("公开配置查询失败：过滤后配置键列表为空");
+            return SaResult.error("配置键列表不能为空").setCode(400);
+        }
+
+        // 从缓存中获取配置，先尝试从缓存读取每个key
+        List<SysConfig> resultList = new java.util.ArrayList<>();
+        List<String> missingKeys = new java.util.ArrayList<>();
+
+        for (String key : validKeys) {
+            String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + key;
+            SysConfig cached = configCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                resultList.add(cached);
+                log.debug("从缓存获取公开配置，key={}", key);
+            } else {
+                missingKeys.add(key);
+            }
+        }
+
+        // 缓存未命中，从数据库查询（不限制系统内置配置）
+        if (!missingKeys.isEmpty()) {
+            LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
+                    .in(SysConfig::getConfigKey, missingKeys)
+                    .eq(SysConfig::getIsDeleted, 0);
+            List<SysConfig> dbConfigs = sysConfigMapper.selectList(wrapper);
+
+            // 将数据库查询结果放入缓存
+            for (SysConfig config : dbConfigs) {
+                String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + config.getConfigKey();
+                configCache.put(cacheKey, config);
+                resultList.add(config);
+            }
+
+            log.debug("从数据库查询公开配置，keys={}", missingKeys);
+        }
+
+        List<ConfigItemResponseDTO> result = resultList.stream()
+                .map(this::toItemResponse)
+                .collect(Collectors.toList());
+        return SaResult.data(result);
+    }
 }

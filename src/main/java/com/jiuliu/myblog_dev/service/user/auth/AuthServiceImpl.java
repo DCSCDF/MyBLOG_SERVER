@@ -32,6 +32,7 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
+import com.jiuliu.myblog_dev.utils.auth.OAuthCodeService;
 import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
 import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
@@ -65,6 +66,7 @@ public class AuthServiceImpl implements AuthService {
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TempLoginTokenService tempLoginTokenService;
+    private final OAuthCodeService oauthCodeService;
     private final ImageCaptchaApplication imageCaptchaApplication;
 
     public AuthServiceImpl(
@@ -76,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
             TempLoginTokenService tempLoginTokenService,
+            OAuthCodeService oauthCodeService,
             ImageCaptchaApplication imageCaptchaApplication) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
@@ -85,6 +88,7 @@ public class AuthServiceImpl implements AuthService {
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
         this.tempLoginTokenService = tempLoginTokenService;
+        this.oauthCodeService = oauthCodeService;
         this.imageCaptchaApplication = imageCaptchaApplication;
     }
 
@@ -163,12 +167,59 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("账号已被禁用").setCode(403);
         }
 
-        StpUtil.login(user.getId()); // 等价于 StpUtil.login(user.getId(), false)
-
-        log.info("用户登录成功，userId={}，", user.getId());
+        // 判断是否启用外部授权模式
+        boolean isOauthEnabled = dto.getOauthEnabled() != null && dto.getOauthEnabled();
 
         Map<String, Object> data = new HashMap<>();
 
+        if (isOauthEnabled) {
+            // 外部授权模式：生成一次性授权码，同时返回 token
+            StpUtil.login(user.getId());
+            String code = oauthCodeService.generateCode(user.getId());
+            data.put("code", code);
+            data.put("expiresIn", 300); // 5分钟过期
+            data.put("token", StpUtil.getTokenValue());
+            log.info("外部授权模式登录成功，生成授权码，userId={}", user.getId());
+        } else {
+            // 正常登录模式：直接返回 token
+            StpUtil.login(user.getId());
+            log.info("用户登录成功，userId={}", user.getId());
+            data.put("token", StpUtil.getTokenValue());
+        }
+
+        return SaResult.data(data);
+    }
+
+    @Override
+    public SaResult exchangeCodeForToken(String code) {
+        if (!StringUtils.hasText(code)) {
+            log.warn("授权码换取token失败：授权码为空");
+            return SaResult.error("授权码不能为空").setCode(400);
+        }
+
+        Long userId = oauthCodeService.consumeCode(code);
+        if (userId == null) {
+            log.warn("授权码换取token失败：授权码无效或已过期，code={}", code);
+            return SaResult.error("授权码无效或已过期").setCode(400);
+        }
+
+        // 验证用户状态
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || user.getIsDeleted() == 1) {
+            log.warn("授权码换取token失败：用户不存在，userId={}", userId);
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        if (user.getStatus() == null || user.getStatus() == 0) {
+            log.warn("授权码换取token失败：账号已被禁用，userId={}", userId);
+            return SaResult.error("账号已被禁用").setCode(403);
+        }
+
+        // 登录并返回 token
+        StpUtil.login(userId);
+        log.info("授权码换取token成功，userId={}", userId);
+
+        Map<String, Object> data = new HashMap<>();
         data.put("token", StpUtil.getTokenValue());
         return SaResult.data(data);
     }

@@ -30,6 +30,13 @@ public interface AuthService {
 
     SaResult login(LoginDTO dto);
 
+    /**
+     * 使用 OAuth 授权码换取 token
+     * @param code 授权码
+     * @return 包含 token 的结果
+     */
+    SaResult exchangeCodeForToken(String code);
+
     SaResult getUserProfile(Long userId);
 
     SaResult logout();

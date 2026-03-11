@@ -83,6 +83,16 @@ public class AuthController {
         return handleSaResult(authService.login(dto));
     }
 
+    /**
+     * OAuth 授权码换取 token
+     * 用于外部授权模式，code 只能使用一次，有效期5分钟
+     */
+    @PostMapping("/oauth/token")
+    @RateLimit(count = 10, period = 60)
+    public Response<Map<String, Object>> exchangeCodeForToken(@Valid @RequestBody OAuthCodeDTO dto) {
+        return handleSaResult(authService.exchangeCodeForToken(dto.getCode()));
+    }
+
     @PostMapping("/profile")
     @RateLimit(count = 80, period = 4)
     public Response<Object> getUserProfile() {

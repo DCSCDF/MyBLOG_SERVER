@@ -667,7 +667,9 @@ VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称',
        ('smtp.username', 'your-email@example.com', 'email', NULL, 'SMTP用户名', 1),
        ('smtp.password', 'your-password', 'string', NULL, 'SMTP密码', 1),
        ('smtp.fromName', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1),
-       ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1);
+       ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1),
+
+       ('site.redirect_url', '', 'string', NULL, '重定向URL', 1);
 
 -- 插入默认SEO配置
 -- 首页SEO

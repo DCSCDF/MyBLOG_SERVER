@@ -73,15 +73,83 @@
 
 `captchaVerification`为验证码服务验证成功后返回的验证信息。
 `password`使用 public-key 接口返回的公钥进行加密后的密码。
+`oauthEnabled`为可选参数，用于控制是否启用外部授权模式：
+- `false`或不传：正常登录，直接返回 token
+- `true`：外部授权模式，登录成功返回一次性授权码(code)，需通过 `/api/auth/oauth/token` 接口换取 token
 
 ```json
 {
   "username": "admin",
-  "captchaVerification":"6mRZaI......ZZzAbUL8WHw=", 
+  "captchaVerification":"6mRZaI......ZZzAbUL8WHw=",
   "tempToken":"2Em......htZnPmEc79",
-  "password": "IaOD3....kqjVi4lvuXry8XaUAq9FtwmE21/0g=="
+  "password": "IaOD3....kqjVi4lvuXry8XaUAq9FtwmE21/0g==",
+  "oauthEnabled": false
 }
 ```
+
+#### 响应示例（正常模式）
+
+```json
+{
+    "data": {
+        "token": "J062mk2fxe......82w34W3E9UbagD"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 响应示例（外部授权模式 oauthEnabled=true）
+
+```json
+{
+    "data": {
+        "code": "AbCdEfGhIjKlMnOpQrStUvWxYz012345",
+        "expiresIn": 300,
+        "token": "J062mk2fxe......82w34W3E9UbagD"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+> 注意：外部授权模式下 code 有效期 5 分钟，只能使用一次。token 可直接使用，code 可用于外部系统换取新 token。
+
+#### 错误响应
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "验证码已失效，请重新获取",
+    "code": 400
+}
+```
+
+---
+
+## OAuth 授权码换取 Token
+用于外部授权模式下，使用授权码换取正式的登录 token。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/oauth/token`
+- **限流**: 60 秒内最多 10 次
+
+#### 请求参数
+
+`code` 为登录接口返回的一次性授权码，有效期 5 分钟，只能使用一次。
+
+```json
+{
+  "code": "AbCdEfGhIjKlMnOpQrStUvWxYz012345"
+}
+```
+
+| 字段   | 类型     | 必填 | 说明                |
+|------|--------|----|-------------------|
+| code | String | 是  | 授权码，登录接口返回，有效期5分钟 |
 
 #### 响应示例
 
@@ -98,11 +166,14 @@
 
 #### 错误响应
 
+- 授权码为空：`code: 400`
+- 授权码无效或已过期：`code: 400`
+
 ```json
 {
     "data": null,
     "success": false,
-    "errorMsg": "验证码已失效，请重新获取",
+    "errorMsg": "授权码无效或已过期",
     "code": 400
 }
 ```

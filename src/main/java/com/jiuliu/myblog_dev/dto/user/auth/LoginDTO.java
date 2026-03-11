@@ -34,4 +34,11 @@ public class LoginDTO {
 
     @NotBlank(message = "验证码校验不能为空")
     private String captchaVerification;
+
+    /**
+     * 是否启用外部授权模式
+     * false: 正常登录，直接返回token
+     * true: 返回一次性code，需通过 /api/oauth/token 接口换取token
+     */
+    private Boolean oauthEnabled;
 }
