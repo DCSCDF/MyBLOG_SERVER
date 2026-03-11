@@ -28,6 +28,8 @@ public class ConfigItemResponseDTO {
     private String dataType;
     private String validationRule;
     private String description;
+    /** 是否公开：0=否，1=是（公开接口可查询） */
+    private Integer isOpen;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

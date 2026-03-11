@@ -52,6 +52,9 @@ public class SysConfig {
     @TableField("is_system")
     private Integer isSystem;
 
+    @TableField("is_open")
+    private Integer isOpen;
+
     @TableField("is_deleted")
     private Integer isDeleted;
 

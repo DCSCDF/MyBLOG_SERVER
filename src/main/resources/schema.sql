@@ -248,6 +248,7 @@ CREATE TABLE IF NOT EXISTS sys_config
     validation_rule VARCHAR(255) COMMENT '校验规则：如 max_length=100, regex=..., array_of_strings 等',
     description     VARCHAR(255) COMMENT '配置项说明，用于后台展示',
     is_system       TINYINT(1)            DEFAULT 0 COMMENT '是否系统内置：0=否，1=是（不可删除）',
+    is_open         TINYINT(1)            DEFAULT 1 COMMENT '是否公开：0=否，1=是（公开接口可查询）',
     is_deleted      TINYINT(1)            DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time     DATETIME              DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time     DATETIME              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -655,21 +656,26 @@ WHERE g.name = '用户管理组'
                     AND pgi.permission_id = p.id);
 
 -- 插入默认网站配置
-INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_rule, description, is_system)
-VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称', 1),
-       ('site.domain', 'localhost:8080', 'string', 'max_length=100', '网站域名', 1),
-       ('site.description', '一个简洁的个人博客系统', 'text', NULL, '网站描述', 1),
-       ('site.icp', '', 'string', 'max_length=50', '网站备案号', 1),
-       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1),
+INSERT IGNORE INTO sys_config (config_key, config_value, data_type, validation_rule, description, is_system, is_open)
+VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称', 1, 1),
+       ('site.domain', 'localhost:8080', 'string', 'max_length=100', '网站域名', 1, 1),
+       ('site.description', '一个简洁的个人博客系统', 'text', NULL, '网站描述', 1, 1),
+       ('site.icp', '', 'string', 'max_length=50', '网站备案号', 1, 1),
+       ('user_register_default_role', 'USER', 'string', 'required', '用户注册时默认分配的角色编码（如 USER、AUTHOR）', 1,
+        0),
 
-       ('smtp.host', 'smtp.example.com', 'string', 'max_length=100', 'SMTP服务器地址', 1),
-       ('smtp.port', '587', 'integer', 'range=1-65535', 'SMTP端口号', 1),
-       ('smtp.username', 'your-email@example.com', 'email', NULL, 'SMTP用户名', 1),
-       ('smtp.password', 'your-password', 'string', NULL, 'SMTP密码', 1),
-       ('smtp.fromName', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1),
-       ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1),
+       ('smtp.host', 'smtp.example.com', 'string', 'max_length=100', 'SMTP服务器地址', 1, 0),
+       ('smtp.port', '587', 'integer', 'range=1-65535', 'SMTP端口号', 1, 0),
+       ('smtp.username', 'your-email@example.com', 'email', NULL, 'SMTP用户名', 1, 0),
+       ('smtp.password', 'your-password', 'string', NULL, 'SMTP密码', 1, 0),
+       ('smtp.fromName', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1, 0),
+       ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1, 0),
 
-       ('site.redirect_url', '', 'string', NULL, '重定向URL', 1);
+       ('site.redirect_url', '', 'string', NULL, '重定向URL', 1, 1);
+
+-- 如果表已存在，添加 is_open 列
+ALTER TABLE sys_config
+    ADD COLUMN is_open TINYINT(1) DEFAULT 1 COMMENT '是否公开：0=否，1=是（公开接口可查询）' AFTER is_system;
 
 -- 插入默认SEO配置
 -- 首页SEO

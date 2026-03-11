@@ -151,6 +151,7 @@ public class SysConfigServiceImpl implements SysConfigService {
         config.setValidationRule(dto.getValidationRule());
         config.setDescription(dto.getDescription());
         config.setIsSystem(0);
+        config.setIsOpen(1);
         config.setIsDeleted(0);
         sysConfigMapper.insert(config);
         log.info("自定义配置项创建成功，id={}, configKey={}", config.getId(), config.getConfigKey());
@@ -245,6 +246,7 @@ public class SysConfigServiceImpl implements SysConfigService {
         dto.setDataType(c.getDataType());
         dto.setValidationRule(c.getValidationRule());
         dto.setDescription(c.getDescription());
+        dto.setIsOpen(c.getIsOpen());
         dto.setCreateTime(c.getCreateTime());
         dto.setUpdateTime(c.getUpdateTime());
         return dto;
@@ -275,14 +277,14 @@ public class SysConfigServiceImpl implements SysConfigService {
             return SaResult.error("配置键列表不能为空").setCode(400);
         }
 
-        // 从缓存中获取配置，先尝试从缓存读取每个key
+        // 从缓存中获取配置，先尝试从缓存读取每个key（只返回is_open=1的配置）
         List<SysConfig> resultList = new java.util.ArrayList<>();
         List<String> missingKeys = new java.util.ArrayList<>();
 
         for (String key : validKeys) {
             String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + key;
             SysConfig cached = configCache.getIfPresent(cacheKey);
-            if (cached != null) {
+            if (cached != null && cached.getIsOpen() != null && cached.getIsOpen() == 1) {
                 resultList.add(cached);
                 log.debug("从缓存获取公开配置，key={}", key);
             } else {
@@ -290,11 +292,12 @@ public class SysConfigServiceImpl implements SysConfigService {
             }
         }
 
-        // 缓存未命中，从数据库查询（不限制系统内置配置）
+        // 缓存未命中，从数据库查询（只返回is_open=1的配置）
         if (!missingKeys.isEmpty()) {
             LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
                     .in(SysConfig::getConfigKey, missingKeys)
-                    .eq(SysConfig::getIsDeleted, 0);
+                    .eq(SysConfig::getIsDeleted, 0)
+                    .eq(SysConfig::getIsOpen, 1);
             List<SysConfig> dbConfigs = sysConfigMapper.selectList(wrapper);
 
             // 将数据库查询结果放入缓存

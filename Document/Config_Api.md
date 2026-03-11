@@ -386,3 +386,76 @@
 3. **修改范围**：所有修改接口仅更新 `config_value`，不修改 `config_key`、`data_type`、`validation_rule`、`description` 等字段。
 
 4. **删除标识**：删除自定义配置时需使用列表接口返回的 `id`，确保仅删除非系统内置项；若误传系统内置配置的 id，将返回「系统内置配置项不可删除」。
+
+---
+
+## 公共配置查询接口
+
+基础路径：`/api/public/config`
+
+> **说明**：公共接口无需登录认证即可访问，适用于前端页面获取站点配置信息（如网站名称、Logo、SEO设置等）。
+
+### 根据配置键获取配置值
+
+按传入的配置键数组查询配置项，支持系统内置配置和用户自定义配置。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/public/config`
+- **需要认证**: 否
+
+#### 请求参数
+
+```json
+{
+  "keys": ["site.name", "site.logo", "site.description"]
+}
+```
+
+| 字段   | 类型             | 必填 | 说明                              |
+|------|----------------|----|---------------------------------|
+| keys | List\<String\> | 是  | 配置键数组，支持系统内置项和自定义项（如 site.name） |
+
+#### 响应示例
+
+```json
+{
+    "data": [
+        {
+            "configKey": "site.name",
+            "configValue": "我的博客",
+            "dataType": "string",
+            "validationRule": "max_length=100",
+            "description": "网站名称",
+            "createTime": "2026-02-18T00:00:00",
+            "updateTime": "2026-02-22T00:00:00"
+        },
+        {
+            "configKey": "site.logo",
+            "configValue": "/uploads/logo.png",
+            "dataType": "string",
+            "validationRule": null,
+            "description": "网站Logo",
+            "createTime": "2026-02-18T00:00:00",
+            "updateTime": "2026-02-22T00:00:00"
+        }
+    ],
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+说明：仅返回传入的 `keys` 中存在且未删除的配置项；不存在的 key 不会出现在结果中。
+
+#### 错误响应
+
+**配置键列表不能为空**
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "配置键列表不能为空",
+    "code": 400
+}
+```
