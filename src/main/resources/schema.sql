@@ -465,8 +465,8 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
 
 -- 网站配置管理
        ('system:config', '网站配置', '网站配置菜单', 55),
-       ('system:config:system:list', '系统配置查询', '按 key 查询系统默认配置项', 1),
-       ('system:config:custom:list', '自定义配置列表', '分页查询用户自定义配置项', 2),
+       ('system:config:systemlist', '系统配置查询', '按 key 查询系统默认配置项', 1),
+       ('system:config:customlist', '自定义配置列表', '分页查询用户自定义配置项', 2),
        ('system:config:create', '创建自定义配置', '添加用户自定义配置项', 3),
        ('system:config:edit', '修改配置', '修改网站配置项的值', 4),
        ('system:config:delete', '删除自定义配置', '删除非系统内置的配置项', 5),

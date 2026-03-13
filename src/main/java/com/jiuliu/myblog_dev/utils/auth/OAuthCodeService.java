@@ -32,6 +32,7 @@ public class OAuthCodeService {
     private static final Logger log = LoggerFactory.getLogger(OAuthCodeService.class);
 
     private static final String CODE_PREFIX = "oauth_code:";
+    private static final String TOKEN_KEY_SUFFIX = ":token";
     private static final long CODE_EXPIRE_SECONDS = 300; // 5分钟
 
     private final SaTokenDao saTokenDao;
@@ -45,24 +46,30 @@ public class OAuthCodeService {
      * 生成一次性授权码
      *
      * @param userId 用户ID
+     * @param token  登录token
      * @return 授权码
      */
-    public String generateCode(Long userId) {
+    public String generateCode(Long userId, String token) {
         String code = SaFoxUtil.getRandomString(32);
         String key = CODE_PREFIX + code;
+        String tokenKey = key + TOKEN_KEY_SUFFIX;
+
+        // 保存用户ID和token
         saTokenDao.set(key, String.valueOf(userId), CODE_EXPIRE_SECONDS);
+        saTokenDao.set(tokenKey, token, CODE_EXPIRE_SECONDS);
+
         log.info("生成OAuth授权码，userId={}, code={}", userId, code);
         return code;
     }
 
     /**
-     * 验证并消费授权码
+     * 验证并消费授权码，同时返回登录token
      * 注意：此方法会删除授权码，使其只能使用一次
      *
      * @param code 授权码
-     * @return 用户ID，如果授权码无效或已过期返回null
+     * @return token字符串，如果授权码无效或已过期返回null
      */
-    public Long consumeCode(String code) {
+    public String consumeCodeAndGetToken(String code) {
         if (code == null) {
             log.warn("OAuth授权码为空");
             return null;
@@ -73,6 +80,8 @@ public class OAuthCodeService {
             try {
                 String key = CODE_PREFIX + code;
                 String userIdStr = saTokenDao.get(key);
+                String tokenKey = key + TOKEN_KEY_SUFFIX;
+                String token = saTokenDao.get(tokenKey);
 
                 if (userIdStr == null) {
                     log.warn("OAuth授权码无效或已过期，code={}", code);
@@ -81,16 +90,18 @@ public class OAuthCodeService {
 
                 // 删除授权码，确保一次性使用
                 saTokenDao.delete(key);
+                saTokenDao.delete(tokenKey);
+
                 log.info("OAuth授权码兑换成功，userId={}", userIdStr);
 
-                return Long.parseLong(userIdStr);
-            } catch (NumberFormatException e) {
-                log.error("OAuth授权码解析用户ID失败，code={}", code, e);
+                return token;
+            } catch (Exception e) {
+                log.error("OAuth授权码兑换失败，code={}", code, e);
                 return null;
             } finally {
                 codeLocks.remove(code, lock);
             }
         }
     }
-    
+
 }

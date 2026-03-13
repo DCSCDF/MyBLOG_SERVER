@@ -172,17 +172,17 @@ public class AuthServiceImpl implements AuthService {
 
         Map<String, Object> data = new HashMap<>();
 
+        StpUtil.login(user.getId());
         if (isOauthEnabled) {
             // 外部授权模式：生成一次性授权码，同时返回 token
-            StpUtil.login(user.getId());
-            String code = oauthCodeService.generateCode(user.getId());
+            String token = StpUtil.getTokenValue();
+            String code = oauthCodeService.generateCode(user.getId(), token);
             data.put("code", code);
             data.put("expiresIn", 300); // 5分钟过期
-            data.put("token", StpUtil.getTokenValue());
+            data.put("token", token);
             log.info("外部授权模式登录成功，生成授权码，userId={}", user.getId());
         } else {
             // 正常登录模式：直接返回 token
-            StpUtil.login(user.getId());
             log.info("用户登录成功，userId={}", user.getId());
             data.put("token", StpUtil.getTokenValue());
         }
@@ -197,30 +197,17 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("授权码不能为空").setCode(400);
         }
 
-        Long userId = oauthCodeService.consumeCode(code);
-        if (userId == null) {
+        // 消费授权码并获取之前保存的 token
+        String token = oauthCodeService.consumeCodeAndGetToken(code);
+        if (token == null) {
             log.warn("授权码换取token失败：授权码无效或已过期，code={}", code);
             return SaResult.error("授权码无效或已过期").setCode(400);
         }
 
-        // 验证用户状态
-        SysUser user = sysUserMapper.selectById(userId);
-        if (user == null || user.getIsDeleted() == 1) {
-            log.warn("授权码换取token失败：用户不存在，userId={}", userId);
-            return SaResult.error("用户不存在").setCode(400);
-        }
-
-        if (user.getStatus() == null || user.getStatus() == 0) {
-            log.warn("授权码换取token失败：账号已被禁用，userId={}", userId);
-            return SaResult.error("账号已被禁用").setCode(403);
-        }
-
-        // 登录并返回 token
-        StpUtil.login(userId);
-        log.info("授权码换取token成功，userId={}", userId);
+        log.info("授权码换取token成功");
 
         Map<String, Object> data = new HashMap<>();
-        data.put("token", StpUtil.getTokenValue());
+        data.put("token", token);
         return SaResult.data(data);
     }
 

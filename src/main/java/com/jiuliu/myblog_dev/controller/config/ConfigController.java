@@ -39,7 +39,7 @@ public class ConfigController {
      * 系统默认配置项查询：前端传入 config_key 数组，仅返回系统内置项
      * 权限：config:system:list
      */
-    @SaCheckPermission("system:config:system:list")
+    @SaCheckPermission("system:config:systemlist")
     @PostMapping("/system/list")
     public Response<List<ConfigItemResponseDTO>> getSystemConfigByKeys(@Valid @RequestBody ConfigSystemKeysDTO dto) {
         SaResult saResult = sysConfigService.getSystemConfigByKeys(dto);
@@ -50,7 +50,7 @@ public class ConfigController {
      * 用户自定义配置项分页列表：仅非系统内置项
      * 权限：config:custom:list
      */
-    @SaCheckPermission("system:config:custom:list")
+    @SaCheckPermission("system:config:customlist")
     @PostMapping("/custom/list")
     public Response<PageConfigCustomResponseDTO> getPageCustomConfigs(@Valid @RequestBody PageConfigCustomDTO pageDto) {
         SaResult saResult = sysConfigService.getPageCustomConfigs(pageDto);
