@@ -55,4 +55,9 @@ public class CacheUtil {
      * 分类列表缓存 - 缓存键前缀
      */
     public static final String CACHE_KEY_CATEGORY_LIST = "category_list:";
+
+    /**
+     * 公共文章列表缓存 - 缓存键前缀
+     */
+    public static final String CACHE_KEY_PUBLIC_ARTICLE_LIST = "public_article_list:";
 }
