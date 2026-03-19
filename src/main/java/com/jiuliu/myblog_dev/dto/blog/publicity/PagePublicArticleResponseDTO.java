@@ -14,7 +14,6 @@
 
 package com.jiuliu.myblog_dev.dto.blog.publicity;
 
-import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import lombok.Data;
 
 import java.util.List;
@@ -34,14 +33,4 @@ public class PagePublicArticleResponseDTO {
     private Long current;
 
     private Long pages;
-
-    /**
-     * 可用的分类筛选项，供前端渲染筛选控件
-     */
-    private List<FilterOptionItem> categoryOptions;
-
-    /**
-     * 可用的标签筛选项，供前端渲染筛选控件
-     */
-    private List<FilterOptionItem> tagOptions;
 }

@@ -22,7 +22,6 @@ import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleResponseDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleResponseDTO;
-import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
@@ -91,39 +90,31 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                     .orderByDesc(SysBlog::getTop)
                     .orderByDesc(SysBlog::getCreateTime);
 
-            // 关键词搜索：同时搜索标题和摘要
+            // 关键词搜索：同时搜索标题、摘要、分类名称和标签
             if (StringUtils.hasText(dto.getKeyword())) {
                 String keyword = dto.getKeyword().trim();
-                queryWrapper.and(w -> w.like(SysBlog::getTitle, keyword)
-                        .or().like(SysBlog::getSummary, keyword));
-            }
-
-            // 分类筛选 - 模糊搜索
-            if (StringUtils.hasText(dto.getCategoryName())) {
-                String categoryName = dto.getCategoryName().trim();
+                // 先查询分类名称包含关键词的分类ID
                 List<SysCategory> matchedCategories = categoryMapper.selectList(
                         new LambdaQueryWrapper<SysCategory>()
-                                .like(SysCategory::getName, categoryName)
+                                .like(SysCategory::getName, keyword)
                                 .eq(SysCategory::getHidden, false)
                 );
-                if (!matchedCategories.isEmpty()) {
-                    List<Long> categoryIds = matchedCategories.stream()
-                            .map(SysCategory::getId)
-                            .collect(Collectors.toList());
-                    queryWrapper.in(SysBlog::getCategoryId, categoryIds);
-                } else {
-                    // 没有匹配的分类，返回空结果
-                    PagePublicArticleResponseDTO emptyResponse = createEmptyResponse();
-                    publicArticleListCache.put(cacheKey, emptyResponse);
-                    return SaResult.data(emptyResponse);
-                }
-            }
+                List<Long> matchedCategoryIds = matchedCategories.stream()
+                        .map(SysCategory::getId)
+                        .collect(Collectors.toList());
 
-            // 标签筛选 - 模糊搜索
-            if (StringUtils.hasText(dto.getTagName())) {
-                String tagName = dto.getTagName().trim();
-                // 使用LIKE进行模糊匹配标签字段
-                queryWrapper.like(SysBlog::getTags, tagName);
+                // 筛选条件：标题/摘要匹配关键词 OR 分类匹配 OR 标签匹配
+                queryWrapper.and(w -> {
+                    // 标题或摘要包含关键词
+                    w.like(SysBlog::getTitle, keyword)
+                            .or().like(SysBlog::getSummary, keyword);
+                    // 或者分类名称匹配（通过分类ID关联）
+                    if (!matchedCategoryIds.isEmpty()) {
+                        w.or().in(SysBlog::getCategoryId, matchedCategoryIds);
+                    }
+                    // 或者标签匹配
+                    w.or().like(SysBlog::getTags, keyword);
+                });
             }
 
             // 分页查询
@@ -160,8 +151,6 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             response.setSize(pageResult.getSize());
             response.setCurrent(pageResult.getCurrent());
             response.setPages(pageResult.getPages());
-            response.setCategoryOptions(buildCategoryOptions(categoryMap));
-            response.setTagOptions(buildTagOptions());
 
             // 存入缓存
             publicArticleListCache.put(cacheKey, response);
@@ -206,11 +195,11 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         if (StringUtils.hasText(blog.getSummary())) {
             return blog.getSummary();
         }
-        // 从HTML内容中提取纯文本并截取50字
+        // 从HTML内容中提取纯文本并截取100字
         if (StringUtils.hasText(blog.getHtmlContent())) {
             String plainText = stripHtmlTags(blog.getHtmlContent());
-            if (plainText.length() > 50) {
-                return plainText.substring(0, 50) + "...";
+            if (plainText.length() > 100) {
+                return plainText.substring(0, 100) + "...";
             }
             return plainText;
         }
@@ -264,70 +253,12 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     }
 
     /**
-     * 构建分类筛选项
-     */
-    private List<FilterOptionItem> buildCategoryOptions(Map<Long, String> categoryMap) {
-        return categoryMap.entrySet().stream()
-                .map(entry -> new FilterOptionItem(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparing(FilterOptionItem::getLabel))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 构建标签筛选项 - 从所有文章中提取
-     */
-    private List<FilterOptionItem> buildTagOptions() {
-        List<String> allTags = blogMapper.selectList(
-                        new LambdaQueryWrapper<SysBlog>()
-                                .eq(SysBlog::getHidden, false)
-                                .isNotNull(SysBlog::getTags)
-                ).stream()
-                .map(SysBlog::getTags)
-                .filter(StringUtils::hasText)
-                .toList();
-
-        // 提取所有唯一标签
-        Set<String> uniqueTags = new LinkedHashSet<>();
-        for (String tags : allTags) {
-            String[] tagArray = tags.split(",");
-            for (String tag : tagArray) {
-                String trimmedTag = tag.trim();
-                if (StringUtils.hasText(trimmedTag)) {
-                    uniqueTags.add(trimmedTag);
-                }
-            }
-        }
-
-        return uniqueTags.stream()
-                .map(tag -> new FilterOptionItem(tag, tag))
-                .sorted(Comparator.comparing(FilterOptionItem::getLabel))
-                .collect(Collectors.toList());
-    }
-
-    /**
      * 构建缓存键
      */
     private String buildCacheKey(PagePublicArticleDTO dto) {
         return CacheUtil.CACHE_KEY_PUBLIC_ARTICLE_LIST +
                 dto.getCurrentPage() + "-" +
                 dto.getPageSize() + "-" +
-                (dto.getKeyword() != null ? dto.getKeyword() : "") + "-" +
-                (dto.getCategoryName() != null ? dto.getCategoryName() : "") + "-" +
-                (dto.getTagName() != null ? dto.getTagName() : "");
-    }
-
-    /**
-     * 创建空响应
-     */
-    private PagePublicArticleResponseDTO createEmptyResponse() {
-        PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
-        response.setRecords(Collections.emptyList());
-        response.setTotal(0L);
-        response.setSize(10L);
-        response.setCurrent(1L);
-        response.setPages(0L);
-        response.setCategoryOptions(Collections.emptyList());
-        response.setTagOptions(Collections.emptyList());
-        return response;
+                (dto.getKeyword() != null ? dto.getKeyword() : "");
     }
 }

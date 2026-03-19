@@ -36,14 +36,4 @@ public class PagePublicArticleDTO {
      * 搜索关键词：匹配文章标题和摘要
      */
     private String keyword;
-
-    /**
-     * 分类名称筛选（支持模糊搜索）
-     */
-    private String categoryName;
-
-    /**
-     * 标签名称筛选（支持模糊搜索）
-     */
-    private String tagName;
 }
