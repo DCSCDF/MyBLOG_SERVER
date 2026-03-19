@@ -48,7 +48,9 @@
     </scm>
     <properties>
         <java.version>17</java.version>
-        <tomcat.version>10.1.40</tomcat.version>
+        <tomcat.version>10.1.52</tomcat.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <jackson.version>2.21.1</jackson.version>
     </properties>
     <dependencies>
         <dependency>
@@ -58,6 +60,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+
         </dependency>
 
         <dependency>
