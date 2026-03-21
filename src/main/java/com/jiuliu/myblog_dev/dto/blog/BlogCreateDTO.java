@@ -34,7 +34,7 @@ public class BlogCreateDTO {
     private Long categoryId;
 
     /**
-     * 文章摘要（可以为空，最大200字）
+     * 文章摘要（可以为空，最大200个字）
      */
     @Size(max = 200, message = "文章摘要不能超过200字符")
     private String summary;
@@ -43,11 +43,6 @@ public class BlogCreateDTO {
      * MD的文章内容
      */
     private String content;
-
-    /**
-     * HTML文章内容
-     */
-    private String htmlContent;
 
     /**
      * 封面图片URL（可以为空）

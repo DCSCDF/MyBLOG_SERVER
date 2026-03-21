@@ -30,4 +30,10 @@ public interface PublicArticleService {
      * @return 分页结果
      */
     SaResult getPagePublicArticles(PagePublicArticleDTO dto);
+
+    /**
+     * 清除公共文章列表缓存
+     * 当后台对文章进行增删改操作时，需要调用此方法清除缓存
+     */
+    void clearPublicArticleCache();
 }

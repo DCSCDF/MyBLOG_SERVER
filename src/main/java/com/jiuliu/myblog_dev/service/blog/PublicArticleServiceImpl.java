@@ -29,14 +29,17 @@ import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -189,52 +192,21 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     }
 
     /**
-     * 获取摘要：如果为空则从HTML内容中提取
+     * 获取摘要：如果为空则从MD内容中提取纯文本
      */
     private String getSummary(SysBlog blog) {
         if (StringUtils.hasText(blog.getSummary())) {
             return blog.getSummary();
         }
-        // 从HTML内容中提取纯文本并截取100字
-        if (StringUtils.hasText(blog.getHtmlContent())) {
-            String plainText = stripHtmlTags(blog.getHtmlContent());
+        // 从MD内容中提取纯文本并截取100个字
+        if (StringUtils.hasText(blog.getContent())) {
+            String plainText = MarkdownUtil.stripMdTags(blog.getContent());
             if (plainText.length() > 100) {
                 return plainText.substring(0, 100) + "...";
             }
             return plainText;
         }
         return null;
-    }
-
-    /**
-     * 去除HTML标签
-     */
-    private String stripHtmlTags(String htmlContent) {
-        if (htmlContent == null || htmlContent.isEmpty()) {
-            return "";
-        }
-        // 去除script和style标签及其内容
-        Pattern scriptPattern = Pattern.compile("<script[^>]*>[\\s\\S]*?</script>", Pattern.CASE_INSENSITIVE);
-        htmlContent = scriptPattern.matcher(htmlContent).replaceAll("");
-
-        Pattern stylePattern = Pattern.compile("<style[^>]*>[\\s\\S]*?</style>", Pattern.CASE_INSENSITIVE);
-        htmlContent = stylePattern.matcher(htmlContent).replaceAll("");
-
-        // 去除所有HTML标签
-        Pattern htmlPattern = Pattern.compile("<[^>]+>");
-        htmlContent = htmlPattern.matcher(htmlContent).replaceAll("");
-
-        // 替换HTML实体
-        htmlContent = htmlContent.replaceAll("&nbsp;", " ")
-                .replaceAll("&lt;", "<")
-                .replaceAll("&gt;", ">")
-                .replaceAll("&amp;", "&")
-                .replaceAll("&quot;", "\"")
-                .replaceAll("&#39;", "'")
-                .replaceAll("\\s+", " ")
-                .trim();
-
-        return htmlContent;
     }
 
     /**
@@ -260,5 +232,14 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 dto.getCurrentPage() + "-" +
                 dto.getPageSize() + "-" +
                 (dto.getKeyword() != null ? dto.getKeyword() : "");
+    }
+
+    /**
+     * 清除公共文章列表缓存
+     * 当后台对文章进行增删改操作时，需要调用此方法清除缓存
+     */
+    public void clearPublicArticleCache() {
+        publicArticleListCache.invalidateAll();
+        log.debug("公共文章列表缓存已清除");
     }
 }

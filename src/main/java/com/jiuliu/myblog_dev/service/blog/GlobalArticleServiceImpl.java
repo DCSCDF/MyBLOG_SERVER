@@ -27,6 +27,7 @@ import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -35,7 +36,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -67,10 +67,14 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
 
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
+    private final PublicArticleService publicArticleService;
 
-    public GlobalArticleServiceImpl(SysBlogMapper blogMapper, SysUserMapper userMapper) {
+    public GlobalArticleServiceImpl(SysBlogMapper blogMapper,
+                                    SysUserMapper userMapper,
+                                    PublicArticleService publicArticleService) {
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -219,6 +223,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
     private void clearArticleCache(Long blogId) {
         articleCache.invalidate(blogId);
         globalArticleListCache.invalidateAll();
+        publicArticleService.clearPublicArticleCache();
         log.debug("文章缓存已清除，blogId={}", blogId);
     }
 
@@ -260,52 +265,21 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
     }
 
     /**
-     * 获取摘要：如果为空则从HTML内容中提取
+     * 获取摘要：如果为空则从MD内容中提取纯文本
      */
     private String getSummary(SysBlog blog) {
         if (StringUtils.hasText(blog.getSummary())) {
             return blog.getSummary();
         }
-        // 从HTML内容中提取纯文本并截取50字
-        if (StringUtils.hasText(blog.getHtmlContent())) {
-            String plainText = stripHtmlTags(blog.getHtmlContent());
-            if (plainText.length() > 50) {
-                return plainText.substring(0, 50) + "...";
+        // 从MD内容中提取纯文本并截取100个字
+        if (StringUtils.hasText(blog.getContent())) {
+            String plainText = MarkdownUtil.stripMdTags(blog.getContent());
+            if (plainText.length() > 100) {
+                return plainText.substring(0, 100) + "...";
             }
             return plainText;
         }
         return null;
-    }
-
-    /**
-     * 去除HTML标签
-     */
-    private String stripHtmlTags(String htmlContent) {
-        if (htmlContent == null || htmlContent.isEmpty()) {
-            return "";
-        }
-        // 去除script和style标签及其内容
-        Pattern scriptPattern = Pattern.compile("<script[^>]*>[\\s\\S]*?</script>", Pattern.CASE_INSENSITIVE);
-        htmlContent = scriptPattern.matcher(htmlContent).replaceAll("");
-
-        Pattern stylePattern = Pattern.compile("<style[^>]*>[\\s\\S]*?</style>", Pattern.CASE_INSENSITIVE);
-        htmlContent = stylePattern.matcher(htmlContent).replaceAll("");
-
-        // 去除所有HTML标签
-        Pattern htmlPattern = Pattern.compile("<[^>]+>");
-        htmlContent = htmlPattern.matcher(htmlContent).replaceAll("");
-
-        // 替换HTML实体
-        htmlContent = htmlContent.replaceAll("&nbsp;", " ")
-                .replaceAll("&lt;", "<")
-                .replaceAll("&gt;", ">")
-                .replaceAll("&amp;", "&")
-                .replaceAll("&quot;", "\"")
-                .replaceAll("&#39;", "'")
-                .replaceAll("\\s+", " ")
-                .trim();
-
-        return htmlContent;
     }
 
     /**

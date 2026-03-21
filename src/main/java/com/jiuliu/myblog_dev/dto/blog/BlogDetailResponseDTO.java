@@ -47,11 +47,6 @@ public class BlogDetailResponseDTO {
     private String content;
 
     /**
-     * HTML文章内容
-     */
-    private String htmlContent;
-
-    /**
      * 封面图片URL
      */
     private String coverImage;

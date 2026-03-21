@@ -35,9 +35,6 @@ public class SysBlog {
     @TableField("content_md")
     private String content;         // MD内容（LONGTEXT）
 
-    @TableField("content_html")
-    private String htmlContent;     // HTML内容
-
     @TableField("cover_image")
     private String coverImage;      // 封面图
 

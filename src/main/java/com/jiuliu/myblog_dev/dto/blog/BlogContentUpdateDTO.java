@@ -27,7 +27,7 @@ public class BlogContentUpdateDTO {
     private String title;
 
     /**
-     * 文章摘要（最大200字）
+     * 文章摘要（最大200字个）
      */
     @Size(max = 200, message = "文章摘要不能超过200字符")
     private String summary;
@@ -36,11 +36,6 @@ public class BlogContentUpdateDTO {
      * MD文章内容
      */
     private String content;
-
-    /**
-     * HTML文章内容
-     */
-    private String htmlContent;
 
     /**
      * 封面图片URL

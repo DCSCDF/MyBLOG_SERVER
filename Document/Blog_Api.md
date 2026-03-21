@@ -40,7 +40,6 @@
   "categoryId": 1,
   "summary": "本文介绍了Java并发编程的核心知识点",
   "content": "# Java并发编程\n\n## 什么是并发...",
-  "htmlContent": "<h1>Java并发编程</h1><p>本文介绍了Java并发编程的核心知识点</p>",
   "coverImage": "https://example.com/images/java-concurrency.jpg",
   "tags": "Java,并发,多线程"
 }
@@ -52,7 +51,6 @@
 | categoryId  | Long   | 否  | 分类ID，关联 `sys_category` 表    |
 | summary     | String | 否  | 文章摘要，最大200字符                |
 | content     | String | 否  | MD格式的文章内容                   |
-| htmlContent | String | 否  | HTML格式的文章内容                 |
 | coverImage  | String | 否  | 封面图片URL，必须为有效的http/https链接  |
 | tags        | String | 否  | 标签，多个标签用逗号分隔，如：`前端,后端,Java` |
 
@@ -220,7 +218,7 @@
 #### 摘要处理说明
 
 - 如果文章的 `summary` 字段不为空，则直接返回摘要
-- 如果 `summary` 为空，则从 `htmlContent` 中提取纯文本（去除所有HTML标签），并截取前50个字符
+- 如果 `summary` 为空，则从 `content`（MD格式）中提取纯文本（去除所有MD格式标记），并截取前100个字符
 
 ---
 
@@ -248,7 +246,6 @@
     "title": "Java并发编程实战",
     "summary": "本文介绍了Java并发编程的核心知识点",
     "content": "# Java并发编程\n\n## 什么是并发...",
-    "htmlContent": "<h1>Java并发编程</h1><p>本文介绍了Java并发编程的核心知识点</p>",
     "coverImage": "https://example.com/images/java.jpg",
     "tags": "Java,并发,多线程",
     "authorId": 1,
@@ -276,7 +273,6 @@
 | title        | String        | 文章标题       |
 | summary      | String        | 文章摘要       |
 | content      | String        | MD格式文章内容   |
-| htmlContent  | String        | HTML格式文章内容 |
 | coverImage   | String        | 封面图片URL    |
 | tags         | String        | 标签（逗号分隔）   |
 | authorId     | Long          | 作者ID       |
@@ -377,7 +373,6 @@
 | title       | String | 否  | 文章标题，最大200字符               |
 | summary     | String | 否  | 文章摘要，最大200字符               |
 | content     | String | 否  | MD格式的文章内容                  |
-| htmlContent | String | 否  | HTML格式的文章内容                |
 | coverImage  | String | 否  | 封面图片URL，必须为有效的http/https链接 |
 | tags        | String | 否  | 标签，多个标签用逗号分隔               |
 | categoryId  | Long   | 否  | 分类ID                       |
@@ -387,7 +382,6 @@
   "title": "Java并发编程实战（更新版）",
   "summary": "本文全面介绍了Java并发编程的核心知识点",
   "content": "# Java并发编程\n\n## 线程池...",
-  "htmlContent": "<h1>Java并发编程（更新版）</h1><p>本文全面介绍了Java并发编程的核心知识点</p>",
   "coverImage": "https://example.com/images/java-v2.jpg",
   "tags": "Java,并发,多线程,线程池",
   "categoryId": 2

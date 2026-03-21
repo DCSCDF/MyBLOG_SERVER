@@ -25,6 +25,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
+import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -37,7 +38,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,10 +47,14 @@ public class BlogServiceImpl implements BlogService {
 
     private final SysBlogMapper blogMapper;
     private final SysCategoryMapper categoryMapper;
+    private final PublicArticleService publicArticleService;
 
-    public BlogServiceImpl(SysBlogMapper blogMapper, SysCategoryMapper categoryMapper) {
+    public BlogServiceImpl(SysBlogMapper blogMapper,
+                           SysCategoryMapper categoryMapper,
+                           PublicArticleService publicArticleService) {
         this.blogMapper = blogMapper;
         this.categoryMapper = categoryMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -95,7 +99,6 @@ public class BlogServiceImpl implements BlogService {
         }
 
         blog.setContent(dto.getContent());
-        blog.setHtmlContent(dto.getHtmlContent());
 
         if (StringUtils.hasText(dto.getCoverImage())) {
             blog.setCoverImage(dto.getCoverImage().trim());
@@ -108,6 +111,9 @@ public class BlogServiceImpl implements BlogService {
         blog.setAuthorId(authorId);
 
         blogMapper.insert(blog);
+
+        // 清除公共文章列表缓存
+        publicArticleService.clearPublicArticleCache();
 
         log.info("文章创建成功，id={}，标题={}，作者ID={}", blog.getId(), blog.getTitle(), authorId);
 
@@ -226,6 +232,9 @@ public class BlogServiceImpl implements BlogService {
 
         blogMapper.updateById(blog);
 
+        // 清除公共文章列表缓存
+        publicArticleService.clearPublicArticleCache();
+
         log.info("文章状态更新成功，文章ID：{}", blogId);
 
         Map<String, Object> data = new HashMap<>();
@@ -291,9 +300,6 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getContent() != null) {
             updateWrapper.set(SysBlog::getContent, dto.getContent());
         }
-        if (dto.getHtmlContent() != null) {
-            updateWrapper.set(SysBlog::getHtmlContent, dto.getHtmlContent());
-        }
         if (dto.getTags() != null) {
             updateWrapper.set(SysBlog::getTags, dto.getTags().trim());
         }
@@ -313,6 +319,9 @@ public class BlogServiceImpl implements BlogService {
         }
 
         blogMapper.update(null, updateWrapper);
+
+        // 清除公共文章列表缓存
+        publicArticleService.clearPublicArticleCache();
 
         log.info("文章内容更新成功，文章ID：{}", blogId);
 
@@ -341,6 +350,9 @@ public class BlogServiceImpl implements BlogService {
         // 逻辑删除
         blogMapper.deleteById(blogId);
 
+        // 清除公共文章列表缓存
+        publicArticleService.clearPublicArticleCache();
+
         log.info("文章删除成功，文章ID：{}", blogId);
 
         Map<String, Object> data = new HashMap<>();
@@ -357,7 +369,7 @@ public class BlogServiceImpl implements BlogService {
         dto.setId(blog.getId());
         dto.setCategoryId(blog.getCategoryId());
         dto.setTitle(blog.getTitle());
-        // 处理摘要：如果为空则从HTML内容中提取
+        // 处理摘要：如果为空则从MD内容中提取
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
@@ -380,7 +392,6 @@ public class BlogServiceImpl implements BlogService {
         dto.setTitle(blog.getTitle());
         dto.setSummary(blog.getSummary());
         dto.setContent(blog.getContent());
-        dto.setHtmlContent(blog.getHtmlContent());
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
         dto.setAuthorId(blog.getAuthorId());
@@ -396,52 +407,21 @@ public class BlogServiceImpl implements BlogService {
     }
 
     /**
-     * 获取摘要：如果为空则从HTML内容中提取
+     * 获取摘要：如果为空则从MD内容中提取纯文本
      */
     private String getSummary(SysBlog blog) {
         if (StringUtils.hasText(blog.getSummary())) {
             return blog.getSummary();
         }
-        // 从HTML内容中提取纯文本并截取50字
-        if (StringUtils.hasText(blog.getHtmlContent())) {
-            String plainText = stripHtmlTags(blog.getHtmlContent());
-            if (plainText.length() > 50) {
-                return plainText.substring(0, 50) + "...";
+        // 从MD内容中提取纯文本并截取100个字
+        if (StringUtils.hasText(blog.getContent())) {
+            String plainText = MarkdownUtil.stripMdTags(blog.getContent());
+            if (plainText.length() > 100) {
+                return plainText.substring(0, 100) + "...";
             }
             return plainText;
         }
         return null;
-    }
-
-    /**
-     * 去除HTML标签
-     */
-    private String stripHtmlTags(String htmlContent) {
-        if (htmlContent == null || htmlContent.isEmpty()) {
-            return "";
-        }
-        // 去除script和style标签及其内容
-        Pattern scriptPattern = Pattern.compile("<script[^>]*>[\\s\\S]*?</script>", Pattern.CASE_INSENSITIVE);
-        htmlContent = scriptPattern.matcher(htmlContent).replaceAll("");
-
-        Pattern stylePattern = Pattern.compile("<style[^>]*>[\\s\\S]*?</style>", Pattern.CASE_INSENSITIVE);
-        htmlContent = stylePattern.matcher(htmlContent).replaceAll("");
-
-        // 去除所有HTML标签
-        Pattern htmlPattern = Pattern.compile("<[^>]+>");
-        htmlContent = htmlPattern.matcher(htmlContent).replaceAll("");
-
-        // 替换HTML实体
-        htmlContent = htmlContent.replaceAll("&nbsp;", " ")
-                .replaceAll("&lt;", "<")
-                .replaceAll("&gt;", ">")
-                .replaceAll("&amp;", "&")
-                .replaceAll("&quot;", "\"")
-                .replaceAll("&#39;", "'")
-                .replaceAll("\\s+", " ")
-                .trim();
-
-        return htmlContent;
     }
 
     /**

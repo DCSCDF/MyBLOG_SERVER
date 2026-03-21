@@ -26,6 +26,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
+import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,10 +65,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final SysCategoryMapper categoryMapper;
     private final SysBlogMapper blogMapper;
+    private final PublicArticleService publicArticleService;
 
-    public CategoryServiceImpl(SysCategoryMapper categoryMapper, SysBlogMapper blogMapper) {
+    public CategoryServiceImpl(SysCategoryMapper categoryMapper, 
+                               SysBlogMapper blogMapper,
+                               PublicArticleService publicArticleService) {
         this.categoryMapper = categoryMapper;
         this.blogMapper = blogMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -222,6 +227,10 @@ public class CategoryServiceImpl implements CategoryService {
         blogMapper.update(null, blogWrapper);
 
         categoryMapper.deleteById(id);
+
+        // 清除公共文章列表缓存（因为文章信息可能发生变化）
+        publicArticleService.clearPublicArticleCache();
+
         log.info("分类删除成功，id={}", id);
         // 清除分类缓存
         clearCategoryCache();

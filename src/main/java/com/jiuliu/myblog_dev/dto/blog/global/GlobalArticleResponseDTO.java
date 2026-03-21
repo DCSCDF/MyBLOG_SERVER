@@ -38,7 +38,7 @@ public class GlobalArticleResponseDTO {
     private String title;
 
     /**
-     * 文章摘要（如果为空则从HTML内容提取前50字）
+     * 文章摘要（如果为空则从MD内容提取纯文本）
      */
     private String summary;
 
