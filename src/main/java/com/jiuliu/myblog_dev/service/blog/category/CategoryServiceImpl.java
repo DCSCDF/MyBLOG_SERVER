@@ -27,6 +27,7 @@ import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
+import com.jiuliu.myblog_dev.service.blog.PublicCategoryService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,13 +67,16 @@ public class CategoryServiceImpl implements CategoryService {
     private final SysCategoryMapper categoryMapper;
     private final SysBlogMapper blogMapper;
     private final PublicArticleService publicArticleService;
+    private final PublicCategoryService publicCategoryService;
 
-    public CategoryServiceImpl(SysCategoryMapper categoryMapper, 
+    public CategoryServiceImpl(SysCategoryMapper categoryMapper,
                                SysBlogMapper blogMapper,
-                               PublicArticleService publicArticleService) {
+                               PublicArticleService publicArticleService,
+                               PublicCategoryService publicCategoryService) {
         this.categoryMapper = categoryMapper;
         this.blogMapper = blogMapper;
         this.publicArticleService = publicArticleService;
+        this.publicCategoryService = publicCategoryService;
     }
 
     @Override
@@ -238,12 +242,15 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     /**
-     * 清除分类缓存
+     * 清除分类缓存（包括后台分类缓存和公共分类缓存）
      */
     private void clearCategoryCache() {
+        // 清除后台分类缓存
         categoryCache.invalidateAll();
         categoryListCache.invalidateAll();
-        log.debug("分类缓存已清除");
+        // 清除公共分类缓存
+        publicCategoryService.clearPublicCategoryCache();
+        log.debug("分类缓存已清除（包含公共分类缓存）");
     }
 
     private CategoryResponseDTO toResponseDTO(SysCategory category) {
