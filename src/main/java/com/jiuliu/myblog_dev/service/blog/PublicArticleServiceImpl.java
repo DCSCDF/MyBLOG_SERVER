@@ -93,31 +93,47 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                     .orderByDesc(SysBlog::getTop)
                     .orderByDesc(SysBlog::getCreateTime);
 
+            // 如果传入了分类ID，只查询该分类下的文章
+            Long categoryId = dto.getCategoryId();
+            if (categoryId != null) {
+                queryWrapper.eq(SysBlog::getCategoryId, categoryId);
+            }
+
             // 关键词搜索：同时搜索标题、摘要、分类名称和标签
+            // 如果传入了分类ID，搜索范围限制在该分类内
             if (StringUtils.hasText(dto.getKeyword())) {
                 String keyword = dto.getKeyword().trim();
-                // 先查询分类名称包含关键词的分类ID
-                List<SysCategory> matchedCategories = categoryMapper.selectList(
-                        new LambdaQueryWrapper<SysCategory>()
-                                .like(SysCategory::getName, keyword)
-                                .eq(SysCategory::getHidden, false)
-                );
-                List<Long> matchedCategoryIds = matchedCategories.stream()
-                        .map(SysCategory::getId)
-                        .collect(Collectors.toList());
+                
+                if (categoryId != null) {
+                    // 如果传入了分类ID，只在该分类内搜索（标题、摘要、标签）
+                    queryWrapper.and(w -> w.like(SysBlog::getTitle, keyword)
+                            .or().like(SysBlog::getSummary, keyword)
+                            .or().like(SysBlog::getTags, keyword));
+                } else {
+                    // 如果没有传入分类ID，搜索所有分类
+                    // 先查询分类名称包含关键词的分类ID
+                    List<SysCategory> matchedCategories = categoryMapper.selectList(
+                            new LambdaQueryWrapper<SysCategory>()
+                                    .like(SysCategory::getName, keyword)
+                                    .eq(SysCategory::getHidden, false)
+                    );
+                    List<Long> matchedCategoryIds = matchedCategories.stream()
+                            .map(SysCategory::getId)
+                            .collect(Collectors.toList());
 
-                // 筛选条件：标题/摘要匹配关键词 OR 分类匹配 OR 标签匹配
-                queryWrapper.and(w -> {
-                    // 标题或摘要包含关键词
-                    w.like(SysBlog::getTitle, keyword)
-                            .or().like(SysBlog::getSummary, keyword);
-                    // 或者分类名称匹配（通过分类ID关联）
-                    if (!matchedCategoryIds.isEmpty()) {
-                        w.or().in(SysBlog::getCategoryId, matchedCategoryIds);
-                    }
-                    // 或者标签匹配
-                    w.or().like(SysBlog::getTags, keyword);
-                });
+                    // 筛选条件：标题/摘要匹配关键词 OR 分类匹配 OR 标签匹配
+                    queryWrapper.and(w -> {
+                        // 标题或摘要包含关键词
+                        w.like(SysBlog::getTitle, keyword)
+                                .or().like(SysBlog::getSummary, keyword);
+                        // 或者分类名称匹配（通过分类ID关联）
+                        if (!matchedCategoryIds.isEmpty()) {
+                            w.or().in(SysBlog::getCategoryId, matchedCategoryIds);
+                        }
+                        // 或者标签匹配
+                        w.or().like(SysBlog::getTags, keyword);
+                    });
+                }
             }
 
             // 分页查询
@@ -231,6 +247,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         return CacheUtil.CACHE_KEY_PUBLIC_ARTICLE_LIST +
                 dto.getCurrentPage() + "-" +
                 dto.getPageSize() + "-" +
+                (dto.getCategoryId() != null ? dto.getCategoryId() : "") + "-" +
                 (dto.getKeyword() != null ? dto.getKeyword() : "");
     }
 

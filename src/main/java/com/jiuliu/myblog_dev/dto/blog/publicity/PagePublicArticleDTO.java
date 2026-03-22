@@ -36,4 +36,11 @@ public class PagePublicArticleDTO {
      * 搜索关键词：匹配文章标题和摘要
      */
     private String keyword;
+
+    /**
+     * 分类ID：用于筛选指定分类的文章
+     * 如果传入分类ID，则只返回该分类下的文章
+     * 同时关键词搜索也只在该分类内搜索
+     */
+    private Long categoryId;
 }

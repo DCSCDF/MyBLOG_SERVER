@@ -14,9 +14,10 @@
 
 1. **分页查询**: 支持指定页码和每页数量
 2. **关键词搜索**: 支持模糊搜索文章标题和摘要
-3. **置顶优先**: 置顶的文章始终排在列表最前面
-4. **自动摘要**: 文章摘要为空时，自动从HTML内容中提取前50个字
-5. **缓存机制**: 使用Guava Cache缓存查询结果，缓存时间30分钟
+3. **分类筛选**: 支持按分类ID筛选文章（传入categoryId后，搜索也只在该分类内进行）
+4. **置顶优先**: 置顶的文章始终排在列表最前面
+5. **自动摘要**: 文章摘要为空时，自动从HTML内容中提取前50个字
+6. **缓存机制**: 使用Guava Cache缓存查询结果，缓存时间30分钟
 
 ---
 
@@ -36,7 +37,8 @@
 {
   "currentPage": 1,
   "pageSize": 10,
-  "keyword": "Java"
+  "keyword": "Java",
+  "categoryId": 5
 }
 ```
 
@@ -45,6 +47,7 @@
 | currentPage | Integer | 是  | 当前页码（从 1 开始）                    |
 | pageSize    | Integer | 是  | 每页数量                            |
 | keyword     | String  | 否  | 搜索关键词，同时匹配文章标题、摘要、分类名称和标签（模糊搜索） |
+| categoryId  | Long    | 否  | 分类ID，用于筛选指定分类的文章；传入后搜索也只在该分类内进行 |
 
 #### 响应示例
 
@@ -127,6 +130,22 @@ curl -X POST http://localhost:8080/api/public/article/list \
   -d '{"currentPage": 1, "pageSize": 10, "keyword": "Java"}'
 ```
 
+#### 示例3: 获取指定分类下的文章
+
+```bash
+curl -X POST http://localhost:8080/api/public/article/list \
+  -H "Content-Type: application/json" \
+  -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5}'
+```
+
+#### 示例4: 在指定分类内搜索文章
+
+```bash
+curl -X POST http://localhost:8080/api/public/article/list \
+  -H "Content-Type: application/json" \
+  -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5, "keyword": "Spring"}'
+```
+
 ---
 
 ### 错误响应
@@ -160,15 +179,18 @@ curl -X POST http://localhost:8080/api/public/article/list \
 #### 缓存机制
 
 - 使用 Guava Cache 作为内存缓存
-- 缓存键格式: `public_article_list:{currentPage}-{pageSize}-{keyword}`
+- 缓存键格式: `public_article_list:{currentPage}-{pageSize}-{categoryId}-{keyword}`
 - 缓存过期时间: 30分钟
 - 缓存最大容量: 100条
 
 #### 数据库查询逻辑
 
 1. 只查询 `is_hidden = false` 的文章（隐藏的文章不显示）
-2. 按 `is_top` 降序、`create_time` 降序排序（置顶的文章排在最前）
-3. 关键词搜索使用 LIKE 进行模糊匹配，同时匹配标题、摘要、分类名称和标签
+2. 如果传入了 `categoryId`，只查询该分类下的文章
+3. 按 `is_top` 降序、`create_time` 降序排序（置顶的文章排在最前）
+4. 关键词搜索逻辑：
+   - 如果传入了 `categoryId`，只在该分类内搜索（标题、摘要、标签）
+   - 如果未传入 `categoryId`，搜索所有分类，匹配标题、摘要、分类名称和标签
 
 #### 摘要自动提取
 
@@ -185,5 +207,6 @@ curl -X POST http://localhost:8080/api/public/article/list \
 1. **无需鉴权**: 该接口为公开接口，前端无需携带 token 即可访问
 2. **隐藏文章**: 任何 `is_hidden = true` 的文章都不会出现在列表中
 3. **置顶文章**: 置顶的文章始终显示在最前面，不受分页影响
-4. **性能优化**: 高并发场景下建议配合 CDN 和 Nginx 缓存使用
+4. **分类筛选**: 传入 `categoryId` 后，只返回该分类下的文章，搜索也只在该分类内进行
+5. **性能优化**: 高并发场景下建议配合 CDN 和 Nginx 缓存使用
 
