@@ -18,10 +18,13 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleResponseDTO;
+import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleDetailResponseDTO;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +62,18 @@ public class PublicArticleController {
     @PostMapping("/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticles(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticles(dto);
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 获取公共文章详情
+     * GET /api/public/article/{id}
+     * 无需登录，所有用户均可访问
+     * 隐藏或已删除的文章无法访问
+     */
+    @GetMapping("/{id}")
+    public Response<PublicArticleDetailResponseDTO> getPublicArticleDetail(@PathVariable Long id) {
+        SaResult saResult = publicArticleService.getPublicArticleDetail(id);
         return handleSaResult(saResult);
     }
 }

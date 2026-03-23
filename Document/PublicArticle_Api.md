@@ -18,6 +18,7 @@
 4. **置顶优先**: 置顶的文章始终排在列表最前面
 5. **自动摘要**: 文章摘要为空时，自动从HTML内容中提取前50个字
 6. **缓存机制**: 使用Guava Cache缓存查询结果，缓存时间30分钟
+7. **文章详情**: 支持通过文章ID获取文章全文内容
 
 ---
 
@@ -108,9 +109,81 @@
 
 ---
 
+### 2. 获取公共文章详情
+
+根据文章ID获取文章的完整详情信息，包括文章全文内容。
+
+- **请求方法**: `GET`
+- **请求路径**: `/api/public/article/{id}`
+- **是否需要登录**: 否
+
+#### 请求参数
+
+| 参数 | 类型   | 必填 | 说明   |
+|----|------|----|------|
+| id | Long | 是  | 文章ID |
+
+#### 响应示例
+
+```json
+{
+  "data": {
+    "id": 1,
+    "categoryId": 5,
+    "categoryName": "技术",
+    "title": "Spring Boot 最佳实践",
+    "content": "# Spring Boot 最佳实践\n\n## 项目结构\n\n合理的项目结构可以提高代码的可维护性...",
+    "tags": "Java,Spring,后端",
+    "commentCount": 56,
+    "isTop": true,
+    "authorNickname": "张三",
+    "createTime": "2026-03-14T10:00:00"
+  },
+  "success": true,
+  "errorMsg": null,
+  "code": 200
+}
+```
+
+#### 响应字段说明
+
+| 字段             | 类型       | 说明                                 |
+|----------------|----------|------------------------------------|
+| id             | Long     | 文章ID                               |
+| categoryId     | Long     | 分类ID                               |
+| categoryName   | String   | 分类名称（如果分类已隐藏则返回null）             |
+| title          | String   | 文章标题                               |
+| content        | String   | 文章内容（MD格式全文）                      |
+| tags           | String   | 标签（逗号分隔）                           |
+| commentCount   | Integer  | 评论数                                |
+| isTop          | Boolean  | 是否置顶                               |
+| authorNickname | String   | 作者昵称                               |
+| createTime     | DateTime | 创建时间                               |
+
+#### 错误响应
+
+**文章不存在或已下架**
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "文章不存在或已下架",
+  "code": 404
+}
+```
+
+---
+
 ### 使用示例
 
-#### 示例1: 获取全部文章（默认第一页）
+#### 示例1: 获取文章详情
+
+```bash
+curl -X GET "http://localhost:8080/api/public/article/1"
+```
+
+#### 示例2: 获取全部文章（默认第一页）
 
 ```bash
 curl -X POST http://localhost:8080/api/public/article/list \
@@ -118,7 +191,7 @@ curl -X POST http://localhost:8080/api/public/article/list \
   -d '{"currentPage": 1, "pageSize": 10}'
 ```
 
-#### 示例2: 搜索包含"Java"的文章
+#### 示例3: 搜索包含"Java"的文章
 
 ```bash
 curl -X POST http://localhost:8080/api/public/article/list \
@@ -126,7 +199,7 @@ curl -X POST http://localhost:8080/api/public/article/list \
   -d '{"currentPage": 1, "pageSize": 10, "keyword": "Java"}'
 ```
 
-#### 示例3: 获取指定分类下的文章
+#### 示例4: 获取指定分类下的文章
 
 ```bash
 curl -X POST http://localhost:8080/api/public/article/list \
@@ -134,12 +207,31 @@ curl -X POST http://localhost:8080/api/public/article/list \
   -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5}'
 ```
 
-#### 示例4: 在指定分类内搜索文章
+#### 示例5: 在指定分类内搜索文章
 
 ```bash
 curl -X POST http://localhost:8080/api/public/article/list \
   -H "Content-Type: application/json" \
   -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5, "keyword": "Spring"}'
+```
+
+---
+
+### 错误响应
+
+#### 示例6: 获取不存在的文章
+
+```bash
+curl -X GET "http://localhost:8080/api/public/article/999"
+```
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "文章不存在或已下架",
+  "code": 404
+}
 ```
 
 ---

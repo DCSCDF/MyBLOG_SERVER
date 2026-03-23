@@ -21,6 +21,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleResponseDTO;
+import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleDetailResponseDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleResponseDTO;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
@@ -178,6 +179,64 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         } catch (Exception e) {
             log.error("分页获取公共文章列表异常", e);
             return SaResult.error("获取文章列表失败").setCode(500);
+        }
+    }
+
+    @Override
+    public SaResult getPublicArticleDetail(Long articleId) {
+        try {
+            if (articleId == null) {
+                return SaResult.error("文章ID不能为空").setCode(400);
+            }
+
+            // 查询文章，只查询公开的文章（is_hidden = false）
+            SysBlog blog = blogMapper.selectOne(
+                    new LambdaQueryWrapper<SysBlog>()
+                            .eq(SysBlog::getId, articleId)
+                            .eq(SysBlog::getHidden, false)
+            );
+
+            if (blog == null) {
+                log.warn("公共文章详情获取失败：文章不存在或已隐藏，articleId={}", articleId);
+                return SaResult.error("文章不存在或已下架").setCode(404);
+            }
+
+            // 获取分类名称
+            String categoryName = null;
+            if (blog.getCategoryId() != null) {
+                SysCategory category = categoryMapper.selectById(blog.getCategoryId());
+                // 只返回未隐藏的分类名称
+                if (category != null && !category.getHidden()) {
+                    categoryName = category.getName();
+                }
+            }
+
+            // 获取作者昵称
+            String authorNickname = "未知作者";
+            if (blog.getAuthorId() != null) {
+                SysUser user = userMapper.selectById(blog.getAuthorId());
+                if (user != null) {
+                    authorNickname = user.getNickname();
+                }
+            }
+
+            // 构建响应DTO
+            PublicArticleDetailResponseDTO dto = new PublicArticleDetailResponseDTO();
+            dto.setId(blog.getId());
+            dto.setCategoryId(blog.getCategoryId());
+            dto.setCategoryName(categoryName);
+            dto.setTitle(blog.getTitle());
+            dto.setContent(blog.getContent());
+            dto.setTags(blog.getTags());
+            dto.setCommentCount(blog.getCommentCount());
+            dto.setIsTop(blog.getTop());
+            dto.setAuthorNickname(authorNickname);
+            dto.setCreateTime(blog.getCreateTime());
+
+            return SaResult.data(dto);
+        } catch (Exception e) {
+            log.error("获取公共文章详情异常，articleId={}", articleId, e);
+            return SaResult.error("获取文章详情失败").setCode(500);
         }
     }
 

@@ -32,6 +32,15 @@ public interface PublicArticleService {
     SaResult getPagePublicArticles(PagePublicArticleDTO dto);
 
     /**
+     * 根据文章ID获取文章详情
+     * 只能获取公开的文章，隐藏或删除的文章无法访问
+     *
+     * @param articleId 文章ID
+     * @return 文章详情
+     */
+    SaResult getPublicArticleDetail(Long articleId);
+
+    /**
      * 清除公共文章列表缓存
      * 当后台对文章进行增删改操作时，需要调用此方法清除缓存
      */
