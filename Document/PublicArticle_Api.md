@@ -63,9 +63,7 @@
         "summary": "本文介绍了Spring Boot的开发最佳实践，包括项目结构、配置管理...",
         "coverImage": "https://example.com/images/spring-boot.jpg",
         "tags": "Java,Spring,后端",
-        "viewCount": 1234,
         "commentCount": 56,
-        "likeCount": 78,
         "isTop": true,
         "authorNickname": "张三",
         "createTime": "2026-03-14T10:00:00"
@@ -103,9 +101,7 @@
 | summary        | String   | 文章摘要（为空时自动从HTML内容提取前100字，去除HTML标签） |
 | coverImage     | String   | 封面图片URL                            |
 | tags           | String   | 标签（逗号分隔）                           |
-| viewCount      | Integer  | 浏览量                                |
 | commentCount   | Integer  | 评论数                                |
-| likeCount      | Integer  | 点赞数                                |
 | isTop          | Boolean  | 是否置顶                               |
 | authorNickname | String   | 作者昵称                               |
 | createTime     | DateTime | 创建时间                               |

@@ -239,9 +239,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setViewCount(blog.getViewCount());
         dto.setCommentCount(blog.getCommentCount());
-        dto.setLikeCount(blog.getLikeCount());
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());

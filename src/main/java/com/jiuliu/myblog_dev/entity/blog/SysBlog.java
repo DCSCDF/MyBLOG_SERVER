@@ -43,14 +43,8 @@ public class SysBlog {
     @TableField("author_id")
     private Long authorId;
 
-    @TableField("view_count")
-    private Integer viewCount = 0;
-
     @TableField("comment_count")
     private Integer commentCount = 0;
-
-    @TableField("like_count")
-    private Integer likeCount = 0;
 
     @TableField("is_hidden")
     private Boolean hidden;         // 是否私密

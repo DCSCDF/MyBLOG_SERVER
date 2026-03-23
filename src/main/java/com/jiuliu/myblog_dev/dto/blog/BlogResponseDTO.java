@@ -50,19 +50,9 @@ public class BlogResponseDTO {
     private String tags;
 
     /**
-     * 浏览量
-     */
-    private Integer viewCount;
-
-    /**
      * 评论数
      */
     private Integer commentCount;
-
-    /**
-     * 点赞数
-     */
-    private Integer likeCount;
 
     /**
      * 是否隐藏

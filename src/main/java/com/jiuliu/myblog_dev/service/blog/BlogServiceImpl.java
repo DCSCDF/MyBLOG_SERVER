@@ -373,9 +373,7 @@ public class BlogServiceImpl implements BlogService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setViewCount(blog.getViewCount());
         dto.setCommentCount(blog.getCommentCount());
-        dto.setLikeCount(blog.getLikeCount());
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());
@@ -395,9 +393,7 @@ public class BlogServiceImpl implements BlogService {
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
         dto.setAuthorId(blog.getAuthorId());
-        dto.setViewCount(blog.getViewCount());
         dto.setCommentCount(blog.getCommentCount());
-        dto.setLikeCount(blog.getLikeCount());
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());

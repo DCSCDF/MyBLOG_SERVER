@@ -196,9 +196,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setViewCount(blog.getViewCount());
         dto.setCommentCount(blog.getCommentCount());
-        dto.setLikeCount(blog.getLikeCount());
         dto.setIsTop(blog.getTop());
         // 作者昵称
         String nickname = authorNicknameMap.get(blog.getAuthorId());

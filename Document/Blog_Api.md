@@ -14,7 +14,7 @@
 - `article:delete` - 删除文章
 - `article:publish` - 发布文章
 
-文章数据存储在 `sys_blog` 表中，字段包括：文章标题、摘要、MD内容、HTML内容、封面图、标签、作者ID、浏览量、评论数、点赞数、是否隐藏、是否置顶、是否推荐等。
+文章数据存储在 `sys_blog` 表中，字段包括：文章标题、摘要、MD内容、HTML内容、封面图、标签、作者ID、评论数、是否隐藏、是否置顶、是否推荐等。
 
 ---
 
@@ -156,9 +156,7 @@
         "summary": "本文介绍了Java并发编程的核心知识点",
         "coverImage": "https://example.com/images/java.jpg",
         "tags": "Java,并发",
-        "viewCount": 100,
         "commentCount": 10,
-        "likeCount": 50,
         "isHidden": false,
         "isTop": true,
         "isRecommend": true
@@ -203,9 +201,7 @@
 | summary       | String  | 文章摘要（为空时自动从HTML内容提取前50字） |
 | coverImage    | String  | 封面图片URL                  |
 | tags          | String  | 标签（逗号分隔）                 |
-| viewCount     | Integer | 浏览量                      |
 | commentCount  | Integer | 评论数                      |
-| likeCount     | Integer | 点赞数                      |
 | isHidden      | Boolean | 是否隐藏                     |
 | isTop         | Boolean | 是否置顶                     |
 | isRecommend   | Boolean | 是否推荐                     |
@@ -249,9 +245,7 @@
     "coverImage": "https://example.com/images/java.jpg",
     "tags": "Java,并发,多线程",
     "authorId": 1,
-    "viewCount": 100,
     "commentCount": 10,
-    "likeCount": 50,
     "isHidden": false,
     "isTop": true,
     "isRecommend": true,
@@ -276,9 +270,7 @@
 | coverImage   | String        | 封面图片URL    |
 | tags         | String        | 标签（逗号分隔）   |
 | authorId     | Long          | 作者ID       |
-| viewCount    | Integer       | 浏览量        |
 | commentCount | Integer       | 评论数        |
-| likeCount    | Integer       | 点赞数        |
 | isHidden     | Boolean       | 是否隐藏       |
 | isTop        | Boolean       | 是否置顶       |
 | isRecommend  | Boolean       | 是否推荐       |

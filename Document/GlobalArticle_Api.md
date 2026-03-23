@@ -67,9 +67,7 @@
         "summary": "本文介绍了Java并发编程的核心知识点",
         "coverImage": "https://example.com/images/java.jpg",
         "tags": "Java,并发",
-        "viewCount": 100,
         "commentCount": 10,
-        "likeCount": 50,
         "isHidden": false,
         "isTop": true,
         "isRecommend": true,
@@ -116,9 +114,7 @@
 | summary        | String  | 文章摘要（为空时自动从HTML内容提取前50字） |
 | coverImage     | String  | 封面图片URL                  |
 | tags           | String  | 标签（逗号分隔）                 |
-| viewCount      | Integer | 浏览量                      |
 | commentCount   | Integer | 评论数                      |
-| likeCount      | Integer | 点赞数                      |
 | isHidden       | Boolean | 是否隐藏                     |
 | isTop          | Boolean | 是否置顶                     |
 | isRecommend    | Boolean | 是否推荐                     |
