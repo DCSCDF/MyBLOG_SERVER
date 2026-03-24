@@ -130,6 +130,30 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                 if (!StringUtils.hasText(dto.getUsername())) {
                     return SaResult.error("评论者名称不能为空").setCode(400);
                 }
+
+                // 邮箱格式验证
+                if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
+                    if (isEmailInvalid(dto.getEmail())) {
+                        log.warn("评论提交失败：邮箱格式无效，email={}", dto.getEmail());
+                        return SaResult.error("邮箱格式无效，请输入有效的邮箱地址").setCode(400);
+                    }
+                }
+
+                // URL 格式验证
+                if (dto.getAvatarUrl() != null && !dto.getAvatarUrl().trim().isEmpty()) {
+                    if (isUrlInvalid(dto.getAvatarUrl())) {
+                        log.warn("评论提交失败：头像URL格式无效，avatarUrl={}", dto.getAvatarUrl());
+                        return SaResult.error("头像URL格式无效，请输入有效的网址").setCode(400);
+                    }
+                }
+
+                if (dto.getWebsite() != null && !dto.getWebsite().trim().isEmpty()) {
+                    if (isUrlInvalid(dto.getWebsite())) {
+                        log.warn("评论提交失败：网站URL格式无效，website={}", dto.getWebsite());
+                        return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                    }
+                }
+
                 comment.setUserId(null);
                 comment.setUsername(dto.getUsername());
                 comment.setEmail(dto.getEmail());
@@ -206,7 +230,9 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         // 4. 批量查询用户信息
         Map<Long, SysUser> userMap = new HashMap<>();
         if (!userIds.isEmpty()) {
-            List<SysUser> users = userMapper.selectBatchIds(userIds);
+            List<SysUser> users = userMapper.selectList(
+                    new LambdaQueryWrapper<SysUser>().in(SysUser::getId, userIds)
+            );
             userMap = users.stream()
                     .collect(Collectors.toMap(SysUser::getId, u -> u));
         }
@@ -305,5 +331,34 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         }
 
         return level;
+    }
+
+    /**
+     * 验证 URL 格式是否有效
+     * 支持 http:// 和 https:// 协议
+     */
+    private boolean isUrlInvalid(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            java.net.URL parsedUrl = new java.net.URL(url);
+            String protocol = parsedUrl.getProtocol();
+            return !"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * 验证邮箱格式是否有效
+     */
+    private boolean isEmailInvalid(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return true;
+        }
+        // 简单的邮箱格式正则：必须包含 @ 和 .，且 @ 不能在首位
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+        return !email.matches(emailRegex);
     }
 }

@@ -14,11 +14,12 @@
 
 1. **已登录用户**: 自动使用用户表的昵称、邮箱、头像信息，无需传入。评论记录中 `username`、`email`、`avatarUrl` 字段为空，查询时通过 `userId` 关联用户表获取
 2. **游客评论**: 支持传入用户名、邮箱、头像、个人网站
-3. **回复评论**: 支持回复已审核通过的评论（回复需要传入父评论ID）
-4. **嵌套层级限制**: 子评论只能嵌套1次（可通过 `app.comment.max-nest-level` 配置项修改）
-5. **审核机制**: 已登录用户评论直接通过，游客评论需审核后显示
-6. **IP记录**: 自动记录评论者的IP地址和设备信息
-7. **评论数更新**: 提交评论后自动更新文章的评论数
+3. **格式验证**: 邮箱需为有效格式，头像URL和个人网站需为有效的 http/https URL 格式，否则返回错误
+4. **回复评论**: 支持回复已审核通过的评论（回复需要传入父评论ID）
+5. **嵌套层级限制**: 子评论只能嵌套1次（可通过 `app.comment.max-nest-level` 配置项修改）
+6. **审核机制**: 已登录用户评论直接通过，游客评论需审核后显示
+7. **IP记录**: 自动记录评论者的IP地址和设备信息
+8. **评论数更新**: 提交评论后自动更新文章的评论数
 
 ---
 
@@ -51,9 +52,9 @@
 | blogId    | Long   | 是    | 文章ID           |
 | parentId  | Long   | 是    | 父评论ID，0表示顶级评论  |
 | username  | String | 游客必填 | 评论者名称，已登录用户可不填 |
-| email     | String | 否    | 邮箱，已登录用户可不填    |
-| avatarUrl | String | 否    | 头像URL，已登录用户可不填 |
-| website   | String | 否    | 个人网站           |
+| email     | String | 否    | 邮箱，已登录用户可不填（需为有效的邮箱格式）    |
+| avatarUrl | String | 否    | 头像URL，已登录用户可不填（需为有效的 http/https URL） |
+| website   | String | 否    | 个人网站（需为有效的 http/https URL）           |
 | content   | String | 是    | 评论内容           |
 
 #### 已登录用户请求示例
@@ -214,6 +215,48 @@
   "data": null,
   "success": false,
   "errorMsg": "评论内容不能为空",
+  "code": 400
+}
+```
+
+### 邮箱格式无效
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "邮箱格式无效，请输入有效的邮箱地址",
+  "code": 400
+}
+```
+
+### URL 格式无效
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "头像URL格式无效，请输入有效的网址",
+  "code": 400
+}
+```
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "网站URL格式无效，请输入有效的网址",
+  "code": 400
+}
+```
+
+### 嵌套层级超限
+
+```json
+{
+  "data": null,
+  "success": false,
+  "errorMsg": "回复层级已达上限，最多支持 1 层嵌套",
   "code": 400
 }
 ```
