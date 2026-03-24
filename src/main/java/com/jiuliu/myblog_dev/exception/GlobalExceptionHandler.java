@@ -33,6 +33,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.sql.SQLSyntaxErrorException;
@@ -210,6 +211,19 @@ public class GlobalExceptionHandler {
     public Response<Void> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
         log.warn("不支持的媒体类型: {}", e.getContentType());
         return ResponseUtil.fail("不支持的请求格式，请使用 application/json 格式", 400);
+    }
+
+    /**
+     * 处理参数类型转换失败（如 id 参数传入了非数字字符串）
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        String paramName = e.getName();
+        String invalidValue = e.getValue() != null ? e.getValue().toString() : "null";
+        String targetType = e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "unknown";
+        log.warn("参数类型不匹配: 参数 '{}' 收到了无效值 '{}'，期望类型: {}", paramName, invalidValue, targetType);
+        return ResponseUtil.fail("参数格式错误，请检查请求参数", 400);
     }
 
     /**
