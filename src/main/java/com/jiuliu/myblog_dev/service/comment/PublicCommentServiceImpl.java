@@ -17,6 +17,7 @@ package com.jiuliu.myblog_dev.service.comment;
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
+import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
@@ -25,9 +26,16 @@ import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 公共评论服务实现类（无需登录）
@@ -36,6 +44,12 @@ import org.springframework.util.StringUtils;
 public class PublicCommentServiceImpl implements PublicCommentService {
 
     private static final Logger log = LoggerFactory.getLogger(PublicCommentServiceImpl.class);
+
+    /**
+     * 评论最大嵌套层级配置（默认为1，即只能回复顶级评论）
+     */
+    @Value("${app.comment.max-nest-level:1}")
+    private int maxNestLevel;
 
     private final SysCommentMapper commentMapper;
     private final SysBlogMapper blogMapper;
@@ -52,7 +66,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     @Override
     @Transactional
     public SaResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
-                                 boolean isLogin, Long userId, boolean isAdmin) {
+                                  boolean isLogin, Long userId, boolean isAdmin) {
         try {
             // 1. 验证文章是否存在且未隐藏
             SysBlog blog = blogMapper.selectOne(
@@ -80,6 +94,14 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                     log.warn("评论提交失败：父评论不存在或不属于该文章，parentId={}, blogId={}", parentId, dto.getBlogId());
                     return SaResult.error("父评论不存在或不属于该文章").setCode(400);
                 }
+
+                // 3. 检查嵌套层级是否超过限制
+                int parentLevel = calculateCommentLevel(parentComment);
+                if (parentLevel >= maxNestLevel) {
+                    log.warn("评论提交失败：嵌套层级超过限制，parentId={}, parentLevel={}, maxNestLevel={}",
+                            parentId, parentLevel, maxNestLevel);
+                    return SaResult.error("回复层级已达上限，最多支持 " + maxNestLevel + " 层嵌套").setCode(400);
+                }
             }
 
             // 3. 构建评论实体
@@ -90,20 +112,19 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             // 4. 处理已登录用户和游客的差异化字段
             if (isLogin && userId != null) {
-                // 已登录用户：使用用户表的信息
+                // 已登录用户：userId 关联用户表，评论记录中个人字段为空
                 SysUser user = userMapper.selectById(userId);
                 if (user != null) {
                     comment.setUserId(userId);
-                    comment.setUsername(user.getNickname());
-                    comment.setEmail(user.getEmail());
-                    comment.setAvatarUrl(user.getAvatarUrl());
+                    comment.setUsername(null);   // 空，通过 userId 关联查询
+                    comment.setEmail(null);       // 空，通过 userId 关联查询
+                    comment.setAvatarUrl(null);   // 空，通过 userId 关联查询
+                    comment.setAdmin(isAdmin);
                 } else {
-                    // 用户不存在，回退到游客模式
-                    comment.setUsername(dto.getUsername());
-                    comment.setEmail(dto.getEmail());
-                    comment.setAvatarUrl(dto.getAvatarUrl());
+                    // 用户不存在，登录状态异常
+                    log.warn("评论提交失败：用户已登录但无法获取用户信息，userId={}", userId);
+                    return SaResult.error("用户信息获取失败，请重新登录").setCode(401);
                 }
-                comment.setAdmin(isAdmin);
             } else {
                 // 游客：使用传入的信息
                 if (!StringUtils.hasText(dto.getUsername())) {
@@ -147,5 +168,142 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.error("评论提交异常，blogId={}", dto.getBlogId(), e);
             return SaResult.error("评论提交失败").setCode(500);
         }
+    }
+
+    @Override
+    public List<PublicCommentResponseDTO> getCommentsByBlogId(Long blogId) {
+        // 1. 验证文章是否存在且未隐藏
+        SysBlog blog = blogMapper.selectOne(
+                new LambdaQueryWrapper<SysBlog>()
+                        .eq(SysBlog::getId, blogId)
+                        .eq(SysBlog::getHidden, false)
+        );
+
+        if (blog == null) {
+            log.warn("获取评论失败：文章不存在或已隐藏，blogId={}", blogId);
+            return new ArrayList<>();
+        }
+
+        // 2. 查询该文章下所有 status=1 且未删除的评论
+        List<SysComment> allComments = commentMapper.selectList(
+                new LambdaQueryWrapper<SysComment>()
+                        .eq(SysComment::getBlogId, blogId)
+                        .eq(SysComment::getStatus, (byte) 1)
+                        .orderByAsc(SysComment::getCreateTime)
+        );
+
+        if (allComments.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 3. 收集所有评论的 userId 用于批量查询用户信息
+        List<Long> userIds = allComments.stream()
+                .map(SysComment::getUserId)
+                .filter(userId -> userId != null && userId > 0)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 4. 批量查询用户信息
+        Map<Long, SysUser> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<SysUser> users = userMapper.selectBatchIds(userIds);
+            userMap = users.stream()
+                    .collect(Collectors.toMap(SysUser::getId, u -> u));
+        }
+
+        // 5. 构建 parentId -> 子评论列表 的映射
+        Map<Long, List<PublicCommentResponseDTO>> childrenMap = new HashMap<>();
+        List<PublicCommentResponseDTO> topLevelComments = new ArrayList<>();
+
+        for (SysComment comment : allComments) {
+            PublicCommentResponseDTO dto = convertToResponseDTO(comment, userMap);
+            Long parentId = comment.getParentId();
+
+//            if (parentId != null && parentId > 0 && userMap.containsKey(comment.getUserId())) {
+//                // 有有效的 parentId 且评论者有对应用户，使用用户表信息（已在 convertToResponseDTO 中处理）
+//            }
+
+            if (parentId != null && parentId > 0) {
+                childrenMap.computeIfAbsent(parentId, k -> new ArrayList<>()).add(dto);
+            } else {
+                topLevelComments.add(dto);
+            }
+        }
+
+        // 6. 将子评论设置到父评论的 children 字段
+        for (PublicCommentResponseDTO comment : topLevelComments) {
+            comment.setChildren(childrenMap.get(comment.getId()));
+            setChildrenRecursively(comment, childrenMap);
+        }
+
+        return topLevelComments;
+    }
+
+    /**
+     * 递归设置评论的子评论
+     */
+    private void setChildrenRecursively(PublicCommentResponseDTO comment, Map<Long, List<PublicCommentResponseDTO>> childrenMap) {
+        List<PublicCommentResponseDTO> children = childrenMap.get(comment.getId());
+        if (children != null && !children.isEmpty()) {
+            comment.setChildren(children);
+            for (PublicCommentResponseDTO child : children) {
+                setChildrenRecursively(child, childrenMap);
+            }
+        }
+    }
+
+    /**
+     * 将 SysComment 转换为 PublicCommentResponseDTO
+     * 如果评论有有效的 userId 且对应用户存在，则使用用户表信息覆盖
+     */
+    private PublicCommentResponseDTO convertToResponseDTO(SysComment comment, Map<Long, SysUser> userMap) {
+        PublicCommentResponseDTO dto = new PublicCommentResponseDTO();
+        dto.setId(comment.getId());
+        dto.setParentId(comment.getParentId());
+        dto.setWebsite(comment.getWebsite());
+        dto.setContent(comment.getContent());
+        dto.setIsAdmin(comment.getAdmin());
+        dto.setDeviceInfo(comment.getDeviceInfo());
+        dto.setCreateTime(comment.getCreateTime());
+        dto.setUpdateTime(comment.getUpdateTime());
+
+        // 如果评论者有对应的用户且用户有效，使用用户表信息
+        Long userId = comment.getUserId();
+        if (userId != null && userId > 0 && userMap.containsKey(userId)) {
+            SysUser user = userMap.get(userId);
+            dto.setUsername(user.getNickname());
+            dto.setEmail(user.getEmail());
+            dto.setAvatarUrl(user.getAvatarUrl());
+        } else {
+            // 使用评论原始信息（游客或用户已被删除）
+            dto.setUsername(comment.getUsername());
+            dto.setEmail(comment.getEmail());
+            dto.setAvatarUrl(comment.getAvatarUrl());
+        }
+
+        return dto;
+    }
+
+    /**
+     * 计算评论的层级（从1开始）
+     * 顶级评论(parentId=0)层级为1，一级子评论层级为2，以此类推
+     */
+    private int calculateCommentLevel(SysComment comment) {
+        int level = 1;
+        Long parentId = comment.getParentId();
+
+        while (parentId != null && parentId != 0) {
+            SysComment parentComment = commentMapper.selectOne(
+                    new LambdaQueryWrapper<SysComment>()
+                            .eq(SysComment::getId, parentId)
+            );
+            if (parentComment == null) {
+                break;
+            }
+            level++;
+            parentId = parentComment.getParentId();
+        }
+
+        return level;
     }
 }

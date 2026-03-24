@@ -140,6 +140,15 @@ public class CommentServiceImpl implements CommentService {
             return SaResult.error("无权限修改该评论").setCode(403);
         }
 
+        // 如果是子评论，检查父评论链是否都通过审核
+        if (existing.getParentId() != null && existing.getParentId() != 0) {
+            if (!areAllParentCommentsApproved(existing)) {
+                // 父评论链中有未通过的评论，子评论只能是待审核状态且无法修改内容
+                log.warn("更新评论失败：父评论链中存在未通过的评论，commentId={}", dto.getId());
+                return SaResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
+            }
+        }
+
         // 更新评论内容
         LambdaUpdateWrapper<SysComment> updateWrapper = new LambdaUpdateWrapper<SysComment>()
                 .eq(SysComment::getId, dto.getId());
@@ -183,6 +192,9 @@ public class CommentServiceImpl implements CommentService {
             return SaResult.error("无权限删除该评论").setCode(403);
         }
 
+        // 级联删除：先删除所有子评论（递归）
+        deleteChildComments(commentId);
+
         // 逻辑删除：设置 is_deleted = 1
         commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
                 .eq(SysComment::getId, commentId)
@@ -195,6 +207,29 @@ public class CommentServiceImpl implements CommentService {
         clearCommentCache(commentId);
 
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 递归删除子评论
+     */
+    private void deleteChildComments(Long parentId) {
+        // 查询所有直接子评论
+        List<SysComment> childComments = commentMapper.selectList(
+                new LambdaQueryWrapper<SysComment>()
+                        .eq(SysComment::getParentId, parentId)
+        );
+
+        for (SysComment child : childComments) {
+            // 递归删除子评论的子评论
+            deleteChildComments(child.getId());
+            // 逻辑删除子评论
+            commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
+                    .eq(SysComment::getId, child.getId())
+                    .set(SysComment::getIsDeleted, 1)
+                    .set(SysComment::getUpdateTime, LocalDateTime.now()));
+            clearCommentCache(child.getId());
+            log.info("子评论级联删除成功，id={}", child.getId());
+        }
     }
 
     /**
@@ -246,5 +281,27 @@ public class CommentServiceImpl implements CommentService {
                 new FilterOptionItem(2, "垃圾评论")
         );
         return Map.of("status", statusOptions);
+    }
+
+    /**
+     * 检查所有父评论是否都为通过状态
+     * 递归向上查找所有父评论，如果有任意一个父评论不是已通过状态(1)，返回false
+     */
+    private boolean areAllParentCommentsApproved(SysComment comment) {
+        Long parentId = comment.getParentId();
+
+        while (parentId != null && parentId != 0) {
+            SysComment parentComment = commentMapper.selectById(parentId);
+            if (parentComment == null) {
+                break;
+            }
+            // 如果父评论不是已通过状态，返回false
+            if (parentComment.getStatus() != 1) {
+                return false;
+            }
+            parentId = parentComment.getParentId();
+        }
+
+        return true;
     }
 }

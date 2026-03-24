@@ -18,16 +18,21 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
+import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 import com.jiuliu.myblog_dev.service.comment.PublicCommentService;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 公共评论接口 - 无需登录即可访问
@@ -105,5 +110,18 @@ public class PublicCommentController {
 
         SaResult saResult = publicCommentService.createComment(dto, ipAddress, deviceInfo, isLogin, userId, isAdmin);
         return handleSaResult(saResult);
+    }
+
+    /**
+     * 获取文章的所有评论
+     * GET /api/public/comment/list/{blogId}
+     * 无需登录，所有用户均可访问
+     * 只返回 status=1 且未删除的评论
+     * 如果评论有有效的 parent_id 且对应用户存在，则显示用户表信息
+     */
+    @GetMapping("/list/{blogId}")
+    public Response<List<PublicCommentResponseDTO>> getComments(@PathVariable Long blogId) {
+        List<PublicCommentResponseDTO> comments = publicCommentService.getCommentsByBlogId(blogId);
+        return ResponseUtil.success(comments, 200);
     }
 }

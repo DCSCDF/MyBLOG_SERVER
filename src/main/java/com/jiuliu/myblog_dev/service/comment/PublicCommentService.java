@@ -16,6 +16,9 @@ package com.jiuliu.myblog_dev.service.comment;
 
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
+import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
+
+import java.util.List;
 
 /**
  * 公共评论服务接口（无需登录）
@@ -36,4 +39,14 @@ public interface PublicCommentService {
      */
     SaResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
                           boolean isLogin, Long userId, boolean isAdmin);
+
+    /**
+     * 根据文章ID获取评论列表
+     * 只返回 status=1 且未删除的评论
+     * 如果评论有有效的 parent_id 且对应用户存在，则显示用户表信息
+     *
+     * @param blogId 文章ID
+     * @return 评论列表（已按 parent_id 构建树形结构）
+     */
+    List<PublicCommentResponseDTO> getCommentsByBlogId(Long blogId);
 }
