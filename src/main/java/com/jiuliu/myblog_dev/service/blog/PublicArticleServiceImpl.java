@@ -16,7 +16,6 @@ package com.jiuliu.myblog_dev.service.blog;
 
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
@@ -33,15 +32,13 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
+import com.jiuliu.myblog_dev.utils.segment.ChineseSegmentUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -93,11 +90,9 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             // 查询所有分类用于后续映射
             Map<Long, String> categoryMap = getCategoryMap();
 
-            // 构建查询条件 - 只查询公开的文章（is_hidden = 0）
+            // 构建查询条件 - 只查询公开的文章
             LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(SysBlog::getHidden, false)
-                    .orderByDesc(SysBlog::getTop)
-                    .orderByDesc(SysBlog::getCreateTime);
+            queryWrapper.eq(SysBlog::getHidden, false);
 
             // 如果传入了分类ID，只查询该分类下的文章
             Long categoryId = dto.getCategoryId();
@@ -105,19 +100,38 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 queryWrapper.eq(SysBlog::getCategoryId, categoryId);
             }
 
-            // 关键词搜索：同时搜索标题、摘要、分类名称和标签
-            // 如果传入了分类ID，搜索范围限制在该分类内
+            // 关键词搜索：使用分词器进行智能分词搜索
+            // 例如：搜索 "登陆 授权" 可以匹配到 "登录接口返回的一次性授权码"
+            String keyword = null;
+            List<String> searchTokens = Collections.emptyList();
             if (StringUtils.hasText(dto.getKeyword())) {
-                String keyword = dto.getKeyword().trim();
-                
+                keyword = dto.getKeyword().trim();
+                log.info("【文章搜索】接收关键词 keyword={}", keyword);
+
+                // 对关键词进行分词，获取分词列表
+                searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
+                log.info("【文章搜索】关键词分词结果 keyword={}, searchTokens={}", keyword, searchTokens);
+
+                if (searchTokens.isEmpty()) {
+                    // 分词为空时，用原始关键词搜索
+                    searchTokens = List.of(keyword);
+                }
+
+                // 创建 final 副本供 lambda 使用
+                final List<String> finalSearchTokens = searchTokens;
+
                 if (categoryId != null) {
-                    // 如果传入了分类ID，只在该分类内搜索（标题、摘要、标签）
-                    queryWrapper.and(w -> w.like(SysBlog::getTitle, keyword)
-                            .or().like(SysBlog::getSummary, keyword)
-                            .or().like(SysBlog::getTags, keyword));
+                    // 如果传入了分类ID，只在该分类内搜索
+                    queryWrapper.and(w -> {
+                        for (String token : finalSearchTokens) {
+                            w.or().like(SysBlog::getTitle, token)
+                                    .or().like(SysBlog::getSummary, token)
+                                    .or().like(SysBlog::getTags, token);
+                        }
+                    });
                 } else {
                     // 如果没有传入分类ID，搜索所有分类
-                    // 先查询分类名称包含关键词的分类ID
+                    // 先查询分类名称匹配的分词ID
                     List<SysCategory> matchedCategories = categoryMapper.selectList(
                             new LambdaQueryWrapper<SysCategory>()
                                     .like(SysCategory::getName, keyword)
@@ -127,27 +141,75 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                             .map(SysCategory::getId)
                             .collect(Collectors.toList());
 
-                    // 筛选条件：标题/摘要匹配关键词 OR 分类匹配 OR 标签匹配
-                    queryWrapper.and(w -> {
-                        // 标题或摘要包含关键词
-                        w.like(SysBlog::getTitle, keyword)
-                                .or().like(SysBlog::getSummary, keyword);
-                        // 或者分类名称匹配（通过分类ID关联）
-                        if (!matchedCategoryIds.isEmpty()) {
-                            w.or().in(SysBlog::getCategoryId, matchedCategoryIds);
+                    // 同时对分词后的词进行分类匹配
+                    for (String token : searchTokens) {
+                        List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
+                                new LambdaQueryWrapper<SysCategory>()
+                                        .like(SysCategory::getName, token)
+                                        .eq(SysCategory::getHidden, false)
+                        );
+                        for (SysCategory cat : tokenMatchedCategories) {
+                            if (!matchedCategoryIds.contains(cat.getId())) {
+                                matchedCategoryIds.add(cat.getId());
+                            }
                         }
-                        // 或者标签匹配
-                        w.or().like(SysBlog::getTags, keyword);
+                    }
+
+                    // 创建 final 副本供 lambda 使用
+                    final List<Long> finalMatchedCategoryIds = matchedCategoryIds;
+
+                    // 筛选条件：标题/摘要/标签匹配任意分词词 OR 分类匹配
+                    queryWrapper.and(w -> {
+                        for (String token : finalSearchTokens) {
+                            w.or().like(SysBlog::getTitle, token)
+                                    .or().like(SysBlog::getSummary, token)
+                                    .or().like(SysBlog::getTags, token);
+                        }
+                        // 分类匹配
+                        if (!finalMatchedCategoryIds.isEmpty()) {
+                            w.or().in(SysBlog::getCategoryId, finalMatchedCategoryIds);
+                        }
                     });
                 }
             }
 
-            // 分页查询
-            Page<SysBlog> page = new Page<>(dto.getCurrentPage(), dto.getPageSize());
-            Page<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
+            // 排序规则：置顶优先，然后按匹配分数，最后按创建时间
+            // 注意：先不加排序，拿到所有匹配文章后在 Java 中计算匹配分数排序
+            queryWrapper.orderByDesc(SysBlog::getTop)
+                    .orderByDesc(SysBlog::getCreateTime);
+
+            // 先查询所有匹配的文章（不限制数量，用于计算匹配分数）
+            List<SysBlog> allMatchedArticles = blogMapper.selectList(queryWrapper);
+
+            // 计算每篇文章的匹配分数：标题匹配3分，摘要匹配2分，标签匹配1分
+            final List<String> finalSearchTokens = searchTokens;
+            Map<Long, Integer> articleScoreMap = new HashMap<>();
+            for (SysBlog article : allMatchedArticles) {
+                int score = calculateMatchScore(article, finalSearchTokens);
+                articleScoreMap.put(article.getId(), score);
+            }
+
+            // 按匹配分数降序排序，分数相同时按创建时间降序
+            allMatchedArticles.sort((a, b) -> {
+                int scoreCompare = articleScoreMap.get(b.getId()).compareTo(articleScoreMap.get(a.getId()));
+                if (scoreCompare != 0) return scoreCompare;
+                // 分数相同按创建时间降序（新的在前）
+                return b.getCreateTime().compareTo(a.getCreateTime());
+            });
+
+            // 计算总匹配数（用于日志）
+            int totalMatched = allMatchedArticles.size();
+            int totalPages = (int) Math.ceil((double) totalMatched / dto.getPageSize());
+            int fromIndex = (dto.getCurrentPage() - 1) * dto.getPageSize();
+            int toIndex = Math.min(fromIndex + dto.getPageSize(), totalMatched);
+
+            // 分页截取
+            List<SysBlog> pagedArticles = (fromIndex < totalMatched)
+                    ? allMatchedArticles.subList(fromIndex, toIndex)
+                    : Collections.emptyList();
 
             // 收集所有作者 ID
-            List<Long> authorIds = pageResult.getRecords().stream()
+            List<Long> authorIds = pagedArticles.stream()
                     .map(SysBlog::getAuthorId)
                     .filter(Objects::nonNull)
                     .distinct()
@@ -165,17 +227,24 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             }
 
             // 转换为响应DTO
-            List<PublicArticleResponseDTO> records = pageResult.getRecords().stream()
+            List<PublicArticleResponseDTO> records = pagedArticles.stream()
                     .map(blog -> convertToResponseDTO(blog, categoryMap, authorNicknameMap))
                     .collect(Collectors.toList());
+
+            // 打印搜索结果日志
+            log.info("【文章搜索结果】keyword={}, searchTokens={}, totalMatched={}, pageTotal={}, results=[{}]",
+                    keyword, searchTokens, totalMatched, totalPages,
+                    pagedArticles.stream()
+                            .map(b -> b.getTitle() + "(score:" + articleScoreMap.get(b.getId()) + ")")
+                            .collect(Collectors.joining(", ")));
 
             // 构建响应
             PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
             response.setRecords(records);
-            response.setTotal(pageResult.getTotal());
-            response.setSize(pageResult.getSize());
-            response.setCurrent(pageResult.getCurrent());
-            response.setPages(pageResult.getPages());
+            response.setTotal((long) totalMatched);
+            response.setSize((long) dto.getPageSize());
+            response.setCurrent((long) dto.getCurrentPage());
+            response.setPages((long) totalPages);
 
             // 存入缓存
             publicArticleListCache.put(cacheKey, response);
@@ -321,5 +390,44 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     public void clearPublicArticleCache() {
         publicArticleListCache.invalidateAll();
         log.debug("公共文章列表缓存已清除");
+    }
+
+    /**
+     * 计算文章与搜索词的匹配分数
+     * 标题匹配：3分/词
+     * 摘要匹配：2分/词
+     * 标签匹配：1分/词
+     *
+     * @param article      文章实体
+     * @param searchTokens 分词列表
+     * @return 匹配分数
+     */
+    private int calculateMatchScore(SysBlog article, List<String> searchTokens) {
+        int score = 0;
+        String title = article.getTitle() != null ? article.getTitle().toLowerCase() : "";
+        String summary = getSummary(article);
+        summary = summary != null ? summary.toLowerCase() : "";
+        String tags = article.getTags() != null ? article.getTags().toLowerCase() : "";
+
+        for (String token : searchTokens) {
+            String tokenLower = token.toLowerCase();
+
+            // 标题匹配：3分
+            if (title.contains(tokenLower)) {
+                score += 3;
+            }
+
+            // 摘要匹配：2分
+            if (summary.contains(tokenLower)) {
+                score += 2;
+            }
+
+            // 标签匹配：1分
+            if (tags.contains(tokenLower)) {
+                score += 1;
+            }
+        }
+
+        return score;
     }
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <comment>IK Analyzer 扩展配置</comment>
+
+    <!-- 是否使用智能分词模式 -->
+    <!-- true: 智能分词（推荐），false: 细粒度分词 -->
+    <entry key="use_smart">true</entry>
+
+    <!-- 是否启用远程词典扩展 -->
+    <!-- 设置为 true 可以从远程 URL 加载词典 -->
+    <entry key="enable_remote_dict">false</entry>
+
+    <!-- 远程词典 URL（如果 enable_remote_dict 为 true） -->
+    <!-- <entry key="remote_dict_url">http://your-server.com/dict/</entry> -->
+
+    <!-- 停用词词典路径 -->
+    <!-- 配置自定义停用词词典，一行一个词 -->
+    <entry key="use_stop_word_dict">true</entry>
+
+</properties>
