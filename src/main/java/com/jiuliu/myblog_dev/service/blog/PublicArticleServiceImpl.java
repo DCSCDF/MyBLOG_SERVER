@@ -83,7 +83,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             // 尝试从缓存获取
             PagePublicArticleResponseDTO cached = publicArticleListCache.getIfPresent(cacheKey);
             if (cached != null) {
-                log.debug("从缓存获取公共文章列表，key={}", cacheKey);
+//                log.debug("从缓存获取公共文章列表，key={}", cacheKey);
                 return SaResult.data(cached);
             }
 
