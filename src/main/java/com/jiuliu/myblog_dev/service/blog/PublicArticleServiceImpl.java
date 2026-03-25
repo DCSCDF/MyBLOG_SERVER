@@ -102,15 +102,15 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
             // 关键词搜索：使用分词器进行智能分词搜索
             // 例如：搜索 "登陆 授权" 可以匹配到 "登录接口返回的一次性授权码"
-            String keyword = null;
+            String keyword;
             List<String> searchTokens = Collections.emptyList();
             if (StringUtils.hasText(dto.getKeyword())) {
                 keyword = dto.getKeyword().trim();
-                log.info("【文章搜索】接收关键词 keyword={}", keyword);
+//                log.info("【文章搜索】接收关键词 keyword={}", keyword);
 
                 // 对关键词进行分词，获取分词列表
                 searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
-                log.info("【文章搜索】关键词分词结果 keyword={}, searchTokens={}", keyword, searchTokens);
+//                log.info("【文章搜索】关键词分词结果 keyword={}, searchTokens={}", keyword, searchTokens);
 
                 if (searchTokens.isEmpty()) {
                     // 分词为空时，用原始关键词搜索
@@ -231,12 +231,12 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                     .map(blog -> convertToResponseDTO(blog, categoryMap, authorNicknameMap))
                     .collect(Collectors.toList());
 
-            // 打印搜索结果日志
-            log.info("【文章搜索结果】keyword={}, searchTokens={}, totalMatched={}, pageTotal={}, results=[{}]",
-                    keyword, searchTokens, totalMatched, totalPages,
-                    pagedArticles.stream()
-                            .map(b -> b.getTitle() + "(score:" + articleScoreMap.get(b.getId()) + ")")
-                            .collect(Collectors.joining(", ")));
+//            // 打印搜索结果日志
+//            log.info("【文章搜索结果】keyword={}, searchTokens={}, totalMatched={}, pageTotal={}, results=[{}]",
+//                    keyword, searchTokens, totalMatched, totalPages,
+//                    pagedArticles.stream()
+//                            .map(b -> b.getTitle() + "(score:" + articleScoreMap.get(b.getId()) + ")")
+//                            .collect(Collectors.joining(", ")));
 
             // 构建响应
             PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
@@ -251,7 +251,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
             return SaResult.data(response);
         } catch (Exception e) {
-            log.error("分页获取公共文章列表异常", e);
+//            log.error("分页获取公共文章列表异常", e);
             return SaResult.error("获取文章列表失败").setCode(500);
         }
     }

@@ -65,7 +65,7 @@ public class ChineseSegmentUtil {
      * @return 分词列表
      */
     public static List<String> segment(String text, SegmentMode segmentMode) {
-        log.info("【分词输入】text={}, segmentMode={}", text, segmentMode);
+//        log.info("【分词输入】text={}, segmentMode={}", text, segmentMode);
 
         if (text == null || text.trim().isEmpty()) {
             log.warn("【分词输入】输入文本为空或null");
@@ -92,7 +92,7 @@ public class ChineseSegmentUtil {
             return Collections.emptyList();
         }
 
-        log.info("【分词输出】text={}, result={}", text, result);
+//        log.info("【分词输出】text={}, result={}", text, result);
         return result;
     }
 
@@ -104,16 +104,15 @@ public class ChineseSegmentUtil {
      * @return 分词列表
      */
     public static List<String> segmentKeyword(String keyword) {
-        log.info("【关键词分词输入】keyword={}", keyword);
+//        log.info("【关键词分词输入】keyword={}", keyword);
 
         if (keyword == null || keyword.trim().isEmpty()) {
             log.warn("【关键词分词输入】关键词为空或null");
             return Collections.emptyList();
         }
 
-        List<String> tokens = segment(keyword, SegmentMode.MAX_WORD);
-        log.info("【关键词分词输出】keyword={}, result={}", keyword, tokens);
-        return tokens;
+        //        log.info("【关键词分词输出】keyword={}, result={}", keyword, tokens);
+        return segment(keyword, SegmentMode.MAX_WORD);
     }
 
 
