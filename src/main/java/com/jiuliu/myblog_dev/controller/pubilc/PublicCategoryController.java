@@ -17,7 +17,7 @@ package com.jiuliu.myblog_dev.controller.pubilc;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicCategoryResponseDTO;
-import com.jiuliu.myblog_dev.service.blog.PublicCategoryService;
+import com.jiuliu.myblog_dev.service.blog.category.PublicCategoryService;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

@@ -27,7 +27,6 @@ import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
-import com.jiuliu.myblog_dev.service.blog.PublicCategoryService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

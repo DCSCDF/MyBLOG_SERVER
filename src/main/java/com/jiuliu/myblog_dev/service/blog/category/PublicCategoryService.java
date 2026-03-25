@@ -9,10 +9,10 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/23
+ * UpdateTime: 2026/3/23 06:57
  */
 
-package com.jiuliu.myblog_dev.service.blog;
+package com.jiuliu.myblog_dev.service.blog.category;
 
 import cn.dev33.satoken.util.SaResult;
 

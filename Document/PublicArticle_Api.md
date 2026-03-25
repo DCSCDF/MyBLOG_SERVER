@@ -36,10 +36,10 @@
 
 ```json
 {
-  "currentPage": 1,
-  "pageSize": 10,
-  "keyword": "Java",
-  "categoryId": 5
+   "currentPage": 1,
+   "pageSize": 10,
+   "keyword": "Java",
+   "categoryId": 5
 }
 ```
 
@@ -54,30 +54,30 @@
 
 ```json
 {
-  "data": {
-    "records": [
-      {
-        "id": 1,
-        "categoryId": 5,
-        "categoryName": "技术",
-        "title": "Spring Boot 最佳实践",
-        "summary": "本文介绍了Spring Boot的开发最佳实践，包括项目结构、配置管理...",
-        "coverImage": "https://example.com/images/spring-boot.jpg",
-        "tags": "Java,Spring,后端",
-        "commentCount": 56,
-        "isTop": true,
-        "authorNickname": "张三",
-        "createTime": "2026-03-14T10:00:00"
-      }
-    ],
-    "total": 100,
-    "size": 10,
-    "current": 1,
-    "pages": 10
-  },
-  "success": true,
-  "errorMsg": null,
-  "code": 200
+   "data": {
+      "records": [
+         {
+            "id": 1,
+            "categoryId": 5,
+            "categoryName": "技术",
+            "title": "Spring Boot 最佳实践",
+            "summary": "本文介绍了Spring Boot的开发最佳实践，包括项目结构、配置管理...",
+            "coverImage": "https://example.com/images/spring-boot.jpg",
+            "tags": "Java,Spring,后端",
+            "commentCount": 56,
+            "isTop": true,
+            "authorNickname": "张三",
+            "createTime": "2026-03-14T10:00:00"
+         }
+      ],
+      "total": 100,
+      "size": 10,
+      "current": 1,
+      "pages": 10
+   },
+   "success": true,
+   "errorMsg": null,
+   "code": 200
 }
 ```
 
@@ -127,21 +127,21 @@
 
 ```json
 {
-  "data": {
-    "id": 1,
-    "categoryId": 5,
-    "categoryName": "技术",
-    "title": "Spring Boot 最佳实践",
-    "htmlContent": "<h1>Spring Boot 最佳实践</h1><h2>项目结构</h2><p>合理的项目结构可以提高代码的可维护性...</p>",
-    "tags": "Java,Spring,后端",
-    "commentCount": 56,
-    "isTop": true,
-    "authorNickname": "张三",
-    "createTime": "2026-03-14T10:00:00"
-  },
-  "success": true,
-  "errorMsg": null,
-  "code": 200
+   "data": {
+      "id": 1,
+      "categoryId": 5,
+      "categoryName": "技术",
+      "title": "Spring Boot 最佳实践",
+      "htmlContent": "<h1>Spring Boot 最佳实践</h1><h2>项目结构</h2><p>合理的项目结构可以提高代码的可维护性...</p>",
+      "tags": "Java,Spring,后端",
+      "commentCount": 56,
+      "isTop": true,
+      "authorNickname": "张三",
+      "createTime": "2026-03-14T10:00:00"
+   },
+   "success": true,
+   "errorMsg": null,
+   "code": 200
 }
 ```
 
@@ -166,10 +166,10 @@
 
 ```json
 {
-  "data": null,
-  "success": false,
-  "errorMsg": "文章不存在或已下架",
-  "code": 404
+   "data": null,
+   "success": false,
+   "errorMsg": "文章不存在或已下架",
+   "code": 404
 }
 ```
 
@@ -227,10 +227,10 @@ curl -X GET "http://localhost:8080/api/public/article/999"
 
 ```json
 {
-  "data": null,
-  "success": false,
-  "errorMsg": "文章不存在或已下架",
-  "code": 404
+   "data": null,
+   "success": false,
+   "errorMsg": "文章不存在或已下架",
+   "code": 404
 }
 ```
 
@@ -242,10 +242,10 @@ curl -X GET "http://localhost:8080/api/public/article/999"
 
 ```json
 {
-  "data": null,
-  "success": false,
-  "errorMsg": "当前页码不能为空",
-  "code": 400
+   "data": null,
+   "success": false,
+   "errorMsg": "当前页码不能为空",
+   "code": 400
 }
 ```
 
@@ -253,10 +253,10 @@ curl -X GET "http://localhost:8080/api/public/article/999"
 
 ```json
 {
-  "data": null,
-  "success": false,
-  "errorMsg": "获取文章列表失败",
-  "code": 500
+   "data": null,
+   "success": false,
+   "errorMsg": "获取文章列表失败",
+   "code": 500
 }
 ```
 
