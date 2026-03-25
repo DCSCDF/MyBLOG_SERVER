@@ -28,8 +28,10 @@ import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
+import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,13 +65,16 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     private final SysBlogMapper blogMapper;
     private final SysCategoryMapper categoryMapper;
     private final SysUserMapper userMapper;
+    private final SysCommentMapper commentMapper;
 
     public PublicArticleServiceImpl(SysBlogMapper blogMapper,
                                     SysCategoryMapper categoryMapper,
-                                    SysUserMapper userMapper) {
+                                    SysUserMapper userMapper,
+                                    SysCommentMapper commentMapper) {
         this.blogMapper = blogMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
+        this.commentMapper = commentMapper;
     }
 
     @Override
@@ -226,9 +231,10 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             dto.setCategoryId(blog.getCategoryId());
             dto.setCategoryName(categoryName);
             dto.setTitle(blog.getTitle());
-            dto.setContent(blog.getContent());
+            // MD转HTML并净化XSS
+            dto.setHtmlContent(HtmlUtil.markdownToHtml(blog.getContent()));
             dto.setTags(blog.getTags());
-            dto.setCommentCount(blog.getCommentCount());
+            dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
             dto.setIsTop(blog.getTop());
             dto.setAuthorNickname(authorNickname);
             dto.setCreateTime(blog.getCreateTime());
@@ -255,7 +261,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setCommentCount(blog.getCommentCount());
+        dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
         dto.setIsTop(blog.getTop());
         // 作者昵称
         String nickname = authorNicknameMap.get(blog.getAuthorId());

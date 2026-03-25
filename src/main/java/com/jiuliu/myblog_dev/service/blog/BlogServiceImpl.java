@@ -25,6 +25,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
+import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,13 +48,16 @@ public class BlogServiceImpl implements BlogService {
 
     private final SysBlogMapper blogMapper;
     private final SysCategoryMapper categoryMapper;
+    private final SysCommentMapper commentMapper;
     private final PublicArticleService publicArticleService;
 
     public BlogServiceImpl(SysBlogMapper blogMapper,
                            SysCategoryMapper categoryMapper,
+                           SysCommentMapper commentMapper,
                            PublicArticleService publicArticleService) {
         this.blogMapper = blogMapper;
         this.categoryMapper = categoryMapper;
+        this.commentMapper = commentMapper;
         this.publicArticleService = publicArticleService;
     }
 
@@ -373,7 +377,7 @@ public class BlogServiceImpl implements BlogService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setCommentCount(blog.getCommentCount());
+        dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());
@@ -393,7 +397,7 @@ public class BlogServiceImpl implements BlogService {
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
         dto.setAuthorId(blog.getAuthorId());
-        dto.setCommentCount(blog.getCommentCount());
+        dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());

@@ -201,7 +201,7 @@
 | summary       | String  | 文章摘要（为空时自动从HTML内容提取前50字） |
 | coverImage    | String  | 封面图片URL                  |
 | tags          | String  | 标签（逗号分隔）                 |
-| commentCount  | Integer | 评论数                      |
+| commentCount  | Integer | 评论数（仅统计已通过的评论，包括子评论）                   |
 | isHidden      | Boolean | 是否隐藏                     |
 | isTop         | Boolean | 是否置顶                     |
 | isRecommend   | Boolean | 是否推荐                     |
@@ -270,7 +270,7 @@
 | coverImage   | String        | 封面图片URL    |
 | tags         | String        | 标签（逗号分隔）   |
 | authorId     | Long          | 作者ID       |
-| commentCount | Integer       | 评论数        |
+| commentCount | Integer       | 评论数（仅统计已通过的评论，包括子评论）  |
 | isHidden     | Boolean       | 是否隐藏       |
 | isTop        | Boolean       | 是否置顶       |
 | isRecommend  | Boolean       | 是否推荐       |

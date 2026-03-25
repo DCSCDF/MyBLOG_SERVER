@@ -25,6 +25,7 @@ import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
+import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
@@ -67,13 +68,16 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
 
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
+    private final SysCommentMapper commentMapper;
     private final PublicArticleService publicArticleService;
 
     public GlobalArticleServiceImpl(SysBlogMapper blogMapper,
                                     SysUserMapper userMapper,
+                                    SysCommentMapper commentMapper,
                                     PublicArticleService publicArticleService) {
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
+        this.commentMapper = commentMapper;
         this.publicArticleService = publicArticleService;
     }
 
@@ -239,7 +243,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         dto.setSummary(getSummary(blog));
         dto.setCoverImage(blog.getCoverImage());
         dto.setTags(blog.getTags());
-        dto.setCommentCount(blog.getCommentCount());
+        dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
         dto.setIsHidden(blog.getHidden());
         dto.setIsTop(blog.getTop());
         dto.setIsRecommend(blog.getRecommend());
