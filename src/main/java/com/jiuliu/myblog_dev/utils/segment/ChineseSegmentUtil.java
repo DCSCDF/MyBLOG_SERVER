@@ -25,6 +25,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 中文分词工具类
@@ -101,18 +102,27 @@ public class ChineseSegmentUtil {
      * 对搜索关键词进行分词
      *
      * @param keyword 搜索关键词
-     * @return 分词列表
+     * @return 分词列表（只包含有效词，过滤掉纯数字、纯符号等）
      */
     public static List<String> segmentKeyword(String keyword) {
-//        log.info("【关键词分词输入】keyword={}", keyword);
-
         if (keyword == null || keyword.trim().isEmpty()) {
-            log.warn("【关键词分词输入】关键词为空或null");
             return Collections.emptyList();
         }
 
-        //        log.info("【关键词分词输出】keyword={}, result={}", keyword, tokens);
-        return segment(keyword, SegmentMode.MAX_WORD);
+        List<String> tokens = segment(keyword, SegmentMode.MAX_WORD);
+
+        // 过滤掉无效词：纯数字、纯符号、过短的词
+        tokens = tokens.stream()
+                .filter(t -> t.length() >= 2) // 过滤掉单字符
+                .filter(t -> {
+                    // 判断是否为有效词：包含中文或英文字母
+                    boolean hasChinese = t.matches(".*[\\u4e00-\\u9fa5].*");
+                    boolean hasEnglish = t.matches(".*[a-zA-Z].*");
+                    return hasChinese || hasEnglish;
+                })
+                .collect(Collectors.toList());
+
+        return tokens;
     }
 
 

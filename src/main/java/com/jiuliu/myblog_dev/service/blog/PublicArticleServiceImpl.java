@@ -101,101 +101,96 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             }
 
             // 关键词搜索：使用分词器进行智能分词搜索
-            // 例如：搜索 "登陆 授权" 可以匹配到 "登录接口返回的一次性授权码"
+            // 必须匹配所有分词词（AND 逻辑）
             String keyword;
             List<String> searchTokens = Collections.emptyList();
             if (StringUtils.hasText(dto.getKeyword())) {
                 keyword = dto.getKeyword().trim();
-//                log.info("【文章搜索】接收关键词 keyword={}", keyword);
 
                 // 对关键词进行分词，获取分词列表
                 searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
-//                log.info("【文章搜索】关键词分词结果 keyword={}, searchTokens={}", keyword, searchTokens);
 
                 if (searchTokens.isEmpty()) {
                     // 分词为空时，用原始关键词搜索
                     searchTokens = List.of(keyword);
                 }
+            }
 
-                // 创建 final 副本供 lambda 使用
+            // 排序规则：置顶优先，然后按创建时间
+            // 注意：先不加关键词排序，拿到所有匹配文章后在 Java 中过滤和排序
+            queryWrapper.orderByDesc(SysBlog::getTop)
+                    .orderByDesc(SysBlog::getCreateTime);
+
+            // 先查询所有文章（用于后续过滤）
+            List<SysBlog> allArticles = blogMapper.selectList(queryWrapper);
+
+            // 如果有搜索关键词，进行 AND 匹配过滤
+            List<SysBlog> allMatchedArticles;
+            if (!searchTokens.isEmpty()) {
+                // 计算每篇文章的匹配分数，并过滤出包含所有分词的文章
                 final List<String> finalSearchTokens = searchTokens;
+                Map<Long, Integer> articleScoreMap = new HashMap<>();
 
-                if (categoryId != null) {
-                    // 如果传入了分类ID，只在该分类内搜索
-                    queryWrapper.and(w -> {
-                        for (String token : finalSearchTokens) {
-                            w.or().like(SysBlog::getTitle, token)
-                                    .or().like(SysBlog::getSummary, token)
-                                    .or().like(SysBlog::getTags, token);
-                        }
-                    });
-                } else {
-                    // 如果没有传入分类ID，搜索所有分类
-                    // 先查询分类名称匹配的分词ID
-                    List<SysCategory> matchedCategories = categoryMapper.selectList(
-                            new LambdaQueryWrapper<SysCategory>()
-                                    .like(SysCategory::getName, keyword)
-                                    .eq(SysCategory::getHidden, false)
-                    );
-                    List<Long> matchedCategoryIds = matchedCategories.stream()
-                            .map(SysCategory::getId)
-                            .collect(Collectors.toList());
+                allMatchedArticles = allArticles.stream().filter(article -> {
+                    int score = calculateMatchScore(article, finalSearchTokens);
+                    articleScoreMap.put(article.getId(), score);
+                    // AND 逻辑：只有分数 > 0 才表示匹配了所有分词
+                    return score > 0;
+                }).collect(Collectors.toList());
 
-                    // 同时对分词后的词进行分类匹配
-                    for (String token : searchTokens) {
+                // 如果没有传入分类ID，还需要过滤分类名称匹配的文章
+                if (categoryId == null && !allMatchedArticles.isEmpty()) {
+                    // 查询分词匹配的分类
+                    Set<Long> matchedCategoryIds = new HashSet<>();
+                    for (String token : finalSearchTokens) {
                         List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
                                 new LambdaQueryWrapper<SysCategory>()
                                         .like(SysCategory::getName, token)
                                         .eq(SysCategory::getHidden, false)
                         );
-                        for (SysCategory cat : tokenMatchedCategories) {
-                            if (!matchedCategoryIds.contains(cat.getId())) {
-                                matchedCategoryIds.add(cat.getId());
-                            }
-                        }
+                        tokenMatchedCategories.forEach(cat -> matchedCategoryIds.add(cat.getId()));
                     }
 
-                    // 创建 final 副本供 lambda 使用
-                    final List<Long> finalMatchedCategoryIds = matchedCategoryIds;
+                    // 保留原有匹配 + 分类匹配的文章
+                    List<SysBlog> categoryMatchedArticles = allArticles.stream()
+                            .filter(a -> a.getCategoryId() != null && matchedCategoryIds.contains(a.getCategoryId()))
+                            .toList();
 
-                    // 筛选条件：标题/摘要/标签匹配任意分词词 OR 分类匹配
-                    queryWrapper.and(w -> {
-                        for (String token : finalSearchTokens) {
-                            w.or().like(SysBlog::getTitle, token)
-                                    .or().like(SysBlog::getSummary, token)
-                                    .or().like(SysBlog::getTags, token);
+                    // 合并结果（去重）
+                    Set<Long> existingIds = allMatchedArticles.stream()
+                            .map(SysBlog::getId)
+                            .collect(Collectors.toSet());
+
+                    for (SysBlog article : categoryMatchedArticles) {
+                        if (!existingIds.contains(article.getId())) {
+                            allMatchedArticles.add(article);
+                            articleScoreMap.put(article.getId(), calculateMatchScore(article, finalSearchTokens));
                         }
-                        // 分类匹配
-                        if (!finalMatchedCategoryIds.isEmpty()) {
-                            w.or().in(SysBlog::getCategoryId, finalMatchedCategoryIds);
-                        }
-                    });
+                    }
                 }
+
+                // 有关键词时：按匹配分数 > 创建时间排序（置顶不生效）
+                allMatchedArticles.sort((a, b) -> {
+                    // 1. 匹配分数降序
+                    int scoreCompare = articleScoreMap.get(b.getId()).compareTo(articleScoreMap.get(a.getId()));
+                    if (scoreCompare != 0) return scoreCompare;
+                    // 2. 创建时间降序（新的在前）
+                    return b.getCreateTime().compareTo(a.getCreateTime());
+                });
+            } else {
+                // 没有关键词时：直接使用所有文章，按置顶优先 > 创建时间排序
+                allMatchedArticles = allArticles;
+                allMatchedArticles.sort((a, b) -> {
+                    // 1. 置顶优先
+                    Boolean aTop = a.getTop() != null && a.getTop();
+                    Boolean bTop = b.getTop() != null && b.getTop();
+                    if (!aTop.equals(bTop)) {
+                        return bTop.compareTo(aTop);
+                    }
+                    // 2. 创建时间降序
+                    return b.getCreateTime().compareTo(a.getCreateTime());
+                });
             }
-
-            // 排序规则：置顶优先，然后按匹配分数，最后按创建时间
-            // 注意：先不加排序，拿到所有匹配文章后在 Java 中计算匹配分数排序
-            queryWrapper.orderByDesc(SysBlog::getTop)
-                    .orderByDesc(SysBlog::getCreateTime);
-
-            // 先查询所有匹配的文章（不限制数量，用于计算匹配分数）
-            List<SysBlog> allMatchedArticles = blogMapper.selectList(queryWrapper);
-
-            // 计算每篇文章的匹配分数：标题匹配3分，摘要匹配2分，标签匹配1分
-            final List<String> finalSearchTokens = searchTokens;
-            Map<Long, Integer> articleScoreMap = new HashMap<>();
-            for (SysBlog article : allMatchedArticles) {
-                int score = calculateMatchScore(article, finalSearchTokens);
-                articleScoreMap.put(article.getId(), score);
-            }
-
-            // 按匹配分数降序排序，分数相同时按创建时间降序
-            allMatchedArticles.sort((a, b) -> {
-                int scoreCompare = articleScoreMap.get(b.getId()).compareTo(articleScoreMap.get(a.getId()));
-                if (scoreCompare != 0) return scoreCompare;
-                // 分数相同按创建时间降序（新的在前）
-                return b.getCreateTime().compareTo(a.getCreateTime());
-            });
 
             // 计算总匹配数（用于日志）
             int totalMatched = allMatchedArticles.size();
