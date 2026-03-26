@@ -12,7 +12,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.9-6DB33F?logo=springboot&logoColor=white)
 
 > ### API对接 与数据库结构等文档
-> - [用户认证API文档 `Auth_API`](Document/Auth_Api.md)
+> - [用户认证API文档 `Auth_Api`](Document/Auth_Api.md)
 > - [角色与权限组API文档 `Role_And_PermissionGroup_Api`](Document/Role_And_PermissionGroup_Api.md)
 > - [数据库结构 `Myblog_Sql`](Document/Myblog_Sql.md)
 > - [SEO配置接口文档 `Seo_Api`](Document/Seo_Api.md)
@@ -20,12 +20,16 @@
 > - [站点配置接口文档 `Config_Api`](Document/Config_Api.md)
 > - [限流逻辑说明文档 `RateLimit`](Document/RateLimit.md)
 > - [权限层级与父子关系说明 `Permission_Hierarchy`](Document/Permission_Hierarchy.md)
-> - [分类API文档 `category_api`](Document/category_api.md)
-> - [网站友链API文档 `FriendLink_Api`](Document/FriendLink_Api.md) 
-> - [文章管理文档 `blog_api`](Document/Blog_Api.md)
-> - [评论与全局评论API文档 `comment_api`](Document/Comment_Api.md)
-> - [全局文章API文档 `globalarticle_api`](Document/GlobalArticle_Api.md)
-> - [邮箱接口文档 `mail_api`](Document/Mail_Api.md)
+> - [分类API文档 `Category_Api`](Document/Category_Api.md)
+> - [网站友链API文档 `FriendLink_Api`](Document/FriendLink_Api.md)
+> - [文章管理文档 `Blog_Api`](Document/Blog_Api.md)
+> - [公共文章API文档 `PublicArticle_Api`](Document/PublicArticle_Api.md)
+> - [评论与全局评论API文档 `Comment_Api`](Document/Comment_Api.md)
+> - [公共评论API文档 `PublicComment_Api`](Document/PublicComment_Api.md)
+> - [全局文章API文档 `GlobalArticle_Api`](Document/GlobalArticle_Api.md)
+> - [公共分类API文档 `PublicCategory_Api`](Document/PublicCategory_Api.md)
+> - [OSS对象存储API文档 `OSS_Api`](Document/OSS_Api.md)
+> - [邮箱接口文档 `Mail_Api`](Document/Mail_Api.md)
 
 ---
 
