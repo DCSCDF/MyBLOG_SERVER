@@ -131,6 +131,11 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                     return SaResult.error("评论者名称不能为空").setCode(400);
                 }
 
+                // 邮箱必填校验
+                if (!StringUtils.hasText(dto.getEmail())) {
+                    return SaResult.error("邮箱不能为空").setCode(400);
+                }
+
                 // 邮箱格式验证
                 if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
                     if (isEmailInvalid(dto.getEmail())) {

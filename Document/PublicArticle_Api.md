@@ -102,7 +102,7 @@
 | summary        | String   | 文章摘要（为空时自动从HTML内容提取前100字，去除HTML标签） |
 | coverImage     | String   | 封面图片URL                            |
 | tags           | String   | 标签（逗号分隔）                           |
-| commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）                   |
+| commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）               |
 | isTop          | Boolean  | 是否置顶                               |
 | authorNickname | String   | 作者昵称                               |
 | createTime     | DateTime | 创建时间                               |
@@ -147,18 +147,18 @@
 
 #### 响应字段说明
 
-| 字段             | 类型       | 说明                                               |
-|----------------|----------|--------------------------------------------------|
-| id             | Long     | 文章ID                                             |
-| categoryId     | Long     | 分类ID                                             |
-| categoryName   | String   | 分类名称（如果分类已隐藏则返回null）                            |
-| title          | String   | 文章标题                                            |
-| htmlContent    | String   | 文章内容（HTML格式全文，由Markdown转换，已净化XSS）              |
-| tags           | String   | 标签（逗号分隔）                                        |
-| commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）                         |
-| isTop          | Boolean  | 是否置顶                                            |
-| authorNickname | String   | 作者昵称                                            |
-| createTime     | DateTime | 创建时间                                            |
+| 字段             | 类型       | 说明                                |
+|----------------|----------|-----------------------------------|
+| id             | Long     | 文章ID                              |
+| categoryId     | Long     | 分类ID                              |
+| categoryName   | String   | 分类名称（如果分类已隐藏则返回null）              |
+| title          | String   | 文章标题                              |
+| htmlContent    | String   | 文章内容（HTML格式全文，由Markdown转换，已净化XSS） |
+| tags           | String   | 标签（逗号分隔）                          |
+| commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）              |
+| isTop          | Boolean  | 是否置顶                              |
+| authorNickname | String   | 作者昵称                              |
+| createTime     | DateTime | 创建时间                              |
 
 #### 错误响应
 

@@ -33,12 +33,10 @@ public class MailServiceImpl implements MailService {
 
     private static final Logger log = LoggerFactory.getLogger(MailServiceImpl.class);
 
-    private final JavaMailSender mailSender;
     private final MailConfig mailConfig;
     private final SmtpConnectionTester smtpConnectionTester;
 
-    public MailServiceImpl(JavaMailSender mailSender, MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester) {
-        this.mailSender = mailSender;
+    public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester) {
         this.mailConfig = mailConfig;
         this.smtpConnectionTester = smtpConnectionTester;
     }
@@ -70,6 +68,7 @@ public class MailServiceImpl implements MailService {
         }
 
         try {
+            JavaMailSender mailSender = mailConfig.javaMailSender();
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 

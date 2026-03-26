@@ -670,6 +670,9 @@ VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称',
        ('smtp.fromName', 'your-email@example.com', 'email', NULL, 'SMTP发件人邮箱', 1, 0),
        ('smtp.ssl.enabled', 'false', 'boolean', NULL, 'SMTP是否启用SSL', 1, 0),
 
+       ('smtp.comment.enabled', 'false', 'boolean', NULL, 'SMTP是否启用评论通知', 1, 0),
+
+
        ('site.redirect_url', '', 'string', NULL, '重定向URL', 1, 1);
 
 -- 如果表已存在，添加 is_open 列
