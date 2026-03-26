@@ -50,15 +50,18 @@ public class BlogServiceImpl implements BlogService {
     private final SysCategoryMapper categoryMapper;
     private final SysCommentMapper commentMapper;
     private final PublicArticleService publicArticleService;
+    private final GlobalArticleService globalArticleService;
 
     public BlogServiceImpl(SysBlogMapper blogMapper,
                            SysCategoryMapper categoryMapper,
                            SysCommentMapper commentMapper,
-                           PublicArticleService publicArticleService) {
+                           PublicArticleService publicArticleService,
+                           GlobalArticleService globalArticleService) {
         this.blogMapper = blogMapper;
         this.categoryMapper = categoryMapper;
         this.commentMapper = commentMapper;
         this.publicArticleService = publicArticleService;
+        this.globalArticleService = globalArticleService;
     }
 
     @Override
@@ -116,8 +119,9 @@ public class BlogServiceImpl implements BlogService {
 
         blogMapper.insert(blog);
 
-        // 清除公共文章列表缓存
+        // 清除缓存
         publicArticleService.clearPublicArticleCache();
+        globalArticleService.clearGlobalArticleCache();
 
         log.info("文章创建成功，id={}，标题={}，作者ID={}", blog.getId(), blog.getTitle(), authorId);
 
@@ -236,8 +240,9 @@ public class BlogServiceImpl implements BlogService {
 
         blogMapper.updateById(blog);
 
-        // 清除公共文章列表缓存
+        // 清除缓存
         publicArticleService.clearPublicArticleCache();
+        globalArticleService.clearGlobalArticleCache();
 
         log.info("文章状态更新成功，文章ID：{}", blogId);
 
@@ -324,8 +329,9 @@ public class BlogServiceImpl implements BlogService {
 
         blogMapper.update(null, updateWrapper);
 
-        // 清除公共文章列表缓存
+        // 清除缓存
         publicArticleService.clearPublicArticleCache();
+        globalArticleService.clearGlobalArticleCache();
 
         log.info("文章内容更新成功，文章ID：{}", blogId);
 
@@ -354,8 +360,9 @@ public class BlogServiceImpl implements BlogService {
         // 逻辑删除
         blogMapper.deleteById(blogId);
 
-        // 清除公共文章列表缓存
+        // 清除缓存
         publicArticleService.clearPublicArticleCache();
+        globalArticleService.clearGlobalArticleCache();
 
         log.info("文章删除成功，文章ID：{}", blogId);
 

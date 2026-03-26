@@ -46,4 +46,9 @@ public interface GlobalArticleService {
      * @return 操作结果
      */
     SaResult deleteArticle(Long blogId);
+
+    /**
+     * 清除全局文章列表缓存
+     */
+    void clearGlobalArticleCache();
 }

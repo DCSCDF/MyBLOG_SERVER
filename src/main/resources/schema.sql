@@ -306,9 +306,9 @@ CREATE TABLE IF NOT EXISTS sys_oss_image
     hash          VARCHAR(128) NOT NULL UNIQUE COMMENT '图片哈希值（MD5）',
     original_name VARCHAR(128) COMMENT '原始文件名（截断至128位）',
     object_name   VARCHAR(500) NOT NULL COMMENT 'OSS 对象名称（文件路径）',
-    file_size     BIGINT      NOT NULL COMMENT '文件大小（字节）',
-    user_id       BIGINT      COMMENT '上传用户ID',
-    create_time   DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    file_size     BIGINT       NOT NULL COMMENT '文件大小（字节）',
+    user_id       BIGINT COMMENT '上传用户ID',
+    create_time   DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
     INDEX idx_hash (hash) COMMENT '哈希值索引',
     INDEX idx_user_id (user_id) COMMENT '用户ID索引',
@@ -746,59 +746,59 @@ SELECT 'article',
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'article' AND page_id IS NULL);
 
--- 分类页SEO模板
-INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
-                            og_type, canonical_url, robots, is_system)
-SELECT 'category',
-       null,
-       'myblog - {分类名称}',
-       '{分类名称},技术分类,编程教程,{相关技术关键词}',
-       '查看{分类名称}相关的技术文章和编程教程',
-       ' - {分类名称}',
-       '查看{分类名称}相关的技术文章和编程教程',
-       NULL,
-       'website',
-       NULL,
-       'index,follow',
-       1
-FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'category' AND page_id IS NULL);
+# -- 分类页SEO模板
+# INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+#                             og_type, canonical_url, robots, is_system)
+# SELECT 'category',
+#        null,
+#        'myblog - {分类名称}',
+#        '{分类名称},技术分类,编程教程,{相关技术关键词}',
+#        '查看{分类名称}相关的技术文章和编程教程',
+#        ' - {分类名称}',
+#        '查看{分类名称}相关的技术文章和编程教程',
+#        NULL,
+#        'website',
+#        NULL,
+#        'index,follow',
+#        1
+# FROM DUAL
+# WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'category' AND page_id IS NULL);
 
--- 标签页SEO模板
-INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
-                            og_type, canonical_url, robots, is_system)
-SELECT 'tag',
-       null,
-       'myblog - {标签名称}',
-       '{标签名称},技术标签,编程标签,{相关内容关键词}',
-       '查看{标签名称}相关的技术文章和编程内容',
-       ' - {标签名称}',
-       '查看{标签名称}相关的技术文章和编程内容',
-       NULL,
-       'website',
-       NULL,
-       'index,follow',
-       1
-FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'tag' AND page_id IS NULL);
+# -- 标签页SEO模板
+# INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+#                             og_type, canonical_url, robots, is_system)
+# SELECT 'tag',
+#        null,
+#        'myblog - {标签名称}',
+#        '{标签名称},技术标签,编程标签,{相关内容关键词}',
+#        '查看{标签名称}相关的技术文章和编程内容',
+#        ' - {标签名称}',
+#        '查看{标签名称}相关的技术文章和编程内容',
+#        NULL,
+#        'website',
+#        NULL,
+#        'index,follow',
+#        1
+# FROM DUAL
+# WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'tag' AND page_id IS NULL);
 
--- 关于页SEO
-INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
-                            og_type, canonical_url, robots, is_system)
-SELECT 'about',
-       null,
-       'myblog - 关于我们',
-       '关于博主,个人介绍,技术背景,联系方式',
-       '了解博客作者的技术背景、个人经历和联系方式',
-       ' - 关于我们',
-       '了解博客作者的技术背景、个人经历和联系方式',
-       NULL,
-       'website',
-       NULL,
-       'index,follow',
-       1
-FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'about' AND page_id IS NULL);
+# -- 关于页SEO
+# INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,
+#                             og_type, canonical_url, robots, is_system)
+# SELECT 'about',
+#        null,
+#        'myblog - 关于我们',
+#        '关于博主,个人介绍,技术背景,联系方式',
+#        '了解博客作者的技术背景、个人经历和联系方式',
+#        ' - 关于我们',
+#        '了解博客作者的技术背景、个人经历和联系方式',
+#        NULL,
+#        'website',
+#        NULL,
+#        'index,follow',
+#        1
+# FROM DUAL
+# WHERE NOT EXISTS (SELECT 1 FROM sys_seo WHERE page_type = 'about' AND page_id IS NULL);
 
 -- 友情链接页SEO
 INSERT IGNORE INTO sys_seo (page_type, page_id, title, keywords, description, og_title, og_description, og_image,

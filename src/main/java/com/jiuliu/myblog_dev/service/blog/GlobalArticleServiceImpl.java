@@ -231,6 +231,12 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         log.debug("文章缓存已清除，blogId={}", blogId);
     }
 
+    @Override
+    public void clearGlobalArticleCache() {
+        globalArticleListCache.invalidateAll();
+        log.debug("全局文章列表缓存已清除");
+    }
+
     /**
      * 将实体转换为全局文章响应DTO
      */
