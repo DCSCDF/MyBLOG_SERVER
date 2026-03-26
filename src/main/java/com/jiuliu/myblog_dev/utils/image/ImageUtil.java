@@ -22,14 +22,12 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 /**
  * 图片处理工具类
@@ -39,13 +37,6 @@ import java.util.Set;
 public class ImageUtil {
 
     private static final Logger log = LoggerFactory.getLogger(ImageUtil.class);
-
-    /**
-     * 支持的图片格式集合
-     */
-    private static final Set<String> ALLOWED_FORMATS = new HashSet<>(Arrays.asList(
-            "jpg", "jpeg", "png", "gif", "bmp", "webp"
-    ));
 
     /**
      * 允许的最大图片大小（10MB）
@@ -58,9 +49,14 @@ public class ImageUtil {
     private static final float JPEG_QUALITY = 0.95f;
 
     /**
-     * PNG 压缩级别（0-9），0 无压缩，9 最大压缩
+     * 4K 分辨率最大宽度（3840）
      */
-    private static final int PNG_COMPRESSION_LEVEL = 6;
+    public static final int MAX_WIDTH_4K = 3840;
+
+    /**
+     * 4K 分辨率最大高度（2160）
+     */
+    public static final int MAX_HEIGHT_4K = 2160;
 
     /**
      * 校验图片格式
@@ -81,18 +77,135 @@ public class ImageUtil {
         }
 
         String ext = extension != null ? extension.toLowerCase().replace(".", "") : "";
-        if (!ALLOWED_FORMATS.contains(ext)) {
+        if (!ext.equals("jpg") && !ext.equals("jpeg") && !ext.equals("png")
+                && !ext.equals("gif") && !ext.equals("bmp") && !ext.equals("webp")) {
             log.warn("不支持的图片格式：{}", ext);
             return false;
         }
 
-        // 校验文件头魔数
-        if (!isValidImageHeader(bytes)) {
-            log.warn("图片文件头校验失败");
-            return false;
+        return isValidImageHeader(bytes);
+    }
+
+    /**
+     * 获取图片尺寸
+     *
+     * @param bytes 图片字节数据
+     * @return int[] 数组，index 0 为宽度，index 1 为高度；如果解析失败返回 null
+     */
+    public static int[] getImageDimensions(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
         }
 
-        return true;
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        BufferedImage image;
+        try {
+            image = ImageIO.read(bais);
+        } catch (IOException e) {
+            log.warn("无法读取图片尺寸信息：{}", e.getMessage());
+            return null;
+        }
+
+        if (image == null) {
+            return null;
+        }
+
+        return new int[]{image.getWidth(), image.getHeight()};
+    }
+
+    /**
+     * 如果图片分辨率超过 4K，则缩放至 4K
+     * <p>缩放过程中保持宽高比和原始图片格式，使用高质量缩放算法。</p>
+     *
+     * @param bytes     图片字节数据
+     * @param extension 原始文件扩展名（用于确定输出格式）
+     * @return 缩放后的图片字节数据；如果图片不超过 4K 或缩放失败，返回原始数据
+     */
+    public static byte[] scaleTo4KIfNeeded(byte[] bytes, String extension) {
+        if (bytes == null || bytes.length == 0) {
+            return bytes;
+        }
+
+        int[] dimensions = getImageDimensions(bytes);
+        if (dimensions == null) {
+            log.warn("无法获取图片尺寸，返回原始数据");
+            return bytes;
+        }
+
+        int originalWidth = dimensions[0];
+        int originalHeight = dimensions[1];
+
+        if (originalWidth <= MAX_WIDTH_4K && originalHeight <= MAX_HEIGHT_4K) {
+            log.debug("图片分辨率 {}x{} 未超过 4K，无需缩放", originalWidth, originalHeight);
+            return bytes;
+        }
+
+        log.info("图片分辨率 {}x{} 超过 4K，将进行缩放", originalWidth, originalHeight);
+
+        double widthRatio = (double) MAX_WIDTH_4K / originalWidth;
+        double heightRatio = (double) MAX_HEIGHT_4K / originalHeight;
+        double ratio = Math.min(widthRatio, heightRatio);
+
+        int newWidth = (int) (originalWidth * ratio);
+        int newHeight = (int) (originalHeight * ratio);
+
+        log.debug("计算缩放比例：{}，目标分辨率：{}x{}", ratio, newWidth, newHeight);
+
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        BufferedImage originalImage;
+        try {
+            originalImage = ImageIO.read(bais);
+        } catch (IOException e) {
+            log.error("无法读取原始图片进行缩放：{}", e.getMessage());
+            return bytes;
+        }
+
+        if (originalImage == null) {
+            log.warn("无法解析图片，返回原始数据");
+            return bytes;
+        }
+
+        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = resizedImage.createGraphics();
+
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        g2d.drawImage(originalImage.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH), 0, 0, null);
+        g2d.dispose();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        String ext = extension != null ? extension.toLowerCase().replace(".", "") : "";
+        String formatName = ("jpg".equals(ext) || "jpeg".equals(ext)) ? "jpg" : "png";
+
+        try {
+            ImageIO.write(resizedImage, formatName, baos);
+        } catch (IOException e) {
+            log.error("缩放后图片保存失败：{}", e.getMessage());
+            return bytes;
+        }
+
+        byte[] scaledBytes = baos.toByteArray();
+        log.info("图片缩放完成：原始分辨率 {}x{} ({} bytes) -> 缩放后分辨率 {}x{} ({} bytes)，格式={}",
+                originalWidth, originalHeight, bytes.length,
+                newWidth, newHeight, scaledBytes.length, formatName.toUpperCase());
+
+        return scaledBytes;
+    }
+
+    /**
+     * 如果图片分辨率超过 4K，则缩放至 4K（使用 PNG 格式输出）
+     * <p>此方法已废弃，建议使用 {@link #scaleTo4KIfNeeded(byte[], String)} 保持原始格式</p>
+     *
+     * @param bytes 图片字节数据
+     * @return 缩放后的图片字节数据；如果图片不超过 4K 或缩放失败，返回原始数据
+     * @deprecated 请使用 {@link #scaleTo4KIfNeeded(byte[], String)}
+     */
+    @Deprecated
+    public static byte[] scaleTo4KIfNeeded(byte[] bytes) {
+        return scaleTo4KIfNeeded(bytes, "png");
     }
 
     /**
@@ -125,15 +238,11 @@ public class ImageUtil {
             return true;
         }
         // WebP: 52 49 46 46 ... 57 45 42 50 (RIFF....WEBP)
-        if (bytes.length >= 12 &&
+        return bytes.length >= 12 &&
                 bytes[0] == (byte) 0x52 && bytes[1] == (byte) 0x49 &&
                 bytes[2] == (byte) 0x46 && bytes[3] == (byte) 0x46 &&
                 bytes[8] == (byte) 0x57 && bytes[9] == (byte) 0x45 &&
-                bytes[10] == (byte) 0x42 && bytes[11] == (byte) 0x50) {
-            return true;
-        }
-
-        return false;
+                bytes[10] == (byte) 0x42 && bytes[11] == (byte) 0x50;
     }
 
     /**
@@ -153,11 +262,11 @@ public class ImageUtil {
 
         if ("jpg".equals(ext) || "jpeg".equals(ext)) {
             return compressJpeg(bytes);
-        } else if ("png".equals(ext)) {
+        }
+        if ("png".equals(ext)) {
             return compressPng(bytes);
         }
 
-        // GIF, BMP, WebP 保持原样
         log.debug("图片格式 {} 不需要压缩，直接返回原数据", ext);
         return bytes;
     }
@@ -196,12 +305,11 @@ public class ImageUtil {
         writer.dispose();
         ios.close();
 
-        byte[] compressed = baos.toByteArray();
-        log.debug("JPEG 压缩完成：原始大小 {} bytes，压缩后 {} bytes，压缩率 {:.2f}%",
-                bytes.length, compressed.length,
-                (1 - (double) compressed.length / bytes.length) * 100);
+        //        log.debug("JPEG 压缩完成：原始大小 {} bytes，压缩后 {} bytes，压缩率 {:.2f}%",
+//                bytes.length, compressed.length,
+//                (1 - (double) compressed.length / bytes.length) * 100);
 
-        return compressed;
+        return baos.toByteArray();
     }
 
     /**
@@ -241,19 +349,10 @@ public class ImageUtil {
         writer.dispose();
         ios.close();
 
-        byte[] compressed = baos.toByteArray();
-        log.debug("PNG 处理完成：原始大小 {} bytes，处理后 {} bytes",
-                bytes.length, compressed.length);
+        //        double ratio = (1 - (double) compressed.length / bytes.length) * 100;
+//        log.debug("PNG 处理完成：原始大小 {} bytes，处理后 {} bytes，压缩率 {:.2f}%",
+//                bytes.length, compressed.length, ratio);
 
-        return compressed;
-    }
-
-    /**
-     * 获取允许的图片格式列表
-     *
-     * @return 允许的图片格式集合
-     */
-    public static Set<String> getAllowedFormats() {
-        return new HashSet<>(ALLOWED_FORMATS);
+        return baos.toByteArray();
     }
 }

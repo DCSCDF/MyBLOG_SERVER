@@ -148,18 +148,21 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("不支持的图片格式或文件损坏，支持的格式：jpg, jpeg, png, gif, bmp, webp").setCode(400);
         }
 
-        // 4. 无损压缩
+        // 4. 检查并缩放分辨率超过 4K 的图片
+        byte[] resizedBytes = ImageUtil.scaleTo4KIfNeeded(fileBytes, extension);
+
+        // 5. 无损压缩（对缩放后的图片进行压缩）
         byte[] processedBytes;
         try {
 //            log.debug("开始图片压缩...");
-            processedBytes = ImageUtil.compressImage(fileBytes, extension);
+            processedBytes = ImageUtil.compressImage(resizedBytes, extension);
 //            log.debug("图片压缩完成，压缩后大小={} bytes", processedBytes.length);
         } catch (IOException e) {
             log.error("图片压缩失败：{}", e.getMessage(), e);
             return SaResult.error("图片处理失败：" + e.getMessage()).setCode(500);
         }
 
-        // 5. 计算 MD5 哈希值
+        // 6. 计算 MD5 哈希值
         String hash = calculateMD5(processedBytes);
         if (hash == null) {
             log.error("图片哈希计算失败");
@@ -167,7 +170,7 @@ public class OssServiceImpl implements OssService {
         }
 //        log.debug("图片 MD5 哈希=[{}]", hash);
 
-        // 6. 检查哈希是否已存在（防止重复上传）
+        // 7. 检查哈希是否已存在（防止重复上传）
         SysOssImage existingImage = sysOssImageMapper.selectByHash(hash);
         if (existingImage != null) {
             log.info("图片已存在，跳过重复上传，hash=[{}]，objectName=[{}]", hash, existingImage.getObjectName());
@@ -178,7 +181,7 @@ public class OssServiceImpl implements OssService {
             ));
         }
 
-        // 7. 生成新文件名
+        // 8. 生成新文件名
         // 格式：原始名称（截断至128位）_时间戳_文件大小_16位随机字符.扩展名
         String originalNameTruncated = truncateFileName(fileName);
         long timestamp = Instant.now().toEpochMilli();
@@ -188,11 +191,11 @@ public class OssServiceImpl implements OssService {
                 originalNameTruncated, timestamp, fileSize, randomChars, extension);
 //        log.debug("生成的新文件名=[{}]", newFileName);
 
-        // 8. 生成 OSS 对象名
+        // 9. 生成 OSS 对象名
         String objectName = generateObjectName(newFileName);
 //        log.debug("生成的 OSS 对象名=[{}]", objectName);
 
-        // 9. 上传到 OSS
+        // 10. 上传到 OSS
         try {
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentType(getContentType(extension));
@@ -210,7 +213,7 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("图片上传失败：" + e.getMessage()).setCode(500);
         }
 
-        // 10. 保存到数据库
+        // 11. 保存到数据库
         try {
             SysOssImage ossImage = new SysOssImage();
             ossImage.setHash(hash);
@@ -233,12 +236,12 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("图片上传成功但保存记录失败：" + e.getMessage()).setCode(500);
         }
 
-        // 11. 发布图片变更事件（清除缓存）
+        // 12. 发布图片变更事件（清除缓存）
         eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash, userId));
 
-        // 12. 返回结果
+        // 13. 返回结果
         String imageUrl = ossConfig.getImageUrlPrefix() + objectName;
-        log.info("图片上传全部完成，hash=[{}]，URL=[{}]，原始大小={} bytes，压缩后={} bytes",
+        log.info("图片上传全部完成，hash=[{}]，URL=[{}]，原始大小={} bytes，处理后={} bytes",
                 hash, imageUrl, fileBytes.length, processedBytes.length);
 
         return SaResult.data(new ImageUploadResponse(
