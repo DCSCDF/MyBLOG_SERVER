@@ -75,7 +75,7 @@ public class BlogServiceImpl implements BlogService {
         }
 
         if (StringUtils.hasText(dto.getCoverImage())) {
-            if (isValidUrl(dto.getCoverImage())) {
+            if (!isValidUrl(dto.getCoverImage())) {
                 log.warn("文章创建失败：封面图URL格式无效，url={}", dto.getCoverImage());
                 return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
             }
@@ -267,7 +267,7 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getCoverImage() != null) {
             String v = dto.getCoverImage().trim();
             if (!v.isEmpty()) {
-                if (isValidUrl(v)) {
+                if (!isValidUrl(v)) {
                     log.warn("文章更新失败：封面图URL格式无效，url={}", dto.getCoverImage());
                     return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
                 }

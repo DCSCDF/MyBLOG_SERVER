@@ -138,8 +138,9 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                     return score > 0;
                 }).collect(Collectors.toList());
 
-                // 如果没有传入分类ID，还需要过滤分类名称匹配的文章
-                if (categoryId == null && !allMatchedArticles.isEmpty()) {
+                // 如果没有传入分类ID，还需要搜索分类名称匹配的文章
+                // 注意：即使没有直接匹配的文章，也要搜索分类匹配
+                if (categoryId == null) {
                     // 查询分词匹配的分类
                     Set<Long> matchedCategoryIds = new HashSet<>();
                     for (String token : finalSearchTokens) {
@@ -151,7 +152,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                         tokenMatchedCategories.forEach(cat -> matchedCategoryIds.add(cat.getId()));
                     }
 
-                    // 保留原有匹配 + 分类匹配的文章
+                    // 保留分类匹配的文章
                     List<SysBlog> categoryMatchedArticles = allArticles.stream()
                             .filter(a -> a.getCategoryId() != null && matchedCategoryIds.contains(a.getCategoryId()))
                             .toList();
