@@ -27,4 +27,25 @@ public interface OssService {
      * @return SaResult
      */
     SaResult testConnection();
+
+    /**
+     * 上传图片
+     *
+     * <p>支持格式：jpg, jpeg, png, gif, bmp, webp<br>
+     * 上传前会进行格式校验和无损压缩。</p>
+     *
+     * @param fileName    原始文件名
+     * @param fileBytes   图片字节数据
+     * @param contentType MIME 类型
+     * @return SaResult，包含图片 URL
+     */
+    SaResult uploadImage(String fileName, byte[] fileBytes, String contentType);
+
+    /**
+     * 删除图片
+     *
+     * @param objectName OSS 对象名称（即文件路径）
+     * @return SaResult
+     */
+    SaResult deleteImage(String objectName);
 }

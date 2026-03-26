@@ -104,6 +104,12 @@ public class OSSConfig {
      */
     @Getter
     private boolean httpsEnabled;
+    /**
+     * 图片访问域名（用于拼接图片 URL）
+     * 格式：https://bucket.endpoint 或 http://bucket.endpoint
+     */
+    @Getter
+    private String imageUrlPrefix;
 
     /**
      * 构造函数
@@ -163,10 +169,13 @@ public class OSSConfig {
                 return;
             }
 
-            // 构建完整 endpoint URL
+                // 构建完整 endpoint URL
             String protocol = httpsEnabled ? "https://" : "http://";
             String fullEndpoint = protocol + endpoint;
+            // 图片 URL 格式：protocol://bucket.endpoint/
+            this.imageUrlPrefix = protocol + bucket + "." + endpoint + "/";
             log.debug("OSS 客户端初始化 - 完整 endpoint=[{}], bucket=[{}]", fullEndpoint, bucket);
+            log.debug("OSS 图片 URL 前缀=[{}]", this.imageUrlPrefix);
             log.debug("OSS 请求将访问的域名=[{}.{}]", bucket, endpoint);
 
             // 使用旧版 API 直接创建客户端
