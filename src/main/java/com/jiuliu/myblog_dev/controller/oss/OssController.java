@@ -15,6 +15,7 @@
 package com.jiuliu.myblog_dev.controller.oss;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.service.oss.OssService;
@@ -49,7 +50,8 @@ public class OssController {
      * 权限：oss:create
      *
      * <p>支持格式：jpg, jpeg, png, gif, bmp, webp<br>
-     * 上传前会进行格式校验和无损压缩。</p>
+     * 上传前会进行格式校验和无损压缩。<br>
+     * 响应中返回图片的 MD5 哈希值，前端可用于访问图片。</p>
      */
     @SaCheckPermission("oss:create")
     @PostMapping("/upload")
@@ -63,25 +65,51 @@ public class OssController {
             String fileName = file.getOriginalFilename();
             byte[] bytes = file.getBytes();
             String contentType = file.getContentType();
+            Long userId = getCurrentUserId();
 
-            SaResult result = ossService.uploadImage(fileName, bytes, contentType);
+            SaResult result = ossService.uploadImage(fileName, bytes, contentType, userId);
             return handleSaResultWithData(result);
         } catch (Exception e) {
             return ResponseUtil.fail("图片上传失败：" + e.getMessage(), 500);
         }
     }
 
+//    /**
+//     * 删除图片（通过对象名称）
+//     * 权限：oss:delete
+//     *
+//     * @param objectName OSS 对象名称（即文件路径，如 images/2026/03/26/xxx.jpg）
+//     */
+//    @SaCheckPermission("oss:delete")
+//    @DeleteMapping("/delete")
+//    public Response<Object> deleteImage(@RequestParam("objectName") String objectName) {
+//        Long userId = getCurrentUserId();
+//        SaResult result = ossService.deleteImage(objectName, userId);
+//        return handleSaResult(result);
+//    }
+
     /**
-     * 删除图片
+     * 删除图片（通过哈希值）
      * 权限：oss:delete
      *
-     * @param objectName OSS 对象名称（即文件路径，如 images/2026/03/26/xxx.jpg）
+     * @param hash 图片哈希值（MD5）
      */
     @SaCheckPermission("oss:delete")
-    @DeleteMapping("/delete")
-    public Response<Object> deleteImage(@RequestParam("objectName") String objectName) {
-        SaResult result = ossService.deleteImage(objectName);
+    @DeleteMapping("/delete/{hash}")
+    public Response<Object> deleteImageByHash(@PathVariable String hash) {
+        SaResult result = ossService.deleteImageByHash(hash);
         return handleSaResult(result);
+    }
+
+    /**
+     * 获取当前登录用户 ID
+     */
+    private Long getCurrentUserId() {
+        try {
+            return StpUtil.getLoginIdAsLong();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private <T> Response<T> handleSaResult(SaResult saResult) {

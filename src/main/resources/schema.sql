@@ -299,6 +299,24 @@ CREATE TABLE IF NOT EXISTS sys_friend_link
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='外链/友情链接表';
 
+-- OSS 图片映射表
+CREATE TABLE IF NOT EXISTS sys_oss_image
+(
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '图片ID',
+    hash          VARCHAR(128) NOT NULL UNIQUE COMMENT '图片哈希值（MD5）',
+    original_name VARCHAR(128) COMMENT '原始文件名（截断至128位）',
+    object_name   VARCHAR(500) NOT NULL COMMENT 'OSS 对象名称（文件路径）',
+    file_size     BIGINT      NOT NULL COMMENT '文件大小（字节）',
+    user_id       BIGINT      COMMENT '上传用户ID',
+    create_time   DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+
+    INDEX idx_hash (hash) COMMENT '哈希值索引',
+    INDEX idx_user_id (user_id) COMMENT '用户ID索引',
+    INDEX idx_create_time (create_time) COMMENT '创建时间索引',
+    FOREIGN KEY (user_id) REFERENCES sys_user (id) ON DELETE SET NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='OSS 图片映射表';
+
 -- 创建索引 删除已存在的索引（仅删除下方会重建的索引）
 ALTER TABLE sys_user
     DROP INDEX idx_user_status;

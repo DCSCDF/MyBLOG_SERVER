@@ -2,7 +2,7 @@
 
 ## 概述
 
-OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图片删除功能。
+OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图片删除和图片获取功能。
 
 ---
 
@@ -79,9 +79,9 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
 
 #### 请求参数
 
-| 参数名 | 类型   | 必填 | 说明                    |
-|--------|--------|------|-------------------------|
-| file   | File   | 是   | 图片文件（不超过 10MB） |
+| 参数名  | 类型   | 必填 | 说明             |
+|------|------|----|----------------|
+| file | File | 是  | 图片文件（不超过 10MB） |
 
 #### 支持的图片格式
 
@@ -98,8 +98,8 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
   "code": 200,
   "msg": "操作成功",
   "data": {
-    "objectName": "images/2026/03/26/abc123def456.jpg",
-    "url": "https://myblog-jiuliu.oss-cn-beijing.aliyuncs.com/images/2026/03/26/abc123def456.jpg",
+    "hash": "5d41402abc4b2a76b9719d911017c592",
+    "originalName": "原始名称.jpg",
     "size": 102400
   }
 }
@@ -132,7 +132,7 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
 ```json
 {
   "code": 400,
-  "msg": "图片大小超过限制",
+  "msg": "图片大小不能超过 10MB",
   "data": null
 }
 ```
@@ -149,18 +149,19 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
 
 ---
 
-### 3. 删除图片
 
-从阿里云 OSS 删除指定图片。
+### 3. 删除图片（通过哈希值）
 
-- **URL**: `DELETE /api/oss/delete`
+通过图片哈希值删除图片。
+
+- **URL**: `DELETE /api/oss/delete/{hash}`
 - **权限**: `oss:delete`
 
-#### 请求参数
+#### 路径参数
 
-| 参数名      | 类型   | 必填 | 说明                          |
-|-------------|--------|------|-------------------------------|
-| objectName  | String | 是   | OSS 对象名称（文件路径）      |
+| 参数名  | 类型     | 必填 | 说明         |
+|------|--------|----|------------|
+| hash | String | 是  | 图片哈希值（MD5） |
 
 #### 成功响应
 
@@ -174,34 +175,60 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
 
 #### 错误响应
 
-**1. 对象名为空**
+**1. 哈希值为空**
 
 ```json
 {
   "code": 400,
-  "msg": "对象名称不能为空",
+  "msg": "哈希值不能为空",
   "data": null
 }
 ```
 
-**2. 删除失败**
+**2. 图片记录不存在**
 
 ```json
 {
-  "code": 500,
-  "msg": "删除失败：<具体错误信息>",
+  "code": 404,
+  "msg": "图片记录不存在",
   "data": null
 }
 ```
 
-**3. 权限不足**
+---
 
-```json
-{
-  "code": 403,
-  "msg": "无权限访问",
-  "data": null
-}
+### 4. 获取图片（公开接口）
+
+通过哈希值获取 OSS 中的图片，支持 30 分钟本地缓存。
+
+- **URL**: `GET /api/images/{hash}`
+- **权限**: 无（公开接口）
+
+#### 路径参数
+
+| 参数名 | 类型   | 必填 | 说明                  |
+|--------|--------|------|-----------------------|
+| hash   | String | 是   | 图片哈希值（MD5）     |
+
+#### 成功响应
+
+返回图片二进制数据，响应头包含：
+- `Content-Type`: 图片 MIME 类型
+- `Content-Length`: 图片大小
+- `Cache-Control`: `public, max-age=1800`（30 分钟浏览器缓存）
+
+#### 错误响应
+
+**1. 图片记录不存在**
+
+```
+HTTP 404 Not Found
+```
+
+**2. OSS 客户端不可用**
+
+```
+HTTP 503 Service Unavailable
 ```
 
 ---
@@ -220,24 +247,41 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传和图�
 
 ---
 
+## 数据库表结构
+
+### sys_oss_image（OSS 图片映射表）
+
+| 字段名         | 类型         | 说明                    |
+|---------------|-------------|------------------------|
+| id            | BIGINT      | 图片ID（主键）          |
+| hash          | VARCHAR(128) | 图片哈希值（MD5，唯一）  |
+| original_name | VARCHAR(128) | 原始文件名（截断至128位） |
+| object_name   | VARCHAR(500) | OSS 对象名称（文件路径） |
+| file_size     | BIGINT      | 文件大小（字节）         |
+| user_id       | BIGINT      | 上传用户ID              |
+| create_time   | DATETIME    | 创建时间                |
+
+---
+
 ## 权限说明
 
-| 权限码          | 说明       | 所属角色          |
-|-----------------|------------|------------------|
-| oss:create      | OSS 上传   | 超级管理员        |
-| oss:delete      | OSS 删除   | 超级管理员        |
-| system:config:edit | OSS 配置测试 | 超级管理员     |
+| 权限码              | 说明         | 所属角色          |
+|---------------------|--------------|------------------|
+| oss:create          | OSS 上传     | 超级管理员        |
+| oss:delete          | OSS 删除     | 超级管理员        |
+| system:config:edit  | OSS 配置测试 | 超级管理员        |
 
 ---
 
 ## 错误代码说明
 
-| 错误代码 | 说明               |
-|----------|------------------|
-| 200      | 操作成功，连接正常        |
-| 400      | OSS 配置未完成或无法连接   |
-| 403      | 权限不足             |
-| 500      | 服务器内部错误，客户端初始化失败 |
+| 错误代码 | 说明         |
+|------|------------|
+| 200  | 操作成功       |
+| 400  | 参数错误或配置不完整 |
+| 403  | 权限不足       |
+| 404  | 资源不存在      |
+| 500  | 服务器内部错误    |
 
 ---
 
@@ -255,9 +299,16 @@ curl -X POST http://localhost:8080/api/oss/upload \
   -H "Authorization: <token>" \
   -F "file=@/path/to/image.jpg"
 
-# 删除图片
-curl -X DELETE "http://localhost:8080/api/oss/delete?objectName=images/2026/03/26/abc123.jpg" \
+# 删除图片（通过对象名称）
+curl -X DELETE "http://localhost:8080/api/oss/delete?objectName=images/2026/03/26/xxx.jpg" \
   -H "Authorization: <token>"
+
+# 删除图片（通过哈希值）
+curl -X DELETE "http://localhost:8080/api/oss/delete/5d41402abc4b2a76b9719d911017c592" \
+  -H "Authorization: <token>"
+
+# 获取图片（公开接口）
+curl -O http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592
 ```
 
 ### JavaScript 示例
@@ -267,25 +318,26 @@ curl -X DELETE "http://localhost:8080/api/oss/delete?objectName=images/2026/03/2
 const formData = new FormData();
 formData.append('file', fileInput.files[0]);
 
-fetch('/api/oss/upload', {
+const response = await fetch('/api/oss/upload', {
   method: 'POST',
   headers: {
     'Authorization': token
   },
   body: formData
-})
-  .then(response => response.json())
-  .then(data => console.log(data));
+});
+const result = await response.json();
+// result.data.hash 即为图片哈希值，可用于访问图片
 
 // 删除图片
-fetch('/api/oss/delete?objectName=images/2026/03/26/abc123.jpg', {
+await fetch('/api/oss/delete?objectName=' + encodeURIComponent(objectName), {
   method: 'DELETE',
   headers: {
     'Authorization': token
   }
-})
-  .then(response => response.json())
-  .then(data => console.log(data));
+});
+
+// 获取图片（可直接在 img 标签中使用）
+// <img src="/api/images/5d41402abc4b2a76b9719d911017c592" />
 ```
 
 ---
@@ -343,13 +395,31 @@ OSS 配置从数据库动态加载，修改配置后系统会自动刷新，无�
 - **PNG**: 使用渐进式编码，减小文件体积
 - **其他格式（GIF, BMP, WebP）**: 保持原样
 
-### 图片存储路径
+### 图片存储结构
 
-图片上传后存储在 OSS 的 `images/` 目录下，按日期分组织：
 ```
-images/yyyy/MM/dd/UUID.ext
+images/yyyy/MM/dd/新文件名.扩展名
+
+新文件名格式：原始名称（截断至128位）_时间戳_文件大小_16位随机字符
+例如：图片_1743000000000_102400_aBcDeFgHiJkLmNoP.jpg
 ```
 
-例如：`images/2026/03/26/a1b2c3d4e5f6.jpg`
+### 防重复上传
+
+上传前会计算图片的 MD5 哈希值：
+- 如果哈希值已存在于数据库，说明图片已上传过，直接返回已有记录，不重复上传
+
+---
+
+## 图片缓存说明
+
+公开图片获取接口 (`/api/images/{hash}`) 使用本地内存缓存：
+
+- **缓存时间**: 30 分钟
+- **最大缓存数量**: 1000 条
+- **缓存命中**: 直接返回缓存数据，减少 OSS 请求
+- **缓存未命中**: 从 OSS 下载后存入缓存再返回
+
+浏览器也会对图片进行 30 分钟缓存（`Cache-Control: public, max-age=1800`）。
 
 ---
