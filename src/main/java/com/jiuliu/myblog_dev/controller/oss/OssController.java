@@ -18,9 +18,12 @@ import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
+import com.jiuliu.myblog_dev.dto.oss.PageUserOssResponseDTO;
 import com.jiuliu.myblog_dev.service.oss.OssService;
 import com.jiuliu.myblog_dev.service.oss.OssServiceImpl;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -87,6 +90,18 @@ public class OssController {
 //        SaResult result = ossService.deleteImage(objectName, userId);
 //        return handleSaResult(result);
 //    }
+
+    /**
+     * 分页获取当前用户的OSS图片列表
+     * 权限：oss:list
+     */
+    @SaCheckPermission("oss:list")
+    @PostMapping("/list")
+    public Response<PageUserOssResponseDTO> getPageUserOssImages(@Valid @RequestBody PageUserOssDTO dto) {
+        Long userId = getCurrentUserId();
+        SaResult saResult = ossService.getPageUserOssImages(dto, userId);
+        return handleSaResult(saResult);
+    }
 
     /**
      * 删除图片（通过哈希值）

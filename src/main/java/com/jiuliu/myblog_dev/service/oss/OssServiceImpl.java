@@ -17,7 +17,12 @@ package com.jiuliu.myblog_dev.service.oss;
 import cn.dev33.satoken.util.SaResult;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.config.business.OSSConfig;
+import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
+import com.jiuliu.myblog_dev.dto.oss.PageUserOssResponseDTO;
+import com.jiuliu.myblog_dev.dto.oss.UserOssResponseDTO;
 import com.jiuliu.myblog_dev.entity.oss.SysOssImage;
 import com.jiuliu.myblog_dev.event.OssImageChangedEvent;
 import com.jiuliu.myblog_dev.mapper.oss.SysOssImageMapper;
@@ -33,8 +38,11 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class OssServiceImpl implements OssService {
@@ -50,6 +58,15 @@ public class OssServiceImpl implements OssService {
      * 原始文件名的最大长度
      */
     private static final int MAX_ORIGINAL_NAME_LENGTH = 128;
+
+    /**
+     * 用户OSS列表缓存
+     * 缓存时间：5分钟
+     */
+    private final Cache<String, PageUserOssResponseDTO> userOssListCache = CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build();
 
     private final OSSConfig ossConfig;
     private final SysOssImageMapper sysOssImageMapper;
@@ -217,7 +234,7 @@ public class OssServiceImpl implements OssService {
         }
 
         // 11. 发布图片变更事件（清除缓存）
-        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash));
+        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash, userId));
 
         // 12. 返回结果
         String imageUrl = ossConfig.getImageUrlPrefix() + objectName;
@@ -289,7 +306,7 @@ public class OssServiceImpl implements OssService {
         }
 
         // 5. 发布图片变更事件（清除缓存）
-        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.DELETE, objectName));
+        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.DELETE, objectName, userId));
 
         return SaResult.ok().setMsg("删除成功");
     }
@@ -311,6 +328,97 @@ public class OssServiceImpl implements OssService {
         }
 
         return deleteImage(imageRecord.getObjectName(), userId);
+    }
+
+    @Override
+    public SaResult getPageUserOssImages(PageUserOssDTO dto, Long userId) {
+        try {
+            if (userId == null) {
+                log.warn("获取用户图片列表失败：用户ID为空");
+                return SaResult.error("用户未登录").setCode(401);
+            }
+
+            // 构建缓存键
+            String cacheKey = "user_oss_list_" + userId + "_" + dto.getCurrentPage() + "_" +
+                    dto.getPageSize() + "_" + (dto.getKeyword() != null ? dto.getKeyword() : "");
+
+            // 尝试从缓存获取
+            PageUserOssResponseDTO cached = userOssListCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("从缓存获取用户OSS图片列表，key={}", cacheKey);
+                return SaResult.data(cached);
+            }
+
+            // 构建查询条件
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SysOssImage> queryWrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+
+            // 必须是当前用户的图片
+            queryWrapper.eq(SysOssImage::getUserId, userId);
+
+            // 关键词搜索：文件名、哈希值
+            if (dto.getKeyword() != null && !dto.getKeyword().isBlank()) {
+                queryWrapper.and(wrapper -> wrapper
+                        .like(SysOssImage::getOriginalName, dto.getKeyword())
+                        .or()
+                        .like(SysOssImage::getHash, dto.getKeyword())
+                );
+            }
+
+            // 按创建时间倒序
+            queryWrapper.orderByDesc(SysOssImage::getCreateTime);
+
+            // 分页查询
+            com.baomidou.mybatisplus.core.metadata.IPage<SysOssImage> pageResult =
+                    sysOssImageMapper.selectPage(
+                            new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                                    dto.getCurrentPage(), dto.getPageSize()),
+                            queryWrapper
+                    );
+
+            // 转换为响应DTO
+            List<UserOssResponseDTO> records = pageResult.getRecords().stream()
+                    .map(this::convertToUserOssResponseDTO)
+                    .collect(Collectors.toList());
+
+            // 构建响应
+            PageUserOssResponseDTO response = new PageUserOssResponseDTO();
+            response.setRecords(records);
+            response.setTotal(pageResult.getTotal());
+            response.setSize(pageResult.getSize());
+            response.setCurrent(pageResult.getCurrent());
+            response.setPages(pageResult.getPages());
+
+            // 存入缓存
+            userOssListCache.put(cacheKey, response);
+
+            return SaResult.data(response);
+        } catch (Exception e) {
+            log.error("分页获取用户OSS图片列表异常", e);
+            return SaResult.error("获取图片列表失败").setCode(500);
+        }
+    }
+
+    /**
+     * 清除指定用户的OSS列表缓存
+     */
+    public void clearUserOssCache(Long userId) {
+        userOssListCache.asMap().keySet().removeIf(key -> key.startsWith("user_oss_list_" + userId + "_"));
+        log.debug("已清除用户OSS列表缓存，userId={}", userId);
+    }
+
+    /**
+     * 将实体转换为用户OSS响应DTO
+     */
+    private UserOssResponseDTO convertToUserOssResponseDTO(SysOssImage image) {
+        UserOssResponseDTO dto = new UserOssResponseDTO();
+        dto.setId(image.getId());
+        dto.setHash(image.getHash());
+        dto.setOriginalName(image.getOriginalName());
+        dto.setObjectName(image.getObjectName());
+        dto.setFileSize(image.getFileSize());
+        dto.setCreateTime(image.getCreateTime());
+        return dto;
     }
 
     /**

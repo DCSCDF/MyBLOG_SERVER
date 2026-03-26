@@ -15,6 +15,7 @@
 package com.jiuliu.myblog_dev.service.oss;
 
 import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
 
 /**
  * OSS 对象存储服务接口
@@ -60,4 +61,20 @@ public interface OssService {
      * @return SaResult
      */
     SaResult deleteImageByHash(String hash, Long userId);
+
+    /**
+     * 分页获取当前用户的OSS图片列表
+     *
+     * @param dto    分页查询参数
+     * @param userId 当前登录用户ID
+     * @return SaResult，包含分页结果
+     */
+    SaResult getPageUserOssImages(PageUserOssDTO dto, Long userId);
+
+    /**
+     * 清除指定用户的OSS列表缓存
+     *
+     * @param userId 用户ID
+     */
+    void clearUserOssCache(Long userId);
 }

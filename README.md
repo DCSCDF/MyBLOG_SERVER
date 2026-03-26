@@ -29,6 +29,7 @@
 > - [全局文章API文档 `GlobalArticle_Api`](Document/GlobalArticle_Api.md)
 > - [公共分类API文档 `PublicCategory_Api`](Document/PublicCategory_Api.md)
 > - [OSS对象存储API文档 `OSS_Api`](Document/OSS_Api.md)
+> - [全局OSS管理API文档 `GlobalOss_Api`](Document/GlobalOss_Api.md)
 > - [邮箱接口文档 `Mail_Api`](Document/Mail_Api.md)
 
 ---

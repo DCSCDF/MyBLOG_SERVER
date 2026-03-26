@@ -149,7 +149,75 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 ---
 
-### 3. 删除图片（通过哈希值）
+### 3. 分页获取当前用户的OSS图片列表
+
+获取当前登录用户上传的图片列表，支持分页和关键词搜索。
+
+- **URL**: `POST /api/oss/list`
+- **权限**: `oss:list`
+
+#### 请求参数 (JSON)
+
+| 参数名      | 类型    | 必填 | 说明                     |
+|-----------|-------|----|------------------------|
+| currentPage | Integer | 是   | 当前页码，从1开始             |
+| pageSize   | Integer | 是   | 每页数量                   |
+| keyword    | String | 否   | 搜索关键词，匹配图片名称、哈希值   |
+
+#### 请求示例
+
+```json
+{
+  "currentPage": 1,
+  "pageSize": 10,
+  "keyword": "avatar"
+}
+```
+
+#### 成功响应
+
+```json
+{
+  "code": 200,
+  "msg": "操作成功",
+  "data": {
+    "records": [
+      {
+        "id": 1,
+        "hash": "a1b2c3d4e5f6...",
+        "originalName": "avatar.jpg",
+        "objectName": "images/2026/03/26/avatar_123_456_xxx.jpg",
+        "fileSize": 102400,
+        "createTime": "2026-03-26T10:30:00"
+      }
+    ],
+    "total": 50,
+    "size": 10,
+    "current": 1,
+    "pages": 5
+  }
+}
+```
+
+#### 响应参数说明
+
+| 参数名              | 类型      | 说明            |
+|-----------------|---------|---------------|
+| records         | Array   | 图片记录列表        |
+| records[].id    | Long    | 图片ID          |
+| records[].hash  | String  | 图片哈希值（MD5）     |
+| records[].originalName | String  | 原始文件名         |
+| records[].objectName | String  | OSS对象名称（文件路径） |
+| records[].fileSize | Long    | 文件大小（字节）      |
+| records[].createTime | String  | 创建时间          |
+| total           | Long    | 总记录数          |
+| size            | Long    | 每页数量          |
+| current         | Long    | 当前页码          |
+| pages           | Long    | 总页数           |
+
+---
+
+### 4. 删除图片（通过哈希值）
 
 通过图片哈希值删除图片。**只有上传该图片的用户才能删除，其他用户无法删除。**
 
@@ -280,7 +348,10 @@ HTTP 503 Service Unavailable
 |--------------------|----------|-------|
 | oss:create         | OSS 上传   | 超级管理员 |
 | oss:delete         | OSS 删除   | 超级管理员 |
+| oss:list           | OSS 列表查看 | 超级管理员 |
 | system:config:edit | OSS 配置测试 | 超级管理员 |
+| system:oss:list    | 全局OSS列表查看 | 超级管理员 |
+| system:oss:delete  | 全局OSS图片删除 | 超级管理员 |
 
 ---
 
@@ -430,6 +501,14 @@ images/yyyy/MM/dd/新文件名.扩展名
 - **缓存未命中**: 从 OSS 下载后存入缓存再返回
 
 浏览器也会对图片进行 30 分钟缓存（`Cache-Control: public, max-age=1800`）。
+
+### 用户OSS列表缓存
+
+用户OSS列表接口 (`/api/oss/list`) 使用本地内存缓存：
+
+- **缓存时间**: 5 分钟
+- **最大缓存数量**: 100 条
+- **缓存清除**: 当用户上传或删除图片时，会自动清除该用户的OSS列表缓存
 
 ### 全局OSS列表缓存
 

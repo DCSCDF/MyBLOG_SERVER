@@ -513,8 +513,9 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('article:edit', '编辑文章', '编辑文章', 3),
        ('article:delete', '删除文章', '删除文章', 4),
 
-       -- 文章管理
+-- OSS管理
        ('oss', 'OSS管理', 'OSS管理菜单', 91),
+       ('oss:list', 'OSS列表', '查看OSS列表', 2),
        ('oss:create', 'OSS上传', 'OSS上传', 2),
        ('oss:delete', 'OSS删除', 'OSS删除', 4),
 
