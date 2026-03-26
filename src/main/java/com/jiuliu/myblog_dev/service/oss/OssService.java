@@ -55,8 +55,9 @@ public interface OssService {
     /**
      * 删除图片（通过哈希值）
      *
-     * @param hash 图片哈希值（MD5）
+     * @param hash   图片哈希值（MD5）
+     * @param userId 当前登录用户ID（用于权限校验）
      * @return SaResult
      */
-    SaResult deleteImageByHash(String hash);
+    SaResult deleteImageByHash(String hash, Long userId);
 }

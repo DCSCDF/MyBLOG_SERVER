@@ -19,10 +19,12 @@ import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.jiuliu.myblog_dev.config.business.OSSConfig;
 import com.jiuliu.myblog_dev.entity.oss.SysOssImage;
+import com.jiuliu.myblog_dev.event.OssImageChangedEvent;
 import com.jiuliu.myblog_dev.mapper.oss.SysOssImageMapper;
 import com.jiuliu.myblog_dev.utils.image.ImageUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -51,10 +53,13 @@ public class OssServiceImpl implements OssService {
 
     private final OSSConfig ossConfig;
     private final SysOssImageMapper sysOssImageMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public OssServiceImpl(OSSConfig ossConfig, SysOssImageMapper sysOssImageMapper) {
+    public OssServiceImpl(OSSConfig ossConfig, SysOssImageMapper sysOssImageMapper,
+                          ApplicationEventPublisher eventPublisher) {
         this.ossConfig = ossConfig;
         this.sysOssImageMapper = sysOssImageMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -211,7 +216,10 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("图片上传成功但保存记录失败：" + e.getMessage()).setCode(500);
         }
 
-        // 11. 返回结果
+        // 11. 发布图片变更事件（清除缓存）
+        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash));
+
+        // 12. 返回结果
         String imageUrl = ossConfig.getImageUrlPrefix() + objectName;
         log.info("图片上传全部完成，hash=[{}]，URL=[{}]，原始大小={} bytes，压缩后={} bytes",
                 hash, imageUrl, fileBytes.length, processedBytes.length);
@@ -224,7 +232,7 @@ public class OssServiceImpl implements OssService {
     }
 
     @Override
-    public SaResult deleteImage(String objectName, @SuppressWarnings("unused") Long userId) {
+    public SaResult deleteImage(String objectName, Long userId) {
         log.debug("开始删除图片，objectName=[{}]，userId=[{}]", objectName, userId);
 
         if (!ossConfig.isConfigured()) {
@@ -244,10 +252,17 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("图片记录不存在").setCode(404);
         }
 
+        // 2. 校验用户权限：只有上传该图片的用户才能删除
+        if (userId == null || !userId.equals(imageRecord.getUserId())) {
+            log.warn("图片删除失败：权限不足，objectName=[{}]，图片上传者=[{}]，请求删除者=[{}]",
+                    objectName, imageRecord.getUserId(), userId);
+            return SaResult.error("无权限删除此图片").setCode(403);
+        }
+
 //        String hash = imageRecord.getHash();
 //        log.debug("找到图片记录，hash=[{}]，objectName=[{}]", hash, objectName);
 
-        // 2. 删除 OSS 中的图片
+        // 3. 删除 OSS 中的图片
         OSS ossClient = ossConfig.getOssClient();
         if (ossClient == null) {
             log.error("图片删除失败：无法获取 OSS 客户端");
@@ -263,7 +278,7 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("删除 OSS 图片失败：" + e.getMessage()).setCode(500);
         }
 
-        // 3. 删除数据库记录
+        // 4. 删除数据库记录
         try {
             sysOssImageMapper.deleteById(imageRecord.getId());
 //            log.info("数据库图片记录删除成功，id=[{}]，hash=[{}]", imageRecord.getId(), hash);
@@ -273,12 +288,15 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("OSS 图片已删除，但数据库记录删除失败").setCode(500);
         }
 
+        // 5. 发布图片变更事件（清除缓存）
+        eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.DELETE, objectName));
+
         return SaResult.ok().setMsg("删除成功");
     }
 
     @Override
-    public SaResult deleteImageByHash(String hash) {
-        log.debug("开始删除图片（通过哈希），hash=[{}]", hash);
+    public SaResult deleteImageByHash(String hash, Long userId) {
+        log.debug("开始删除图片（通过哈希），hash=[{}]，userId=[{}]", hash, userId);
 
         if (hash == null || hash.isBlank()) {
             log.warn("图片删除失败：哈希值为空");
@@ -292,7 +310,7 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("图片记录不存在").setCode(404);
         }
 
-        return deleteImage(imageRecord.getObjectName(), imageRecord.getUserId());
+        return deleteImage(imageRecord.getObjectName(), userId);
     }
 
     /**

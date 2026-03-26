@@ -480,6 +480,12 @@ VALUES ('system', '系统管理', '系统管理菜单', 100),
        ('system:seo:edit', '编辑SEO', '编辑SEO配置', 3),
        ('system:seo:delete', '删除SEO', '删除SEO配置', 4),
 
+
+-- SEO管理
+       ('system:oss', 'OSS管理', 'OSS管理菜单', 60),
+       ('system:oss:list', 'OSS图片列表', 'OSS图片列表', 1),
+       ('system:oss:delete', '删除OSS的图片', '删除OSS的图片', 4),
+
 -- 网站配置管理
        ('system:config', '网站配置', '网站配置菜单', 55),
        ('system:config:systemlist', '系统配置查询', '按 key 查询系统默认配置项', 1),

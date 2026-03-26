@@ -97,7 +97,8 @@ public class OssController {
     @SaCheckPermission("oss:delete")
     @DeleteMapping("/delete/{hash}")
     public Response<Object> deleteImageByHash(@PathVariable String hash) {
-        SaResult result = ossService.deleteImageByHash(hash);
+        Long userId = getCurrentUserId();
+        SaResult result = ossService.deleteImageByHash(hash, userId);
         return handleSaResult(result);
     }
 

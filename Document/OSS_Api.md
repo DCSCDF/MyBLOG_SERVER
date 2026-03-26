@@ -79,7 +79,7 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 #### 请求参数
 
-| 参数名  | 类型   | 必填 | 说明             |
+| 参数名 | 类型   | 必填 | 说明             |
 |------|------|----|----------------|
 | file | File | 是  | 图片文件（不超过 10MB） |
 
@@ -149,19 +149,18 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 ---
 
-
 ### 3. 删除图片（通过哈希值）
 
-通过图片哈希值删除图片。
+通过图片哈希值删除图片。**只有上传该图片的用户才能删除，其他用户无法删除。**
 
 - **URL**: `DELETE /api/oss/delete/{hash}`
 - **权限**: `oss:delete`
 
 #### 路径参数
 
-| 参数名  | 类型     | 必填 | 说明         |
-|------|--------|----|------------|
-| hash | String | 是  | 图片哈希值（MD5） |
+| 参数名 | 类型   | 必填 | 说明           |
+|------|------|----|--------------|
+| hash | String | 是   | 图片哈希值（MD5） |
 
 #### 成功响应
 
@@ -195,6 +194,18 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 }
 ```
 
+**3. 无权限删除（用户只能删除自己上传的图片）**
+
+```json
+{
+  "code": 403,
+  "msg": "无权限删除此图片",
+  "data": null
+}
+```
+
+> **权限说明**: 删除时会校验当前登录用户的ID是否与图片记录中的user_id匹配，只有匹配才能删除。
+
 ---
 
 ### 4. 获取图片（公开接口）
@@ -206,9 +217,9 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 #### 路径参数
 
-| 参数名 | 类型   | 必填 | 说明                  |
-|--------|--------|------|-----------------------|
-| hash   | String | 是   | 图片哈希值（MD5）     |
+| 参数名 | 类型   | 必填 | 说明           |
+|------|------|----|--------------|
+| hash | String | 是   | 图片哈希值（MD5） |
 
 #### 成功响应
 
@@ -237,13 +248,13 @@ HTTP 503 Service Unavailable
 
 在系统配置表 (`sys_config`) 中需要配置以下 OSS 相关配置项：
 
-| 配置键                  | 类型      | 默认值     | 说明                                       |
-|------------------------|-----------|---------|------------------------------------------|
-| aliyun.Access-key      | string    | -       | 阿里云 AccessKey ID                         |
-| aliyun.Secret-key      | string    | -       | 阿里云 AccessKey Secret                     |
-| aliyun.Bucket          | string    | -       | OSS Bucket 名称                            |
-| aliyun.end-point       | string    | -       | OSS 访问域名（如 oss-cn-hangzhou.aliyuncs.com） |
-| aliyun.https-enabled    | boolean   | `false` | 是否启用 HTTPS 访问                            |
+| 配置键                   | 类型      | 默认值      | 说明                                        |
+|------------------------|---------|----------|-------------------------------------------|
+| aliyun.Access-key      | string  | -        | 阿里云 AccessKey ID                          |
+| aliyun.Secret-key      | string  | -        | 阿里云 AccessKey Secret                      |
+| aliyun.Bucket          | string  | -        | OSS Bucket 名称                             |
+| aliyun.end-point       | string  | -        | OSS 访问域名（如 oss-cn-hangzhou.aliyuncs.com） |
+| aliyun.https-enabled   | boolean | `false`  | 是否启用 HTTPS 访问                            |
 
 ---
 
@@ -251,25 +262,25 @@ HTTP 503 Service Unavailable
 
 ### sys_oss_image（OSS 图片映射表）
 
-| 字段名         | 类型         | 说明                    |
-|---------------|-------------|------------------------|
-| id            | BIGINT      | 图片ID（主键）          |
-| hash          | VARCHAR(128) | 图片哈希值（MD5，唯一）  |
-| original_name | VARCHAR(128) | 原始文件名（截断至128位） |
-| object_name   | VARCHAR(500) | OSS 对象名称（文件路径） |
-| file_size     | BIGINT      | 文件大小（字节）         |
-| user_id       | BIGINT      | 上传用户ID              |
-| create_time   | DATETIME    | 创建时间                |
+| 字段名            | 类型           | 说明              |
+|----------------|--------------|-----------------|
+| id             | BIGINT       | 图片ID（主键）        |
+| hash           | VARCHAR(128) | 图片哈希值（MD5，唯一）   |
+| original_name  | VARCHAR(128) | 原始文件名（截断至128位） |
+| object_name    | VARCHAR(500) | OSS 对象名称（文件路径）  |
+| file_size      | BIGINT       | 文件大小（字节）        |
+| user_id        | BIGINT       | 上传用户ID          |
+| create_time    | DATETIME     | 创建时间            |
 
 ---
 
 ## 权限说明
 
-| 权限码              | 说明         | 所属角色          |
-|---------------------|--------------|------------------|
-| oss:create          | OSS 上传     | 超级管理员        |
-| oss:delete          | OSS 删除     | 超级管理员        |
-| system:config:edit  | OSS 配置测试 | 超级管理员        |
+| 权限码                | 说明       | 所属角色  |
+|--------------------|----------|-------|
+| oss:create         | OSS 上传   | 超级管理员 |
+| oss:delete         | OSS 删除   | 超级管理员 |
+| system:config:edit | OSS 配置测试 | 超级管理员 |
 
 ---
 
@@ -299,10 +310,6 @@ curl -X POST http://localhost:8080/api/oss/upload \
   -H "Authorization: <token>" \
   -F "file=@/path/to/image.jpg"
 
-# 删除图片（通过对象名称）
-curl -X DELETE "http://localhost:8080/api/oss/delete?objectName=images/2026/03/26/xxx.jpg" \
-  -H "Authorization: <token>"
-
 # 删除图片（通过哈希值）
 curl -X DELETE "http://localhost:8080/api/oss/delete/5d41402abc4b2a76b9719d911017c592" \
   -H "Authorization: <token>"
@@ -329,7 +336,7 @@ const result = await response.json();
 // result.data.hash 即为图片哈希值，可用于访问图片
 
 // 删除图片
-await fetch('/api/oss/delete?objectName=' + encodeURIComponent(objectName), {
+await fetch('/api/oss/delete/5d41402abc4b2a76b9719d911017c592', {
   method: 'DELETE',
   headers: {
     'Authorization': token
@@ -413,6 +420,8 @@ images/yyyy/MM/dd/新文件名.扩展名
 
 ## 图片缓存说明
 
+### 公开图片获取缓存
+
 公开图片获取接口 (`/api/images/{hash}`) 使用本地内存缓存：
 
 - **缓存时间**: 30 分钟
@@ -421,5 +430,13 @@ images/yyyy/MM/dd/新文件名.扩展名
 - **缓存未命中**: 从 OSS 下载后存入缓存再返回
 
 浏览器也会对图片进行 30 分钟缓存（`Cache-Control: public, max-age=1800`）。
+
+### 全局OSS列表缓存
+
+全局OSS管理接口 (`/api/global-oss/list`) 使用本地内存缓存：
+
+- **缓存时间**: 10 分钟
+- **最大缓存数量**: 100 条
+- **缓存清除**: 当有图片上传或删除操作时，会自动清除缓存
 
 ---
