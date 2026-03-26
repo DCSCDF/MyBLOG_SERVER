@@ -27,9 +27,9 @@ public interface MailService {
      * @param to      收件人邮箱
      * @param subject 邮件主题
      * @param content 邮件内容
-     * @return SaResult SaResult sendTest
+     * @return SaResult
      */
-   SaResult sendTestMail(String to, String subject, String content);
+    SaResult sendTestMail(String to, String subject, String content);
 
     /**
      * 检查 SMTP 配置是否完成
@@ -37,4 +37,31 @@ public interface MailService {
      * @return SaResult
      */
     SaResult checkSmtpConfiguration();
+
+    /**
+     * 发送评论审核结果通知邮件
+     *
+     * @param to          收件人邮箱
+     * @param approved    是否审核通过
+     * @param siteDomain  网站域名
+     * @return SaResult
+     */
+    SaResult sendCommentReviewNotification(String to, boolean approved, String siteDomain);
+
+    /**
+     * 发送评论回复通知邮件
+     *
+     * @param to          收件人邮箱
+     * @param siteDomain  网站域名
+     * @param replyContent 回复的评论内容
+     * @return SaResult
+     */
+    SaResult sendCommentReplyNotification(String to, String siteDomain, String replyContent);
+
+    /**
+     * 检查评论通知功能是否启用
+     *
+     * @return true if enabled
+     */
+    boolean isCommentNotificationEnabled();
 }

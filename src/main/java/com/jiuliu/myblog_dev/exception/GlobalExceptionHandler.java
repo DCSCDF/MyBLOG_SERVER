@@ -218,11 +218,24 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e) {
+    public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e, HttpServletRequest request) {
         String paramName = e.getName();
         String invalidValue = e.getValue() != null ? e.getValue().toString() : "null";
         String targetType = e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "unknown";
-        log.warn("参数类型不匹配: 参数 '{}' 收到了无效值 '{}'，期望类型: {}", paramName, invalidValue, targetType);
+        String requestPath = request.getRequestURI();
+        String httpMethod = request.getMethod();
+        String queryString = request.getQueryString();
+        
+        // 详细调试日志
+        log.warn("========== 参数类型不匹配 ==========");
+        log.warn("请求路径: {}", requestPath);
+        log.warn("HTTP方法: {}", httpMethod);
+        log.warn("查询参数: {}", queryString);
+        log.warn("参数名称: {}", paramName);
+        log.warn("无效值: '{}'", invalidValue);
+        log.warn("期望类型: {}", targetType);
+        log.warn("====================================");
+        
         return ResponseUtil.fail("参数格式错误，请检查请求参数", 400);
     }
 

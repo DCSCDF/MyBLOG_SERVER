@@ -28,6 +28,8 @@ import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
+import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,11 +72,19 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     private final SysCommentMapper commentMapper;
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
+    private final MailService mailService;
+    private final SysConfigMapper sysConfigMapper;
 
-    public GlobalCommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper, SysUserMapper userMapper) {
+    private static final String KEY_SITE_DOMAIN = "site.domain";
+
+    public GlobalCommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper,
+                                    SysUserMapper userMapper, MailService mailService,
+                                    SysConfigMapper sysConfigMapper) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
+        this.mailService = mailService;
+        this.sysConfigMapper = sysConfigMapper;
     }
 
     @Override
@@ -267,8 +277,129 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         // 清除缓存
         clearGlobalCommentCache(commentId);
 
+        // 发送邮件通知（仅在审核通过或垃圾评论时）
+        if (newStatus == 1) {
+            // 审核通过：发送审核通过通知给当前评论作者
+            sendCommentNotification(existing, true);
+            // 如果是子评论，发送回复通知给父评论作者
+            if (existing.getParentId() != null && existing.getParentId() != 0) {
+                sendReplyNotificationToParent(existing.getParentId(), existing.getContent());
+            }
+        } else if (newStatus == 2) {
+            // 设为垃圾评论：发送未通过通知给当前评论作者
+            sendCommentNotification(existing, false);
+        }
+
         SysComment updated = commentMapper.selectById(commentId);
         return SaResult.data(toResponseDTO(updated));
+    }
+
+    /**
+     * 发送评论审核结果邮件通知
+     */
+    private void sendCommentNotification(SysComment comment, boolean approved) {
+        // 检查评论通知是否启用
+        if (!mailService.isCommentNotificationEnabled()) {
+            return;
+        }
+
+        // 获取收件人邮箱
+        String toEmail = getRecipientEmail(comment);
+        if (!StringUtils.hasText(toEmail)) {
+            log.debug("评论审核通知邮件跳过：无法获取收件人邮箱，commentId={}", comment.getId());
+            return;
+        }
+
+        // 获取网站域名
+        String siteDomain = getSiteDomain();
+
+        // 发送邮件（异步执行，不影响主流程）
+        try {
+            SaResult result = mailService.sendCommentReviewNotification(toEmail, approved, siteDomain);
+            if (result.getCode() == 200) {
+                log.info("评论审核通知邮件发送成功，commentId={}, to={}, approved={}",
+                        comment.getId(), toEmail, approved);
+            } else {
+                log.warn("评论审核通知邮件发送失败，commentId={}, to={}, error={}",
+                        comment.getId(), toEmail, result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("评论审核通知邮件发送异常，commentId={}", comment.getId(), e);
+        }
+    }
+
+    /**
+     * 获取评论的收件人邮箱
+     * 优先使用用户表的邮箱，其次使用评论表的邮箱
+     */
+    private String getRecipientEmail(SysComment comment) {
+        // 如果有 userId 且对应用户存在，使用用户表的邮箱
+        if (comment.getUserId() != null) {
+            SysUser user = userMapper.selectById(comment.getUserId());
+            if (user != null && StringUtils.hasText(user.getEmail())) {
+                return user.getEmail();
+            }
+        }
+        // 否则使用评论表的邮箱
+        if (StringUtils.hasText(comment.getEmail())) {
+            return comment.getEmail();
+        }
+        return null;
+    }
+
+    /**
+     * 获取网站域名配置
+     */
+    private String getSiteDomain() {
+        try {
+            return sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
+        } catch (Exception e) {
+            log.warn("获取网站域名配置失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 发送评论回复通知邮件给父评论作者
+     *
+     * @param parentCommentId 父评论ID
+     * @param replyContent   回复的评论内容
+     */
+    private void sendReplyNotificationToParent(Long parentCommentId, String replyContent) {
+        // 检查评论通知是否启用
+        if (!mailService.isCommentNotificationEnabled()) {
+            return;
+        }
+
+        // 获取父评论
+        SysComment parentComment = commentMapper.selectById(parentCommentId);
+        if (parentComment == null) {
+            log.debug("评论回复通知跳过：父评论不存在，parentId={}", parentCommentId);
+            return;
+        }
+
+        // 获取父评论作者的邮箱
+        String toEmail = getRecipientEmail(parentComment);
+        if (!StringUtils.hasText(toEmail)) {
+            log.debug("评论回复通知跳过：无法获取收件人邮箱，parentId={}", parentCommentId);
+            return;
+        }
+
+        // 获取网站域名
+        String siteDomain = getSiteDomain();
+
+        // 发送邮件
+        try {
+            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyContent);
+            if (result.getCode() == 200) {
+                log.info("评论回复通知邮件发送成功，parentId={}, to={}", parentCommentId, toEmail);
+            } else {
+                log.warn("评论回复通知邮件发送失败，parentId={}, to={}, error={}",
+                        parentCommentId, toEmail, result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("评论回复通知邮件发送异常，parentId={}", parentCommentId, e);
+        }
     }
 
     /**

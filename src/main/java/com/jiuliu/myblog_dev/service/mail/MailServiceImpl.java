@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.service.mail;
 
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.config.business.MailConfig;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.utils.mail.SmtpConnectionTester;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -33,12 +34,16 @@ public class MailServiceImpl implements MailService {
 
     private static final Logger log = LoggerFactory.getLogger(MailServiceImpl.class);
 
+    private static final String KEY_COMMENT_NOTIFICATION_ENABLED = "smtp.comment.enabled";
+
     private final MailConfig mailConfig;
     private final SmtpConnectionTester smtpConnectionTester;
+    private final SysConfigMapper sysConfigMapper;
 
-    public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester) {
+    public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester, SysConfigMapper sysConfigMapper) {
         this.mailConfig = mailConfig;
         this.smtpConnectionTester = smtpConnectionTester;
+        this.sysConfigMapper = sysConfigMapper;
     }
 
     @Override
@@ -165,5 +170,150 @@ public class MailServiceImpl implements MailService {
 
         log.info("SMTP 连接测试通过");
         return SaResult.ok("SMTP 连接正常");
+    }
+
+    @Override
+    public boolean isCommentNotificationEnabled() {
+        String enabled = getConfigValue();
+        return "true".equalsIgnoreCase(enabled);
+    }
+
+    @Override
+    public SaResult sendCommentReviewNotification(String to, boolean approved, String siteDomain) {
+        if (!StringUtils.hasText(to)) {
+            log.warn("发送评论审核通知邮件失败：收件人邮箱为空");
+            return SaResult.error("收件人邮箱为空").setCode(400);
+        }
+
+        if (!mailConfig.isConfigured()) {
+            log.warn("发送评论审核通知邮件失败：SMTP 配置未完成");
+            return SaResult.error("SMTP 配置未完成").setCode(400);
+        }
+
+        String subject = approved ? "您的评论已通过审核" : "您的评论未通过审核";
+        String content = buildReviewNotificationContent(approved, siteDomain);
+
+        return doSendMail(to, subject, content);
+    }
+
+    @Override
+    public SaResult sendCommentReplyNotification(String to, String siteDomain, String replyContent) {
+        if (!StringUtils.hasText(to)) {
+            log.warn("发送评论回复通知邮件失败：收件人邮箱为空");
+            return SaResult.error("收件人邮箱为空").setCode(400);
+        }
+
+        if (!mailConfig.isConfigured()) {
+            log.warn("发送评论回复通知邮件失败：SMTP 配置未完成");
+            return SaResult.error("SMTP 配置未完成").setCode(400);
+        }
+
+        String subject = "您的评论收到新的回复";
+        String content = buildReplyNotificationContent(siteDomain, replyContent);
+
+        return doSendMail(to, subject, content);
+    }
+
+    private String buildReviewNotificationContent(boolean approved, String siteDomain) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
+        sb.append("<h2 style=\"color: #333;\">").append(approved ? "您的评论已通过审核" : "您的评论未通过审核").append("</h2>");
+        sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+        sb.append("您好，</p>");
+        sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+        sb.append(approved ? "您的评论已通过审核，感谢您的参与！" : "很抱歉，您的评论未通过审核，可能是因为内容不符合相关规定。");
+        sb.append("</p>");
+        if (StringUtils.hasText(siteDomain)) {
+            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+            sb.append("</p>");
+        }
+        sb.append("<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">");
+        sb.append("<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>");
+        sb.append("</div>");
+        return sb.toString();
+    }
+
+    private String buildReplyNotificationContent(String siteDomain, String replyContent) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
+        sb.append("<h2 style=\"color: #333;\">您的评论收到新的回复</h2>");
+        sb.append("<p style=\"color: #666; line-height: 1.6;\">您好，</p>");
+        sb.append("<p style=\"color: #666; line-height: 1.6;\">您的评论有了新的回复：</p>");
+        sb.append("<blockquote style=\"background: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0;\">");
+        sb.append("<p style=\"color: #333; margin: 0;\">").append(escapeHtml(replyContent)).append("</p>");
+        sb.append("</blockquote>");
+        if (StringUtils.hasText(siteDomain)) {
+            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+            sb.append("</p>");
+        }
+        sb.append("<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">");
+        sb.append("<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>");
+        sb.append("</div>");
+        return sb.toString();
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    private SaResult doSendMail(String to, String subject, String content) {
+        try {
+            JavaMailSender mailSender = mailConfig.javaMailSender();
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String fromAddress = mailConfig.getFromAddress();
+            if (!StringUtils.hasText(fromAddress)) {
+                fromAddress = "noreply@localhost";
+            }
+
+            helper.setFrom(fromAddress);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(content, true);
+
+            mailSender.send(message);
+
+            log.info("邮件发送成功，to={}, subject={}", to, subject);
+            return SaResult.ok("邮件发送成功");
+        } catch (MessagingException e) {
+            log.error("发送邮件失败：邮件消息构建异常，to={}, error={}", to, e.getMessage());
+            return SaResult.error("邮件发送失败：" + e.getMessage()).setCode(500);
+        } catch (MailException e) {
+            log.error("发送邮件失败：邮件发送异常，to={}, error={}", to, e.getMessage());
+            String errorMsg = e.getMessage();
+            if (errorMsg != null) {
+                if (errorMsg.contains("AuthenticationFailed")) {
+                    return SaResult.error("邮件发送失败：用户名或密码错误").setCode(500);
+                }
+                if (errorMsg.contains("Connection refused") || errorMsg.contains("Connect failed")) {
+                    return SaResult.error("邮件发送失败：无法连接到 SMTP 服务器").setCode(500);
+                }
+                if (errorMsg.contains("Timeout") || errorMsg.contains("timed out")) {
+                    return SaResult.error("邮件发送失败：连接超时").setCode(500);
+                }
+                return SaResult.error("邮件发送失败：" + errorMsg).setCode(500);
+            }
+            return SaResult.error("邮件发送失败").setCode(500);
+        } catch (Exception e) {
+            log.error("发送邮件失败：未知异常，to={}, error={}", to, e.getMessage());
+            return SaResult.error("邮件发送失败：" + e.getMessage()).setCode(500);
+        }
+    }
+
+    private String getConfigValue() {
+        try {
+            return sysConfigMapper.selectValueByKey(MailServiceImpl.KEY_COMMENT_NOTIFICATION_ENABLED);
+        } catch (Exception e) {
+            log.warn("获取配置失败: {}: {}", MailServiceImpl.KEY_COMMENT_NOTIFICATION_ENABLED, e.getMessage());
+        }
+        return null;
     }
 }
