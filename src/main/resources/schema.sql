@@ -672,6 +672,12 @@ VALUES ('site.name', '我的博客', 'string', 'max_length=100', '网站名称',
 
        ('smtp.comment.enabled', 'false', 'boolean', NULL, 'SMTP是否启用评论通知', 1, 0),
 
+       ('aliyun.Secret-key', 'Secret', 'string', 'max_length=200', 'aliyun_Secret Key', 1, 0),
+       ('aliyun.Access-key', 'Access', 'string', 'max_length=200', 'aliyun_Access Key', 1, 0),
+       ('aliyun.Bucket', 'Bucket', 'string', 'max_length=200', 'aliyun_Bucket', 1, 0),
+       ('aliyun.end-point', 'end-point', 'string', 'max_length=200', 'aliyun_end-point', 1, 0),
+       ('aliyun.https-enabled', 'false', 'boolean', NULL, '阿里云是否启用https', 1, 0),
+
 
        ('site.redirect_url', '', 'string', NULL, '重定向URL', 1, 1);
 

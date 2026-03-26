@@ -14,6 +14,8 @@
 
 package com.jiuliu.myblog_dev.utils.markdown;
 
+import org.springframework.lang.NonNull;
+
 import java.util.regex.Pattern;
 
 /**
@@ -31,6 +33,8 @@ public final class MarkdownUtil {
      * @param mdContent Markdown格式的内容
      * @return 去除标签后的纯文本
      */
+
+    @NonNull
     public static String stripMdTags(String mdContent) {
         if (mdContent == null || mdContent.isEmpty()) {
             return "";
