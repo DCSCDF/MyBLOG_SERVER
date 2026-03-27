@@ -325,7 +325,7 @@ public class SysConfigServiceImpl implements SysConfigService {
             "site.name",
             "site.domain",
             "site.description",
-            "site.record_number"
+            "site.icp"
     );
 
     @Override
@@ -385,7 +385,7 @@ public class SysConfigServiceImpl implements SysConfigService {
                     case "site.description":
                         siteInfo.setSiteDescription(config.getConfigValue());
                         break;
-                    case "site.record_number":
+                    case "site.icp":
                         siteInfo.setRecordNumber(config.getConfigValue());
                         break;
                 }
