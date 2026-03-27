@@ -99,13 +99,15 @@ public final class HtmlUtil {
 
         // 配置白名单
         Safelist safelist = Safelist.relaxed()
+                // 表格相关标签（必须先添加标签，再添加属性）
+                .addTags("table", "thead", "tbody", "tr", "th", "td")
                 // a 标签只允许 href，且限制协议
                 .addAttributes("a", "href", "title", "target")
                 .addProtocols("a", "href", "http", "https", "mailto")
                 // img 标签只允许 src，且限制协议（允许 data: 用于 base64 图片）
                 .addAttributes("img", "src", "alt", "title", "width", "height")
                 .addProtocols("img", "src", "http", "https", "data")
-                // 表格相关标签和属性
+                // 表格相关属性
                 .addAttributes("table", "class", "style")
                 .addAttributes("thead", "class", "style")
                 .addAttributes("tbody", "class", "style")
