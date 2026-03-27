@@ -20,6 +20,7 @@ import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 import com.jiuliu.myblog_dev.service.comment.PublicCommentService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -82,7 +83,9 @@ public class PublicCommentController {
      * POST /api/public/comment
      * 无需登录，所有用户均可访问
      * 已登录用户使用用户表信息，游客使用传入的信息
+     * 限流：每个IP每分钟最多提交4次
      */
+    @RateLimit(count = 4, period = 1, prefix = "public_comment_create")
     @PostMapping
     public Response<Object> createComment(@Valid @RequestBody PublicCommentCreateDTO dto,
                                           HttpServletRequest request) {

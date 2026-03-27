@@ -61,9 +61,12 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             .build();
 
     private final SysFriendLinkMapper friendLinkMapper;
+    private final PublicFriendLinkServiceImpl publicFriendLinkService;
 
-    public FriendLinkServiceImpl(SysFriendLinkMapper friendLinkMapper) {
+    public FriendLinkServiceImpl(SysFriendLinkMapper friendLinkMapper,
+                                PublicFriendLinkServiceImpl publicFriendLinkService) {
         this.friendLinkMapper = friendLinkMapper;
+        this.publicFriendLinkService = publicFriendLinkService;
     }
 
     @Override
@@ -230,12 +233,13 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     }
 
     /**
-     * 清除友链缓存
+     * 清除友链缓存（包括后台管理和前台展示的缓存）
      */
     private void clearFriendLinkCache() {
         friendLinkCache.invalidateAll();
         friendLinkListCache.invalidateAll();
-        log.debug("友链缓存已清除");
+        publicFriendLinkService.clearPublicFriendLinkCache();
+        log.debug("友链缓存已清除（包括后台和前台）");
     }
 
     private FriendLinkResponseDTO toResponseDTO(SysFriendLink link) {
