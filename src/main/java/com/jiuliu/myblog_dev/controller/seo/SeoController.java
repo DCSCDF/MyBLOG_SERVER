@@ -19,6 +19,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.seo.*;
 import com.jiuliu.myblog_dev.service.seo.SeoService;
+import com.jiuliu.myblog_dev.utils.disabled.Disabled;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +38,7 @@ public class SeoController {
      * 分页获取SEO列表
      * 权限：seo:list
      */
+    @Disabled
     @SaCheckPermission("system:seo:list")
     @PostMapping("/list")
     public Response<PageSeoResponseDTO> getPageSeos(@Valid @RequestBody PageSeoDTO pageDto) {
@@ -48,6 +50,7 @@ public class SeoController {
      * 根据ID获取SEO详情
      * 权限：seo:list
      */
+    @Disabled
     @SaCheckPermission("system:seo:list")
     @GetMapping("/{id}")
     public Response<SeoResponseDTO> getSeoById(@PathVariable Long id) {
@@ -59,6 +62,7 @@ public class SeoController {
      * 创建SEO配置
      * 权限：seo:create
      */
+    @Disabled
     @SaCheckPermission("system:seo:create")
     @PostMapping
     public Response<SeoResponseDTO> createSeo(@Valid @RequestBody SeoCreateDTO dto) {
@@ -70,6 +74,7 @@ public class SeoController {
      * 修改SEO配置（系统内置的也可以编辑）
      * 权限：seo:edit
      */
+    @Disabled
     @SaCheckPermission("system:seo:edit")
     @PutMapping("/{id}")
     public Response<SeoResponseDTO> updateSeo(@PathVariable Long id, @Valid @RequestBody SeoUpdateDTO dto) {
@@ -82,6 +87,7 @@ public class SeoController {
      * 删除SEO配置（系统内置的不可删除）
      * 权限：seo:delete
      */
+    @Disabled
     @SaCheckPermission("system:seo:delete")
     @DeleteMapping("/{id}")
     public Response<Object> deleteSeo(@PathVariable Long id) {

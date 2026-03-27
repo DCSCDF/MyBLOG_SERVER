@@ -18,6 +18,7 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
 import com.jiuliu.myblog_dev.dto.Response;
+import com.jiuliu.myblog_dev.utils.disabled.DisabledException;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,6 +124,16 @@ public class GlobalExceptionHandler {
         log.warn("触发限流: {}", e.getMessage());
         response.setHeader("Retry-After", "60"); // 建议 60 秒后重试
         return ResponseUtil.fail(e.getMessage(), 429); // HTTP 429 Too Many Requests
+    }
+
+    /**
+     * 处理接口禁用异常（返回 503）
+     */
+    @ExceptionHandler(DisabledException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleDisabledException(DisabledException e) {
+        log.warn("接口被禁用: {}", e.getMessage());
+        return ResponseUtil.fail(e.getMessage(), e.getCode());
     }
 
     /**
