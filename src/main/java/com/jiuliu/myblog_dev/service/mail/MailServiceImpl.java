@@ -23,7 +23,6 @@ import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -73,7 +72,11 @@ public class MailServiceImpl implements MailService {
         }
 
         try {
-            JavaMailSender mailSender = mailConfig.javaMailSender();
+            JavaMailSenderImpl mailSender = mailConfig.getMailSenderImpl();
+            if (mailSender == null) {
+                log.warn("发送测试邮件失败：邮件发送器未初始化");
+                return SaResult.error("邮件发送器未初始化").setCode(500);
+            }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -265,7 +268,11 @@ public class MailServiceImpl implements MailService {
 
     private SaResult doSendMail(String to, String subject, String content) {
         try {
-            JavaMailSender mailSender = mailConfig.javaMailSender();
+            JavaMailSenderImpl mailSender = mailConfig.getMailSenderImpl();
+            if (mailSender == null) {
+                log.warn("发送邮件失败：邮件发送器未初始化");
+                return SaResult.error("邮件发送器未初始化").setCode(500);
+            }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 

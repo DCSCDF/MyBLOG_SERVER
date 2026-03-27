@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.config.business.MailConfig;
+import com.jiuliu.myblog_dev.config.business.OSSConfig;
 import com.jiuliu.myblog_dev.dto.config.*;
 import com.jiuliu.myblog_dev.entity.config.SysConfig;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
@@ -55,10 +56,12 @@ public class SysConfigServiceImpl implements SysConfigService {
 
     private final SysConfigMapper sysConfigMapper;
     private final MailConfig mailConfig;
+    private final OSSConfig ossConfig;
 
-    public SysConfigServiceImpl(SysConfigMapper sysConfigMapper, MailConfig mailConfig) {
+    public SysConfigServiceImpl(SysConfigMapper sysConfigMapper, MailConfig mailConfig, OSSConfig ossConfig) {
         this.sysConfigMapper = sysConfigMapper;
         this.mailConfig = mailConfig;
+        this.ossConfig = ossConfig;
     }
 
     @Override
@@ -187,6 +190,12 @@ public class SysConfigServiceImpl implements SysConfigService {
             log.info("邮件配置已更新，已触发邮件发送器立即刷新");
         }
 
+        // 如果是 OSS 相关配置，立即刷新 OSS 客户端
+        if (isOssRelatedConfig(dto.getConfigKey())) {
+            ossConfig.refreshConfiguration();
+            log.info("OSS 配置已更新，已触发 OSS 客户端立即刷新");
+        }
+
         log.info("网站配置更新成功，configKey={}", dto.getConfigKey());
         SysConfig updated = sysConfigMapper.selectOne(wrapper);
         return SaResult.data(toItemResponse(updated));
@@ -265,6 +274,13 @@ public class SysConfigServiceImpl implements SysConfigService {
      */
     private boolean isMailRelatedConfig(String configKey) {
         return configKey != null && configKey.startsWith("smtp.");
+    }
+
+    /**
+     * 判断配置键是否与 OSS 相关
+     */
+    private boolean isOssRelatedConfig(String configKey) {
+        return configKey != null && configKey.startsWith("aliyun.");
     }
 
     @Override
