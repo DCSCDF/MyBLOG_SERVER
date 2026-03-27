@@ -27,8 +27,9 @@ import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
-import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
+import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
@@ -74,17 +75,20 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     private final SysUserMapper userMapper;
     private final MailService mailService;
     private final SysConfigMapper sysConfigMapper;
+    private final PublicArticleService publicArticleService;
 
     private static final String KEY_SITE_DOMAIN = "site.domain";
 
     public GlobalCommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper,
                                     SysUserMapper userMapper, MailService mailService,
-                                    SysConfigMapper sysConfigMapper) {
+                                    SysConfigMapper sysConfigMapper,
+                                    PublicArticleService publicArticleService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.mailService = mailService;
         this.sysConfigMapper = sysConfigMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -210,6 +214,9 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         log.info("全局评论删除成功，id={}", commentId);
 
+        // 清除公共文章缓存（评论数可能变化）
+        clearPublicArticleCacheIfNeeded(existing);
+
         // 清除缓存
         clearGlobalCommentCache(commentId);
 
@@ -273,6 +280,9 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         }
 
         log.info("评论审核状态变更成功，id={}, 新状态={}", commentId, newStatus);
+
+        // 清除公共文章缓存（评论数可能变化）
+        clearPublicArticleCacheIfNeeded(existing);
 
         // 清除缓存
         clearGlobalCommentCache(commentId);
@@ -363,7 +373,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
      * 发送评论回复通知邮件给父评论作者
      *
      * @param parentCommentId 父评论ID
-     * @param replyContent   回复的评论内容
+     * @param replyContent    回复的评论内容
      */
     private void sendReplyNotificationToParent(Long parentCommentId, String replyContent) {
         // 检查评论通知是否启用
@@ -452,6 +462,19 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         globalCommentCache.invalidate(commentId);
         globalCommentListCache.invalidateAll();
         log.debug("全局评论缓存已清除，id={}", commentId);
+    }
+
+    /**
+     * 根据评论状态变更清除公共文章缓存
+     * 当评论被审核通过(status=1)或取消通过(非1)时，需要刷新文章列表中的评论数
+     */
+    private void clearPublicArticleCacheIfNeeded(SysComment comment) {
+        // 如果评论的博客ID存在，且状态变更为已通过(status=1)，清除公共文章缓存
+        // 这样文章列表中的评论数会重新计算
+        if (comment.getBlogId() != null) {
+            publicArticleService.clearPublicArticleCache();
+            log.debug("公共文章缓存已清除（评论审核状态变更），blogId={}, commentId={}", comment.getBlogId(), comment.getId());
+        }
     }
 
     /**

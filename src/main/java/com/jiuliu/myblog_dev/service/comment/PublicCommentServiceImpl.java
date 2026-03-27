@@ -24,6 +24,7 @@ import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,13 +55,16 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private final SysCommentMapper commentMapper;
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
+    private final PublicArticleService publicArticleService;
 
     public PublicCommentServiceImpl(SysCommentMapper commentMapper,
                                     SysBlogMapper blogMapper,
-                                    SysUserMapper userMapper) {
+                                    SysUserMapper userMapper,
+                                    PublicArticleService publicArticleService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -183,6 +187,9 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                             .eq(SysBlog::getId, dto.getBlogId())
                             .setSql("comment_count = comment_count + 1")
             );
+
+            // 7. 清除公共文章缓存（评论数已更新）
+            publicArticleService.clearPublicArticleCache();
 
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);
