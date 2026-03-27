@@ -89,8 +89,6 @@
             <groupId>org.wltea</groupId>
             <artifactId>ik-analyzer</artifactId>
             <version>2012_u6</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/IKAnalyzer2012_u6.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/22
+ * UpdateTime: 2026/3/27
  */
 
 package com.jiuliu.myblog_dev.service.config;
@@ -58,4 +58,12 @@ public interface SysConfigService {
      * @return 配置项列表
      */
     SaResult getPublicConfigByKeys(@NotEmpty(message = "配置键列表不能为空") List<String> keys);
+
+    /**
+     * 获取网站基础信息
+     * 包括：网站名称、网站域名、网站描述、备案号
+     *
+     * @return 网站基础信息
+     */
+    SaResult getSiteInfo();
 }

@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/11 10:20
+ * UpdateTime: 2026/3/27
  */
 
 package com.jiuliu.myblog_dev.controller.pubilc;
@@ -17,15 +17,13 @@ package com.jiuliu.myblog_dev.controller.pubilc;
 import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.config.ConfigItemResponseDTO;
+import com.jiuliu.myblog_dev.dto.config.SiteInfoDTO;
 import com.jiuliu.myblog_dev.service.config.SysConfigService;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -50,6 +48,22 @@ public class GlobalConfigController {
     @PostMapping
     public Response<List<ConfigItemResponseDTO>> getConfigByKeys(@Valid @RequestBody ConfigKeysDTO dto) {
         SaResult saResult = sysConfigService.getPublicConfigByKeys(dto.getKeys());
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 获取网站基础信息
+     * GET /api/public/config/site-info
+     * 无需登录，所有用户均可访问
+     * 返回字段：
+     * - siteName: 网站名称
+     * - siteDomain: 网站域名
+     * - siteDescription: 网站描述
+     * - recordNumber: 备案号
+     */
+    @GetMapping("/site-info")
+    public Response<SiteInfoDTO> getSiteInfo() {
+        SaResult saResult = sysConfigService.getSiteInfo();
         return handleSaResult(saResult);
     }
 

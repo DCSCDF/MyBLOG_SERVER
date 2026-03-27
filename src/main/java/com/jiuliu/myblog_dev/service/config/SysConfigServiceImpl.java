@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/8
+ * UpdateTime: 2026/3/27
  */
 
 package com.jiuliu.myblog_dev.service.config;
@@ -27,12 +27,14 @@ import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -314,5 +316,81 @@ public class SysConfigServiceImpl implements SysConfigService {
                 .map(this::toItemResponse)
                 .collect(Collectors.toList());
         return SaResult.data(result);
+    }
+
+    /**
+     * 网站基础信息配置键
+     */
+    private static final List<String> SITE_INFO_KEYS = List.of(
+            "site.name",
+            "site.domain",
+            "site.description",
+            "site.record_number"
+    );
+
+    @Override
+    public SaResult getSiteInfo() {
+        List<String> keys = SITE_INFO_KEYS;
+        List<SysConfig> resultList = new java.util.ArrayList<>();
+
+        // 尝试从缓存获取
+        for (String key : keys) {
+            String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + key;
+            SysConfig cached = configCache.getIfPresent(cacheKey);
+            if (cached != null && cached.getIsOpen() != null && cached.getIsOpen() == 1) {
+                resultList.add(cached);
+            } else {
+                resultList.add(null);
+            }
+        }
+
+        // 检查是否有未命中的缓存，需要从数据库查询
+        boolean hasNull = resultList.stream().anyMatch(Objects::isNull);
+        if (hasNull) {
+            LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
+                    .in(SysConfig::getConfigKey, keys)
+                    .eq(SysConfig::getIsDeleted, 0)
+                    .eq(SysConfig::getIsOpen, 1);
+            List<SysConfig> dbConfigs = sysConfigMapper.selectList(wrapper);
+
+            // 放入缓存并填充结果
+            for (SysConfig config : dbConfigs) {
+                String cacheKey = CacheUtil.CACHE_KEY_SYS_CONFIG + config.getConfigKey();
+                configCache.put(cacheKey, config);
+                int index = keys.indexOf(config.getConfigKey());
+                if (index >= 0) {
+                    resultList.set(index, config);
+                }
+            }
+        }
+
+        // 构建返回对象
+        SiteInfoDTO siteInfo = getSiteInfoDTO(resultList);
+
+        return SaResult.data(siteInfo);
+    }
+
+    @NonNull
+    private static SiteInfoDTO getSiteInfoDTO(List<SysConfig> resultList) {
+        SiteInfoDTO siteInfo = new SiteInfoDTO();
+        for (SysConfig config : resultList) {
+            if (config != null) {
+                switch (config.getConfigKey()) {
+                    case "site.name":
+                        siteInfo.setSiteName(config.getConfigValue());
+                        break;
+                    case "site.domain":
+                        siteInfo.setSiteDomain(config.getConfigValue());
+                        break;
+                    case "site.description":
+                        siteInfo.setSiteDescription(config.getConfigValue());
+                        break;
+                    case "site.record_number":
+                        siteInfo.setRecordNumber(config.getConfigValue());
+                        break;
+                }
+            }
+        }
+        return siteInfo;
     }
 }

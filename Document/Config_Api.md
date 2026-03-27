@@ -459,3 +459,80 @@
     "code": 400
 }
 ```
+
+---
+
+### 获取网站基础信息
+
+获取网站基础信息，包括网站名称、域名、描述和备案号。用于前台页面展示。
+
+- **请求方法**: `GET`
+- **请求路径**: `/api/public/config/site-info`
+- **需要认证**: 否
+
+#### 响应示例
+
+```json
+{
+    "data": {
+        "siteName": "我的博客",
+        "siteDomain": "https://example.com",
+        "siteDescription": "记录技术与生活的点滴，分享编程经验和成长历程",
+        "recordNumber": "京ICP备XXXXXXXX号"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 响应字段说明
+
+| 字段              | 类型     | 说明           |
+|-----------------|--------|--------------|
+| siteName        | String | 网站名称        |
+| siteDomain      | String | 网站域名        |
+| siteDescription | String | 网站描述        |
+| recordNumber    | String | 备案号          |
+
+#### 数据来源说明
+
+| 字段              | 对应配置键         | 说明         |
+|-----------------|---------------|------------|
+| siteName        | site.name     | 网站名称      |
+| siteDomain      | site.domain   | 网站域名      |
+| siteDescription | site.description | 网站描述    |
+| recordNumber    | site.icp      | 备案号       |
+
+#### 错误响应
+
+**配置项获取失败**
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "获取网站基础信息失败",
+    "code": 500
+}
+```
+
+#### 前端使用示例
+
+```javascript
+// 获取网站基础信息
+async function loadSiteInfo() {
+  const response = await fetch('/api/public/config/site-info');
+  const result = await response.json();
+
+  if (result.success) {
+    const { siteName, siteDomain, siteDescription, recordNumber } = result.data;
+    // 更新页面标题
+    document.title = siteName;
+    // 更新页面描述
+    document.querySelector('meta[name="description"]').content = siteDescription;
+    // 在页脚显示备案号
+    document.getElementById('record-number').textContent = recordNumber;
+  }
+}
+```
