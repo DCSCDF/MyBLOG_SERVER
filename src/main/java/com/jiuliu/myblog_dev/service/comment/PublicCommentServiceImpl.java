@@ -82,7 +82,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             SysBlog blog = blogMapper.selectOne(
                     new LambdaQueryWrapper<SysBlog>()
                             .eq(SysBlog::getId, dto.getBlogId())
-                            .eq(SysBlog::getHidden, false)
+//                            .and(w -> w.eq(SysBlog::getHidden, false).or().isNull(SysBlog::getHidden))
             );
 
             if (blog == null) {
@@ -218,7 +218,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         SysBlog blog = blogMapper.selectOne(
                 new LambdaQueryWrapper<SysBlog>()
                         .eq(SysBlog::getId, blogId)
-                        .eq(SysBlog::getHidden, false)
+//                        .and(w -> w.eq(SysBlog::getHidden, false).or().isNull(SysBlog::getHidden))
         );
 
         if (blog == null) {

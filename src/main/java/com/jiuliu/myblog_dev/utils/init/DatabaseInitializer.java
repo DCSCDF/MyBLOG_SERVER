@@ -204,12 +204,8 @@ public class DatabaseInitializer implements CommandLineRunner {
             if (existingRole == null) {
                 sysRoleMapper.insert(role);
                 log.info("  创建角色: {}", role.getName());
-            } else {
-                role.setId(existingRole.getId());
-                role.setIsDeleted(0);
-                sysRoleMapper.updateById(role);
-                log.info("  更新角色: {}", role.getName());
             }
+            // 存在时不进行任何修改，保留用户的修改
         } catch (Exception e) {
             log.error("  初始化角色失败 [{}]: {}", role.getName(), e.getMessage());
         }
@@ -363,13 +359,8 @@ public class DatabaseInitializer implements CommandLineRunner {
                 group.setIsSystem(true);
                 group.setIsDeleted(0);
                 sysPermissionGroupMapper.insert(group);
-            } else {
-                existing.setDescription(description);
-                existing.setIsSystem(true);
-                existing.setStatus(1);
-                existing.setIsDeleted(0);
-                sysPermissionGroupMapper.updateById(existing);
             }
+            // 存在时不进行任何修改，保留用户的修改
         } catch (Exception e) {
             log.error("  初始化权限组失败 [{}]: {}", name, e.getMessage());
         }
@@ -422,12 +413,8 @@ public class DatabaseInitializer implements CommandLineRunner {
                 config.setIsOpen(isOpen);
                 config.setIsDeleted(0);
                 sysConfigMapper.insert(config);
-            } else {
-                existing.setConfigValue(value);
-                existing.setDescription(description);
-                existing.setIsDeleted(0);
-                sysConfigMapper.updateById(existing);
             }
+            // 存在时不进行任何修改，保留用户的修改
         } catch (Exception e) {
             log.error("  初始化配置失败 [{}]: {}", key, e.getMessage());
         }
@@ -488,15 +475,8 @@ public class DatabaseInitializer implements CommandLineRunner {
                 seo.setIsSystem(true);
                 seo.setIsDeleted(0);
                 sysSeoMapper.insert(seo);
-            } else {
-                existing.setTitle(title);
-                existing.setKeywords(keywords);
-                existing.setDescription(description);
-                existing.setOgTitle(ogTitle);
-                existing.setOgDescription(ogDescription);
-                existing.setIsDeleted(0);
-                sysSeoMapper.updateById(existing);
             }
+            // 存在时不进行任何修改，保留用户的修改
         } catch (Exception e) {
             log.error("  初始化SEO配置失败 [{}]: {}", pageType, e.getMessage());
         }
