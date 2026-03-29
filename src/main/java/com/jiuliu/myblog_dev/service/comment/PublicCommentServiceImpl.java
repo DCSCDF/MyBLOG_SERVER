@@ -23,6 +23,7 @@ import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import org.slf4j.Logger;
@@ -46,6 +47,8 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
     private static final Logger log = LoggerFactory.getLogger(PublicCommentServiceImpl.class);
 
+    private static final String KEY_SHOW_EMAIL_ENABLED = "comment-show-email-enabled";
+
     /**
      * 评论最大嵌套层级配置（默认为1，即只能回复顶级评论）
      */
@@ -55,15 +58,18 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private final SysCommentMapper commentMapper;
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
+    private final SysConfigMapper sysConfigMapper;
     private final PublicArticleService publicArticleService;
 
     public PublicCommentServiceImpl(SysCommentMapper commentMapper,
                                     SysBlogMapper blogMapper,
                                     SysUserMapper userMapper,
+                                    SysConfigMapper sysConfigMapper,
                                     PublicArticleService publicArticleService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
+        this.sysConfigMapper = sysConfigMapper;
         this.publicArticleService = publicArticleService;
     }
 
@@ -293,6 +299,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     /**
      * 将 SysComment 转换为 PublicCommentResponseDTO
      * 如果评论有有效的 userId 且对应用户存在，则使用用户表信息覆盖
+     * 根据配置决定是否隐藏邮箱
      */
     private PublicCommentResponseDTO convertToResponseDTO(SysComment comment, Map<Long, SysUser> userMap) {
         PublicCommentResponseDTO dto = new PublicCommentResponseDTO();
@@ -307,19 +314,87 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
         // 如果评论者有对应的用户且用户有效，使用用户表信息
         Long userId = comment.getUserId();
+        String email;
         if (userId != null && userId > 0 && userMap.containsKey(userId)) {
             SysUser user = userMap.get(userId);
             dto.setUsername(user.getNickname());
-            dto.setEmail(user.getEmail());
+            email = user.getEmail();
             dto.setAvatarUrl(user.getAvatarUrl());
         } else {
             // 使用评论原始信息（游客或用户已被删除）
             dto.setUsername(comment.getUsername());
-            dto.setEmail(comment.getEmail());
+            email = comment.getEmail();
             dto.setAvatarUrl(comment.getAvatarUrl());
         }
 
+        // 根据配置决定是否隐藏邮箱
+        dto.setEmail(maskEmailIfNeeded(email));
+
         return dto;
+    }
+
+    /**
+     * 根据配置决定是否隐藏邮箱
+     * 如果 comment-show-email-enabled 为 false，则隐藏邮箱中间部分
+     */
+    private String maskEmailIfNeeded(String email) {
+        if (!StringUtils.hasText(email)) {
+            return email;
+        }
+
+        // 检查配置：comment-show-email-enabled 是否为 true
+        boolean showFullEmail = isShowEmailEnabled();
+        if (showFullEmail) {
+            return email;
+        }
+
+        // 不显示邮箱
+        return "";
+    }
+
+//    /**
+//     * 隐藏邮箱中间部分
+//     * 格式: 前3位 + * + @前保留3位 + @ + @后保留2位
+//     * 例如: 3201234567@qq.com -> 320*******67@qq.com
+//     */
+//    private String maskEmail(String email) {
+//        if (!StringUtils.hasText(email)) {
+//            return email;
+//        }
+//
+//        int atIndex = email.indexOf('@');
+//        if (atIndex <= 0) {
+//            // 无效邮箱格式，返回原值
+//            return email;
+//        }
+//
+//        String localPart = email.substring(0, atIndex);
+//        String domainPart = email.substring(atIndex);
+//
+//        // 如果本地部分太短（不足6位），直接返回原值（无法隐藏中间部分）
+//        if (localPart.length() < 6) {
+//            return email;
+//        }
+//
+//        // 保留前3位，中间用 * 填充，末尾保留3位
+//        String prefix = localPart.substring(0, 3);
+//        int maskLength = Math.min(localPart.length() - 6, 7); // 中间星号数量，最多7个
+//        String maskedLocal = prefix + "*".repeat(maskLength) + localPart.substring(localPart.length() - 3);
+//
+//        return maskedLocal + domainPart;
+//    }
+
+    /**
+     * 检查是否启用了显示完整邮箱
+     */
+    private boolean isShowEmailEnabled() {
+        try {
+            String value = sysConfigMapper.selectValueByKey(KEY_SHOW_EMAIL_ENABLED);
+            return "true".equalsIgnoreCase(value);
+        } catch (Exception e) {
+            log.debug("获取邮箱显示配置失败，使用默认值 false: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
