@@ -138,9 +138,9 @@ public class BlogServiceImpl implements BlogService {
         try {
             URL u = new URL(url);
             String scheme = u.getProtocol();
-            return !"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme);
+            return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
         } catch (MalformedURLException e) {
-            return true;
+            return false;
         }
     }
 
