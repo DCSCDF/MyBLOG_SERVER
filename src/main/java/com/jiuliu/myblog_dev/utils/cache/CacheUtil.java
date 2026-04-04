@@ -60,9 +60,4 @@ public class CacheUtil {
      * 公共文章列表缓存 - 缓存键前缀
      */
     public static final String CACHE_KEY_PUBLIC_ARTICLE_LIST = "public_article_list:";
-
-    /**
-     * OSS 图片缓存 - 缓存键前缀
-     */
-    public static final String CACHE_KEY_OSS_IMAGE = "oss_image:";
 }
