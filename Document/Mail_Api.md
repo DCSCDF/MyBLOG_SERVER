@@ -2,7 +2,7 @@
 
 ## 概述
 
-邮件模块提供 SMTP 邮件发送功能，支持发送测试邮件验证配置是否正确。
+邮件模块提供 SMTP 邮件发送功能，支持发送测试邮件验证配置是否正确，以及评论相关的自动通知邮件。
 
 ---
 
@@ -143,16 +143,30 @@
 
 在系统配置表 (`sys_config`) 中需要配置以下 SMTP 相关配置项：
 
-| 配置键              | 类型      | 默认值                | 说明                                          |
-|------------------|---------|--------------------|---------------------------------------------|
-| smtp.host        | string  | `smtp.example.com` | SMTP 服务器地址，如 `smtp.gmail.com`、`smtp.qq.com` |
-| smtp.port        | integer | `587`              | SMTP 端口号，常用端口：25（无加密）、587（TLS）、465（SSL）     |
-| smtp.username    | string  | -                  | SMTP 认证用户名，通常为邮箱地址                          |
-| smtp.password    | string  | -                  | SMTP 认证密码，部分邮箱需要使用应用专用密码                    |
-| smtp.from        | string  | -                  | 发件人邮箱地址                                     |
-| smtp.ssl.enabled | boolean | `false`            | 是否启用 SSL/TLS 加密                             |
+| 配置键 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| smtp.host | string | `smtp.example.com` | SMTP 服务器地址，如 `smtp.gmail.com`、`smtp.qq.com` |
+| smtp.port | integer | `587` | SMTP 端口号，常用端口：25（无加密）、587（TLS）、465（SSL） |
+| smtp.username | string | - | SMTP 认证用户名，通常为邮箱地址 |
+| smtp.password | string | - | SMTP 认证密码，部分邮箱需要使用应用专用密码 |
+| smtp.from | string | - | 发件人邮箱地址 |
+| smtp.ssl.enabled | boolean | `false` | 是否启用 SSL/TLS 加密 |
+| smtp.comment.enabled | boolean | `false` | 是否启用评论邮件通知功能 |
 
 ---
+
+## 评论自动通知功能
+
+系统支持评论相关的自动邮件通知功能，通过 `smtp.comment.enabled` 配置开关控制。
+
+### 通知类型
+
+| 通知类型 | 触发条件 | 收件人 | 说明 |
+|----------|----------|--------|------|
+| 新评论通知 | 有新评论提交时 | 拥有 `system:comment:list` 权限的管理员 | 游客评论提示"待审核" |
+| 顶级评论通过通知 | 顶级评论通过审核时 | 文章作者 | 通知有新评论 |
+| 评论回复通知 | 评论收到回复时 | 被回复的评论作者 | 通知有回复 |
+| 审核结果通知 | 评论审核状态变更时 | 评论作者 | 通知审核结果 |
 
 ## 错误代码说明
 

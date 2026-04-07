@@ -25,7 +25,9 @@ import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
+import com.jiuliu.myblog_dev.service.mail.MailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +50,8 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private static final Logger log = LoggerFactory.getLogger(PublicCommentServiceImpl.class);
 
     private static final String KEY_SHOW_EMAIL_ENABLED = "comment-show-email-enabled";
+    private static final String KEY_SITE_DOMAIN = "site.domain";
+    private static final String PERMISSION_COMMENT_LIST = "system:comment:list";
 
     /**
      * 评论最大嵌套层级配置（默认为1，即只能回复顶级评论）
@@ -59,18 +63,24 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
     private final SysConfigMapper sysConfigMapper;
+    private final SysRolePermissionMapper rolePermissionMapper;
     private final PublicArticleService publicArticleService;
+    private final MailService mailService;
 
     public PublicCommentServiceImpl(SysCommentMapper commentMapper,
                                     SysBlogMapper blogMapper,
                                     SysUserMapper userMapper,
                                     SysConfigMapper sysConfigMapper,
-                                    PublicArticleService publicArticleService) {
+                                    SysRolePermissionMapper rolePermissionMapper,
+                                    PublicArticleService publicArticleService,
+                                    MailService mailService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.sysConfigMapper = sysConfigMapper;
+        this.rolePermissionMapper = rolePermissionMapper;
         this.publicArticleService = publicArticleService;
+        this.mailService = mailService;
     }
 
     @Override
@@ -200,7 +210,10 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);
 
-            // 6. 返回结果
+            // 8. 发送新评论通知给管理员（异步执行，不影响主流程）
+            sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
+
+            // 9. 返回结果
             java.util.HashMap<String, Object> result = new java.util.HashMap<>();
             result.put("id", comment.getId());
             result.put("message", isLogin ? "评论提交成功" : "评论提交成功，待审核后显示");
@@ -395,6 +408,72 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.debug("获取邮箱显示配置失败，使用默认值 false: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 发送新评论通知给管理员
+     * 无论审核通过还是未通过，只要是新评论都会通知
+     * 如果是游客评论，会在通知中提示需要审核
+     */
+    private void sendNewCommentNotificationToAdmins(SysComment comment, SysBlog blog, String commenterName) {
+        try {
+            // 检查评论通知是否启用
+            if (!mailService.isCommentNotificationEnabled()) {
+                log.debug("新评论通知跳过：评论通知功能未启用");
+                return;
+            }
+
+            // 获取拥有 system:comment:list 权限的用户邮箱列表
+            List<String> adminEmails = rolePermissionMapper.selectUserEmailsByPermissionCode(PERMISSION_COMMENT_LIST);
+            if (adminEmails == null || adminEmails.isEmpty()) {
+                log.debug("新评论通知跳过：没有管理员邮箱，commentId={}", comment.getId());
+                return;
+            }
+
+            // 获取网站域名
+            String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
+
+            // 判断是否是游客评论
+            boolean isGuest = (comment.getUserId() == null);
+
+            // 获取评论者名称
+            String commenter = isGuest ? commenterName : getCommenterName(comment);
+
+            // 发送邮件通知
+            mailService.sendNewCommentNotificationToAdmins(
+                    adminEmails,
+                    siteDomain,
+                    isGuest,
+                    comment.getId(),
+                    blog.getId(),
+                    blog.getTitle(),
+                    commenter,
+                    comment.getContent()
+            );
+
+            log.info("新评论通知已发送给管理员，commentId={}, isGuest={}, adminCount={}",
+                    comment.getId(), isGuest, adminEmails.size());
+
+        } catch (Exception e) {
+            // 邮件发送失败不影响主流程，只记录日志
+            log.error("发送新评论通知邮件异常，commentId={}", comment.getId(), e);
+        }
+    }
+
+    /**
+     * 获取评论者名称
+     */
+    private String getCommenterName(SysComment comment) {
+        if (comment.getUserId() != null) {
+            SysUser user = userMapper.selectById(comment.getUserId());
+            if (user != null && StringUtils.hasText(user.getNickname())) {
+                return user.getNickname();
+            }
+        }
+        if (StringUtils.hasText(comment.getUsername())) {
+            return comment.getUsername();
+        }
+        return "匿名用户";
     }
 
     /**

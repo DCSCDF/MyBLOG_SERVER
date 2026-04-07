@@ -28,6 +28,8 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 @Service
 public class MailServiceImpl implements MailService {
 
@@ -194,7 +196,7 @@ public class MailServiceImpl implements MailService {
         }
 
         String subject = approved ? "您的评论已通过审核" : "您的评论未通过审核";
-        String content = buildReviewNotificationContent(approved, siteDomain);
+        String content = buildReviewNotificationContent(approved);
 
         return doSendMail(to, subject, content);
     }
@@ -212,49 +214,179 @@ public class MailServiceImpl implements MailService {
         }
 
         String subject = "您的评论收到新的回复";
-        String content = buildReplyNotificationContent(siteDomain, replyContent);
+        String content = buildReplyNotificationContent(replyContent);
 
         return doSendMail(to, subject, content);
     }
 
-    private String buildReviewNotificationContent(boolean approved, String siteDomain) {
+    private String buildReviewNotificationContent(boolean approved) {
+        return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
+                "<h2 style=\"color: #333;\">" + (approved ? "您的评论已通过审核" : "您的评论未通过审核") + "</h2>" +
+                "<p style=\"color: #666; line-height: 1.6;\">" +
+                "您好，</p>" +
+                "<p style=\"color: #666; line-height: 1.6;\">" +
+                (approved ? "您的评论已通过审核，感谢您的参与！" : "很抱歉，您的评论未通过审核，可能是因为内容不符合相关规定。") +
+                "</p>" +
+//        if (StringUtils.hasText(siteDomain)) {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+//            sb.append("</p>");
+//        }
+                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
+                "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
+                "</div>";
+    }
+
+    private String buildReplyNotificationContent(String replyContent) {
+        return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
+                "<h2 style=\"color: #333;\">您的评论收到新的回复</h2>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您好，</p>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您的评论有了新的回复：</p>" +
+                "<blockquote style=\"background: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0;\">" +
+                "<p style=\"color: #333; margin: 0;\">" + escapeHtml(replyContent) + "</p>" +
+                "</blockquote>" +
+//        if (StringUtils.hasText(siteDomain)) {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+//            sb.append("</p>");
+//        }
+                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
+                "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
+                "</div>";
+    }
+
+    @Override
+    public SaResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
+                                                       boolean isGuest, Long commentId, Long blogId,
+                                                       String blogTitle, String commenter, String content) {
+        if (toEmailList == null || toEmailList.isEmpty()) {
+            log.warn("发送新评论通知邮件失败：收件人列表为空");
+            return SaResult.error("收件人列表为空").setCode(400);
+        }
+
+        if (!mailConfig.isConfigured()) {
+            log.warn("发送新评论通知邮件失败：SMTP 配置未完成");
+            return SaResult.error("SMTP 配置未完成").setCode(400);
+        }
+
+        String subject = isGuest
+                ? "【待审核】网站有新评论需要审核"
+                : "网站有新评论";
+        String htmlContent = buildNewCommentNotificationContent(isGuest, commentId, blogId,
+                blogTitle, commenter, content);
+
+        int successCount = 0;
+        int failCount = 0;
+        for (String toEmail : toEmailList) {
+            if (!StringUtils.hasText(toEmail)) {
+                continue;
+            }
+            SaResult result = doSendMail(toEmail, subject, htmlContent);
+            if (result.getCode() == 200) {
+                successCount++;
+                log.info("新评论通知邮件发送成功，to={}, isGuest={}", toEmail, isGuest);
+            } else {
+                failCount++;
+                log.warn("新评论通知邮件发送失败，to={}, error={}", toEmail, result.getMsg());
+            }
+        }
+
+        if (successCount > 0) {
+            return SaResult.ok("成功发送 " + successCount + " 封通知邮件" + (failCount > 0 ? "，" + failCount + " 封发送失败" : ""));
+        } else {
+            return SaResult.error("所有通知邮件发送失败").setCode(500);
+        }
+    }
+
+    @Override
+    public SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
+                                                            Long blogId, String blogTitle, Long commentId,
+                                                            String commentContent, String commenter) {
+        if (!StringUtils.hasText(toEmail)) {
+            log.warn("发送顶级评论通过通知失败：收件人邮箱为空");
+            return SaResult.error("收件人邮箱为空").setCode(400);
+        }
+
+        if (!mailConfig.isConfigured()) {
+            log.warn("发送顶级评论通过通知失败：SMTP 配置未完成");
+            return SaResult.error("SMTP 配置未完成").setCode(400);
+        }
+
+        String subject = "您的文章《" + blogTitle + "》有新评论";
+        String htmlContent = buildTopLevelCommentApprovedContent(blogId, blogTitle,
+                commentId, commentContent, commenter);
+
+        return doSendMail(toEmail, subject, htmlContent);
+    }
+
+    private String buildNewCommentNotificationContent(boolean isGuest, Long commentId,
+                                                      Long blogId, String blogTitle, String commenter, String content) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
-        sb.append("<h2 style=\"color: #333;\">").append(approved ? "您的评论已通过审核" : "您的评论未通过审核").append("</h2>");
-        sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-        sb.append("您好，</p>");
-        sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-        sb.append(approved ? "您的评论已通过审核，感谢您的参与！" : "很抱歉，您的评论未通过审核，可能是因为内容不符合相关规定。");
-        sb.append("</p>");
-        if (StringUtils.hasText(siteDomain)) {
-            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
-            sb.append("</p>");
+        sb.append("<h2 style=\"color: #333;\">").append(isGuest ? "【待审核】网站有新评论需要处理" : "网站有新评论").append("</h2>");
+        sb.append("<p style=\"color: #666; line-height: 1.6;\">您好，</p>");
+
+        if (isGuest) {
+            sb.append("<p style=\"color: #666; line-height: 1.6;\">有游客提交了新评论，需要您进行审核。</p>");
+        } else {
+            sb.append("<p style=\"color: #666; line-height: 1.6;\">有用户提交了新评论（已自动通过审核）。</p>");
         }
+
+        sb.append("<div style=\"background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;\">");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>文章ID：</strong>").append(blogId).append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论ID：</strong>").append(commentId).append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>文章：</strong>").append(escapeHtml(blogTitle)).append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论者：</strong>").append(escapeHtml(commenter)).append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论内容：</strong></p>");
+        sb.append("<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">");
+        sb.append("<p style=\"color: #333; margin: 0;\">").append(escapeHtml(content)).append("</p>");
+        sb.append("</blockquote>");
+        sb.append("</div>");
+
+//        if (isGuest) {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">请登录后台进行审核。</p>");
+//        } else {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">查看详情。</p>");
+//        }
+
+//        if (StringUtils.hasText(siteDomain)) {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+//            sb.append("<a href=\"").append(siteDomain).append("/admin/comment\" style=\"color: #4CAF50;\">前往评论管理</a>");
+//            sb.append("</p>");
+//        }
+
         sb.append("<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">");
         sb.append("<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>");
         sb.append("</div>");
         return sb.toString();
     }
 
-    private String buildReplyNotificationContent(String siteDomain, String replyContent) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
-        sb.append("<h2 style=\"color: #333;\">您的评论收到新的回复</h2>");
-        sb.append("<p style=\"color: #666; line-height: 1.6;\">您好，</p>");
-        sb.append("<p style=\"color: #666; line-height: 1.6;\">您的评论有了新的回复：</p>");
-        sb.append("<blockquote style=\"background: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0;\">");
-        sb.append("<p style=\"color: #333; margin: 0;\">").append(escapeHtml(replyContent)).append("</p>");
-        sb.append("</blockquote>");
-        if (StringUtils.hasText(siteDomain)) {
-            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
-            sb.append("</p>");
-        }
-        sb.append("<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">");
-        sb.append("<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>");
-        sb.append("</div>");
-        return sb.toString();
+    private String buildTopLevelCommentApprovedContent(Long blogId, String blogTitle,
+                                                       Long commentId, String commentContent, String commenter) {
+
+        return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
+                "<h2 style=\"color: #333;\">您的文章有新评论</h2>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您好，</p>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您的文章《" + escapeHtml(blogTitle) + "》有新的评论了：</p>" +
+                "<div style=\"background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;\">" +
+                "<p style=\"color: #666; margin: 5px 0;\"><strong>文章ID：</strong>" + blogId + "</p>" +
+                "<p style=\"color: #666; margin: 5px 0;\"><strong>评论ID：</strong>" + commentId + "</p>" +
+                "<p style=\"color: #666; margin: 5px 0;\"><strong>评论者：</strong>" + escapeHtml(commenter) + "</p>" +
+                "<p style=\"color: #666; margin: 5px 0;\"><strong>评论内容：</strong></p>" +
+                "<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">" +
+                "<p style=\"color: #333; margin: 0;\">" + escapeHtml(commentContent) + "</p>" +
+                "</blockquote>" +
+                "</div>" +
+
+//        if (StringUtils.hasText(siteDomain)) {
+//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+//            sb.append("</p>");
+//        }
+
+                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
+                "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
+                "</div>";
     }
 
     private String escapeHtml(String text) {
