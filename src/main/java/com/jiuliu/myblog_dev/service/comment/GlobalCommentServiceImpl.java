@@ -203,6 +203,10 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             return SaResult.error("评论不存在").setCode(404);
         }
 
+        // 记录文章ID和评论状态，用于更新评论数
+        Long blogId = existing.getBlogId();
+        boolean wasApproved = (existing.getStatus() != null && existing.getStatus() == 1);
+
         // 级联删除：先删除所有子评论（递归）
         deleteChildComments(commentId);
 
@@ -214,8 +218,18 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         log.info("全局评论删除成功，id={}", commentId);
 
-        // 清除公共文章缓存（评论数可能变化）
-        clearPublicArticleCacheIfNeeded(existing);
+        // 如果删除的是已通过的评论，更新文章的评论数
+        if (wasApproved && blogId != null) {
+            blogMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
+                            .eq(SysBlog::getId, blogId)
+                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
+            );
+            log.info("文章评论数已减少（删除评论），blogId={}", blogId);
+        }
+
+        // 清除公共文章缓存
+        publicArticleService.clearPublicArticleCache();
 
         // 清除缓存
         clearGlobalCommentCache(commentId);
@@ -278,6 +292,10 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             blogForNotification = blogMapper.selectById(existing.getBlogId());
         }
 
+        // 记录原状态，用于更新评论数
+        Byte oldStatus = existing.getStatus();
+        boolean shouldUpdateCommentCount = (oldStatus != null && oldStatus == 1 && (newStatus == 0 || newStatus == 2));
+
         // 更新评论状态
         commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
                 .eq(SysComment::getId, commentId)
@@ -291,8 +309,18 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         log.info("评论审核状态变更成功，id={}, 新状态={}", commentId, newStatus);
 
-        // 清除公共文章缓存（评论数可能变化）
-        clearPublicArticleCacheIfNeeded(existing);
+        // 更新文章的评论数（仅当评论从已通过变为未通过时需要减少）
+        if (shouldUpdateCommentCount && existing.getBlogId() != null) {
+            blogMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
+                            .eq(SysBlog::getId, existing.getBlogId())
+                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
+            );
+            log.info("文章评论数已减少，blogId={}", existing.getBlogId());
+        }
+
+        // 清除公共文章缓存
+        publicArticleService.clearPublicArticleCache();
 
         // 清除缓存
         clearGlobalCommentCache(commentId);
@@ -550,19 +578,6 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         globalCommentCache.invalidate(commentId);
         globalCommentListCache.invalidateAll();
         log.debug("全局评论缓存已清除，id={}", commentId);
-    }
-
-    /**
-     * 根据评论状态变更清除公共文章缓存
-     * 当评论被审核通过(status=1)或取消通过(非1)时，需要刷新文章列表中的评论数
-     */
-    private void clearPublicArticleCacheIfNeeded(SysComment comment) {
-        // 如果评论的博客ID存在，且状态变更为已通过(status=1)，清除公共文章缓存
-        // 这样文章列表中的评论数会重新计算
-        if (comment.getBlogId() != null) {
-            publicArticleService.clearPublicArticleCache();
-            log.debug("公共文章缓存已清除（评论审核状态变更），blogId={}, commentId={}", comment.getBlogId(), comment.getId());
-        }
     }
 
     /**
