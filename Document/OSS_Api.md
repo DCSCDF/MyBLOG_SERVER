@@ -188,7 +188,12 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
         "originalName": "avatar.jpg",
         "objectName": "images/2026/03/26/avatar_123_456_xxx.jpg",
         "fileSize": 102400,
-        "createTime": "2026-03-26T10:30:00"
+        "createTime": "2026-03-26T10:30:00",
+        "thumbnailUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@t",
+        "smallUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@s",
+        "mediumUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@m",
+        "largeUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@l",
+        "url": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg"
       }
     ],
     "total": 50,
@@ -210,6 +215,11 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 | records[].objectName | String  | OSS对象名称（文件路径） |
 | records[].fileSize | Long    | 文件大小（字节）      |
 | records[].createTime | String  | 创建时间          |
+| records[].thumbnailUrl | String  | 缩略图 URL (200x200) |
+| records[].smallUrl | String  | 小图 URL (400x400) |
+| records[].mediumUrl | String  | 中图 URL (800x800) |
+| records[].largeUrl | String  | 大图 URL (1200x1200) |
+| records[].url | String  | 原图 URL |
 | total           | Long    | 总记录数          |
 | size            | Long    | 每页数量          |
 | current         | Long    | 当前页码          |
@@ -278,10 +288,11 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 ### 4. 获取图片（公开接口）
 
-通过哈希值获取 OSS 中的图片，支持 30 分钟本地缓存。
+通过哈希值获取 OSS 中的图片，支持动态尺寸缩放。
 
 - **URL**: `GET /api/images/{hash}`
 - **权限**: 无（公开接口）
+- **限流**: 30 次/分钟
 
 #### 路径参数
 
@@ -289,12 +300,32 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 |------|------|----|--------------|
 | hash | String | 是   | 图片哈希值（MD5） |
 
+#### 查询参数
+
+| 参数名 | 类型   | 必填 | 默认值 | 说明                      |
+|------|------|----|-----|-------------------------|
+| size | String | 否   | o   | 图片尺寸规格，可选值见下方尺寸说明     |
+
+#### 图片尺寸规格说明
+
+| 尺寸编码 | 尺寸      | 用途         |
+|------|---------|------------|
+| t    | 200x200 | 极小缩略图      |
+| s    | 400x400 | 小图展示（列表默认） |
+| m    | 800x800 | 中等尺寸       |
+| l    | 1200x1200 | 大图展示（默认）   |
+| o    | 原图     | 原图下载/预览    |
+
+> **注意**:
+> - 图片获取接口默认返回大图 (l)
+> - 尺寸缩放通过阿里云 OSS 图片处理功能实现，会按比例缩放并填充
+
 #### 成功响应
 
 返回图片二进制数据，响应头包含：
 - `Content-Type`: 图片 MIME 类型
 - `Content-Length`: 图片大小
-- `Cache-Control`: `public, max-age=1800`（30 分钟浏览器缓存）
+- `Cache-Control`: `no-cache, no-store, must-revalidate`
 
 #### 错误响应
 
@@ -472,6 +503,42 @@ OSS 配置从数据库动态加载，修改配置后系统会自动刷新，无�
 - **JPEG/JPG**: 使用 95% 质量压缩，在保持视觉质量的同时减小文件体积
 - **PNG**: 使用渐进式编码，减小文件体积
 - **其他格式（GIF, BMP, WebP）**: 保持原样
+
+### 图片尺寸缩放
+
+图片访问支持动态尺寸缩放，通过阿里云 OSS 图片处理参数实现：
+
+- **缩略图 (t)**: 200x200，等比填充，适用于列表展示
+- **小图 (s)**: 400x400，等比填充，适用于小图展示
+- **中图 (m)**: 800x800，等比填充，适用于中等尺寸
+- **大图 (l)**: 1200x1200，等比填充，适用于大图展示
+- **原图 (o)**: 不做任何处理，适用于下载/预览
+
+**URL 格式**:
+
+```
+原图: https://bucket.endpoint/{objectName}
+缩略图: https://bucket.endpoint/{objectName}@t
+小图: https://bucket.endpoint/{objectName}@s
+中图: https://bucket.endpoint/{objectName}@m
+大图: https://bucket.endpoint/{objectName}@l
+```
+
+**API 调用示例**:
+
+```bash
+# 获取缩略图 (200x200)
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=t" -o thumbnail.jpg
+
+# 获取小图 (400x400)
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=s" -o small.jpg
+
+# 获取原图
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=o" -o original.jpg
+
+# 获取图片 URL
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592/url?size=t"
+```
 
 ### 图片存储结构
 

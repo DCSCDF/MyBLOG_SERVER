@@ -9,7 +9,7 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/26
+ * UpdateTime: 2026/4/4
  */
 
 package com.jiuliu.myblog_dev.service.oss;
@@ -240,7 +240,7 @@ public class OssServiceImpl implements OssService {
         eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash, userId));
 
         // 13. 返回结果
-        String imageUrl = ossConfig.getImageUrlPrefix() + objectName;
+        String imageUrl = ossConfig.getImageUrl(objectName);
         log.info("图片上传全部完成，hash=[{}]，URL=[{}]，原始大小={} bytes，处理后={} bytes",
                 hash, imageUrl, fileBytes.length, processedBytes.length);
 
@@ -412,6 +412,11 @@ public class OssServiceImpl implements OssService {
 
     /**
      * 将实体转换为用户OSS响应DTO
+     *
+     * <p>填充多尺寸图片访问 URL，方便前端根据不同场景选择合适的尺寸。</p>
+     *
+     * @param image 图片实体
+     * @return 用户OSS响应DTO
      */
     private UserOssResponseDTO convertToUserOssResponseDTO(SysOssImage image) {
         UserOssResponseDTO dto = new UserOssResponseDTO();
@@ -421,6 +426,16 @@ public class OssServiceImpl implements OssService {
         dto.setObjectName(image.getObjectName());
         dto.setFileSize(image.getFileSize());
         dto.setCreateTime(image.getCreateTime());
+
+        // 填充多尺寸图片 URL
+        // thumbnailUrl 使用小图 (400x400)，适合列表展示
+        OSSConfig.ImageUrls urls = ossConfig.getAllSizeImageUrls(image.getObjectName());
+        dto.setThumbnailUrl(urls.small());
+        dto.setSmallUrl(urls.small());
+        dto.setMediumUrl(urls.medium());
+        dto.setLargeUrl(urls.large());
+        dto.setUrl(urls.original());
+
         return dto;
     }
 

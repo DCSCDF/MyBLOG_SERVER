@@ -9,11 +9,12 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/4/1
+ * UpdateTime: 2026/4/4
  */
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
+import com.jiuliu.myblog_dev.config.business.OSSConfig;
 import com.jiuliu.myblog_dev.service.oss.ImageService;
 import com.jiuliu.myblog_dev.service.oss.ImageService.ImageMeta;
 import com.jiuliu.myblog_dev.utils.rateLimit.DynamicRateLimitService;
@@ -26,13 +27,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 公开图片获取接口
  *
  * <p>通过哈希值获取 OSS 中的图片，直接流式传输到客户端。
- * 支持 IP 限流和动态速度调整。</p>
+ * 支持 IP 限流、动态速度调整和图片尺寸选择。</p>
  */
 @RestController
 @RequestMapping("/api/images")
@@ -56,19 +58,28 @@ public class PublicImageController {
      * 使用动态 IP 限流和速度调整防止后端过载。</p>
      *
      * @param hash     图片哈希值（MD5）
+     * @param size     图片尺寸规格（可选，默认原图）
+     *                  - t: 缩略图 200x200
+     *                  - s: 小图 400x400
+     *                  - m: 中图 800x800
+     *                  - l: 大图 1200x1200
+     *                  - o: 原图（默认）
      * @param request  HTTP 请求
      * @param response HTTP 响应
      */
     @GetMapping("/{hash}")
     @RateLimit(count = 30, period = 1, prefix = "image")
     public void getImage(@PathVariable String hash,
+                         @RequestParam(required = false, defaultValue = "l") String size,
                          HttpServletRequest request,
                          HttpServletResponse response) {
         String clientIp = getClientIp(request);
         long startTime = System.currentTimeMillis();
 
-        log.info("[图片请求] hash=[{}], IP=[{}], 活跃请求=[{}], 推荐速度=[{} KB/s]",
-                hash, clientIp,
+        OSSConfig.ImageSize imageSize = OSSConfig.ImageSize.fromCode(size);
+
+        log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}], 活跃请求=[{}], 推荐速度=[{} KB/s]",
+                hash, imageSize.getCode(), imageSize.getDescription(), clientIp,
                 dynamicRateLimitService.getActiveRequestCount(),
                 dynamicRateLimitService.getRecommendedTransferSpeed());
 
@@ -96,8 +107,9 @@ public class PublicImageController {
             response.setContentType(meta.contentType());
             response.setStatus(HttpStatus.OK.value());
 
-            log.debug("[开始传输] hash=[{}], 大小=[{} bytes], 类型=[{}]", hash, meta.contentLength(), meta.contentType());
-            boolean success = imageService.streamImage(hash, response);
+            log.debug("[开始传输] hash=[{}], size=[{}], 大小=[{} bytes], 类型=[{}]",
+                    hash, imageSize.getCode(), meta.contentLength(), meta.contentType());
+            boolean success = imageService.streamImage(hash, imageSize, response);
 
             if (!success && !response.isCommitted()) {
                 log.error("[传输失败] hash=[{}], 响应状态未提交，将返回503", hash);
@@ -106,7 +118,8 @@ public class PublicImageController {
                 log.warn("[传输失败但已提交] hash=[{}], 可能是客户端断开连接", hash);
             } else {
                 long duration = System.currentTimeMillis() - startTime;
-                log.info("[传输成功] hash=[{}], 耗时=[{}ms], 大小=[{} bytes]", hash, duration, meta.contentLength());
+                log.info("[传输成功] hash=[{}], size=[{}], 耗时=[{}ms], 大小=[{} bytes]",
+                        hash, imageSize.getCode(), duration, meta.contentLength());
             }
         } catch (Exception e) {
             log.error("[图片获取异常] hash=[{}]：{}", hash, e.getMessage(), e);
