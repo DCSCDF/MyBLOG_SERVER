@@ -26,11 +26,13 @@ import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.entity.user.SysUserRole;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
+import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
+import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.utils.auth.OAuthCodeService;
 import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
@@ -62,6 +64,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysUserRoleMapper sysUserRoleMapper;
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
+    private final SysPermissionGroupMapper sysPermissionGroupMapper;
     private final SysConfigMapper sysConfigMapper;
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -74,6 +77,7 @@ public class AuthServiceImpl implements AuthService {
             SysUserRoleMapper sysUserRoleMapper,
             SysRoleMapper sysRoleMapper,
             SysPermissionMapper sysPermissionMapper,
+            SysPermissionGroupMapper sysPermissionGroupMapper,
             SysConfigMapper sysConfigMapper,
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
@@ -84,6 +88,7 @@ public class AuthServiceImpl implements AuthService {
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
+        this.sysPermissionGroupMapper = sysPermissionGroupMapper;
         this.sysConfigMapper = sysConfigMapper;
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
@@ -626,16 +631,20 @@ public class AuthServiceImpl implements AuthService {
         Set<String> resultCodes = new LinkedHashSet<>();
 
         for (SysRole role : roles) {
-            List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByRoleId(role.getId());
-            for (SysPermission permission : rolePermissions) {
-                String code = permission.getCode();
-                if (!StringUtils.hasText(code)) {
-                    continue;
-                }
-                if (resultCodes.add(code)) {
-                    for (String candidate : allCodes) {
-                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
-                            resultCodes.add(candidate);
+            // 通过权限组获取权限（动态计算，不再依赖 sys_role_permission 表）
+            List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(role.getId());
+            for (SysPermissionGroup group : groups) {
+                List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByGroupId(group.getId());
+                for (SysPermission permission : rolePermissions) {
+                    String code = permission.getCode();
+                    if (!StringUtils.hasText(code)) {
+                        continue;
+                    }
+                    if (resultCodes.add(code)) {
+                        for (String candidate : allCodes) {
+                            if (PermissionOverlapHelper.isParentOf(code, candidate)) {
+                                resultCodes.add(candidate);
+                            }
                         }
                     }
                 }

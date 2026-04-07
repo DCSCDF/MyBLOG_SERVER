@@ -21,7 +21,6 @@ import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroupItem;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
-import com.jiuliu.myblog_dev.entity.user.role.SysRolePermission;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.seo.SysSeoMapper;
@@ -30,7 +29,6 @@ import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupItemM
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionGroupMapper;
-import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -60,7 +58,6 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final SysPermissionGroupItemMapper sysPermissionGroupItemMapper;
     private final SysConfigMapper sysConfigMapper;
     private final SysSeoMapper sysSeoMapper;
-    private final SysRolePermissionMapper sysRolePermissionMapper;
     private final SysRolePermissionGroupMapper sysRolePermissionGroupMapper;
 
     public DatabaseInitializer(SysRoleMapper sysRoleMapper,
@@ -69,7 +66,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                                SysPermissionGroupItemMapper sysPermissionGroupItemMapper,
                                SysConfigMapper sysConfigMapper,
                                SysSeoMapper sysSeoMapper,
-                               SysRolePermissionMapper sysRolePermissionMapper,
                                SysRolePermissionGroupMapper sysRolePermissionGroupMapper) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
@@ -77,7 +73,6 @@ public class DatabaseInitializer implements CommandLineRunner {
         this.sysPermissionGroupItemMapper = sysPermissionGroupItemMapper;
         this.sysConfigMapper = sysConfigMapper;
         this.sysSeoMapper = sysSeoMapper;
-        this.sysRolePermissionMapper = sysRolePermissionMapper;
         this.sysRolePermissionGroupMapper = sysRolePermissionGroupMapper;
     }
 
@@ -112,9 +107,6 @@ public class DatabaseInitializer implements CommandLineRunner {
 
             // 初始化角色-权限组关联
             initRolePermissionGroupRelations();
-
-            // 初始化角色-权限关联
-            initRolePermissionRelations();
 
             // 初始化默认配置
             initDefaultConfigs();
@@ -479,181 +471,6 @@ public class DatabaseInitializer implements CommandLineRunner {
             // 存在时不进行任何修改，保留用户的修改
         } catch (Exception e) {
             log.error("  初始化SEO配置失败 [{}]: {}", pageType, e.getMessage());
-        }
-    }
-
-    /**
-     * 初始化角色-权限关联关系
-     */
-    private void initRolePermissionRelations() {
-        log.info("初始化角色-权限关联...");
-
-        // 获取所有角色
-        QueryWrapper<SysRole> roleWrapper = new QueryWrapper<>();
-        roleWrapper.eq("is_deleted", 0);
-        List<SysRole> roles = sysRoleMapper.selectList(roleWrapper);
-
-        // 获取所有权限
-        List<SysPermission> allPermissions = sysPermissionMapper.selectList(null);
-        if (roles.isEmpty() || allPermissions.isEmpty()) {
-            log.warn("角色或权限表为空，跳过关联初始化");
-            return;
-        }
-
-        // 创建权限代码到ID的映射
-        Map<String, Long> permissionCodeToId = new HashMap<>();
-        for (SysPermission perm : allPermissions) {
-            permissionCodeToId.put(perm.getCode(), perm.getId());
-        }
-
-        // 创建角色代码到ID的映射
-        Map<String, Long> roleCodeToId = new HashMap<>();
-        for (SysRole role : roles) {
-            roleCodeToId.put(role.getCode(), role.getId());
-        }
-
-        // 定义角色-权限关联关系
-        Map<String, List<String>> rolePermissionMap = buildRolePermissionRelations();
-
-        // 为每个角色分配权限
-        int totalRelations = 0;
-        for (Map.Entry<String, List<String>> entry : rolePermissionMap.entrySet()) {
-            String roleCode = entry.getKey();
-            List<String> permissionCodes = entry.getValue();
-
-            Long roleId = roleCodeToId.get(roleCode);
-            if (roleId == null) {
-                log.warn("  角色不存在: {}", roleCode);
-                continue;
-            }
-
-            for (String permCode : permissionCodes) {
-                Long permId = permissionCodeToId.get(permCode);
-                if (permId == null) {
-                    log.warn("  权限不存在: {}", permCode);
-                    continue;
-                }
-
-                if (insertOrUpdateRolePermission(roleId, permId)) {
-                    totalRelations++;
-                }
-            }
-        }
-
-        log.info("角色-权限关联初始化完成，共建立 {} 条关联关系", totalRelations);
-    }
-
-    /**
-     * 定义角色-权限关联关系
-     * 键：角色代码
-     * 值：该角色拥有的权限代码列表
-     */
-    private Map<String, List<String>> buildRolePermissionRelations() {
-        Map<String, List<String>> relations = new HashMap<>();
-
-        // 超级管理员：拥有所有权限
-        relations.put("SUPER_ADMIN", Arrays.asList(
-                // 用户管理
-                "system:user:list", "system:user:edit", "system:user:delete", "system:user:assignRole",
-                // 角色管理
-                "system:role:list", "system:role:create", "system:role:edit", "system:role:delete",
-                "system:role:addPermission", "system:role:removePermission",
-                "system:role:addPermissionGroup", "system:role:removePermissionGroup",
-                // 权限管理
-                "system:permission",
-                // 权限组管理
-                "system:permission:permission_group:list", "system:permission:permission_group:create",
-                "system:permission:permission_group:edit", "system:permission:permission_group:delete",
-                "system:permission:permission_group:addPermission", "system:permission:permission_group:removePermission",
-                // 配置管理
-                "system:config:systemlist", "system:config:customlist", "system:config:create", "system:config:edit", "system:config:delete",
-                // SEO管理
-                "system:seo:list", "system:seo:create", "system:seo:edit", "system:seo:delete",
-                // OSS管理
-                "system:oss:list", "system:oss:delete",
-                // 全局文章管理
-                "system:article:list", "system:article:edit", "system:article:delete",
-                // 全局评论管理
-                "system:comment:list", "system:comment:edit", "system:comment:delete", "system:comment:approve",
-                // 文章管理
-                "article:list", "article:create", "article:edit", "article:delete",
-                // 分类管理
-                "category:list", "category:create", "category:edit", "category:delete",
-                // 评论管理
-                "comment:list", "comment:edit", "comment:delete",
-                // 链接管理
-                "links:list", "links:create", "links:edit", "links:delete",
-                // OSS
-                "oss:list", "oss:create", "oss:delete"
-        ));
-
-        // 管理员：大部分管理权限
-        relations.put("ADMIN", Arrays.asList(
-                // 用户管理
-                "system:user:list", "system:user:edit", "system:user:delete", "system:user:assignRole",
-                // 角色管理
-                "system:role:list",
-                // 配置管理
-                "system:config:systemlist", "system:config:customlist", "system:config:create", "system:config:edit", "system:config:delete",
-                // OSS管理
-                "system:oss:list", "system:oss:delete",
-                // 全局文章管理
-                "system:article:list", "system:article:edit", "system:article:delete",
-                // 全局评论管理
-                "system:comment:list", "system:comment:edit", "system:comment:delete", "system:comment:approve",
-                // 文章管理
-                "article:list", "article:create", "article:edit", "article:delete",
-                // 分类管理
-                "category:list", "category:create", "category:edit", "category:delete",
-                // 评论管理
-                "comment:list", "comment:edit", "comment:delete",
-                // 链接管理
-                "links:list", "links:create", "links:edit", "links:delete",
-                // OSS
-                "oss:list", "oss:create", "oss:delete"
-        ));
-
-        // 作者：文章相关权限
-        relations.put("AUTHOR", Arrays.asList(
-                // 文章管理
-                "article:list", "article:create", "article:edit", "article:delete",
-                // 分类管理
-                "category:list", "category:create", "category:edit",
-                // 评论管理
-                "comment:list", "comment:edit",
-                // 链接管理
-                "links:list",
-                // OSS
-                "oss:list", "oss:create"
-        ));
-
-        // 普通用户：基础权限（无直接权限，通过角色组关联）
-        relations.put("USER", List.of());
-
-        return relations;
-    }
-
-    /**
-     * 插入或更新角色-权限关联
-     */
-    private boolean insertOrUpdateRolePermission(Long roleId, Long permissionId) {
-        try {
-            QueryWrapper<SysRolePermission> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("role_id", roleId);
-            queryWrapper.eq("permission_id", permissionId);
-            SysRolePermission existing = sysRolePermissionMapper.selectOne(queryWrapper);
-
-            if (existing == null) {
-                SysRolePermission relation = new SysRolePermission();
-                relation.setRoleId(roleId);
-                relation.setPermissionId(permissionId);
-                sysRolePermissionMapper.insert(relation);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("  初始化角色权限关联失败 [role={}, perm={}]: {}", roleId, permissionId, e.getMessage());
-            return false;
         }
     }
 

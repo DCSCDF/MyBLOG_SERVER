@@ -27,7 +27,7 @@ import java.util.List;
 public interface SysRolePermissionMapper extends BaseMapper<SysRolePermission> {
 
     /**
-     * 根据角色 ID 查询权限列表
+     * 根据角色 ID 查询直接分配的权限列表
      *
      * @param roleId 角色 ID
      * @return 权限列表
@@ -52,16 +52,23 @@ public interface SysRolePermissionMapper extends BaseMapper<SysRolePermission> {
 
     /**
      * 查询拥有指定权限的所有用户邮箱
-     * 通过 sys_permission -> sys_role_permission -> sys_user_role -> sys_user 关联查询
+     * 同时查询直接分配的权限和通过权限组获得的权限
      *
      * @param permissionCode 权限编码（如 "system:comment:list"）
      * @return 拥有该权限的用户邮箱列表
      */
     @Select("SELECT DISTINCT u.email FROM sys_user u " +
             "JOIN sys_user_role ur ON u.id = ur.user_id " +
-            "JOIN sys_role_permission rp ON ur.role_id = rp.role_id " +
-            "JOIN sys_permission p ON rp.permission_id = p.id " +
-            "WHERE p.code = #{permissionCode} " +
+            "WHERE (" +
+            // 方式1: 直接分配的权限
+            "  EXISTS (SELECT 1 FROM sys_role_permission rp WHERE rp.role_id = ur.role_id " +
+            "          AND EXISTS (SELECT 1 FROM sys_permission p WHERE p.id = rp.permission_id AND p.code = #{permissionCode}))" +
+            " OR " +
+            // 方式2: 通过权限组获得的权限
+            "  EXISTS (SELECT 1 FROM sys_role_permission_group rpg WHERE rpg.role_id = ur.role_id " +
+            "          AND EXISTS (SELECT 1 FROM sys_permission_group_item pgi WHERE pgi.group_id = rpg.group_id " +
+            "                     AND EXISTS (SELECT 1 FROM sys_permission p WHERE p.id = pgi.permission_id AND p.code = #{permissionCode})))" +
+            ") " +
             "AND u.email IS NOT NULL " +
             "AND u.email != '' " +
             "AND u.status = 1")

@@ -53,8 +53,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.jiuliu.myblog_dev.service.user.permission.PermissionServiceImpl.getPermissionResponseDTO;
@@ -270,7 +273,8 @@ public class RoleServiceImpl implements RoleService {
             return SaResult.error("角色不存在").setCode(404);
         }
 
-        List<SysPermission> permissions = sysPermissionMapper.selectPermissionsByRoleId(roleId);
+        // 通过权限组动态计算权限（不再依赖 sys_role_permission 表）
+        List<SysPermission> permissions = getRoleAllPermissions(roleId);
         List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(roleId);
 
         RolePermissionsDetailDTO detail = new RolePermissionsDetailDTO();
@@ -278,6 +282,34 @@ public class RoleServiceImpl implements RoleService {
         detail.setPermissions(permissions.stream().map(this::toPermissionDTO).collect(Collectors.toList()));
         detail.setPermissionGroups(groups.stream().map(this::toPermissionGroupDTO).collect(Collectors.toList()));
         return SaResult.data(detail);
+    }
+
+    /**
+     * 获取角色拥有的所有权限（权限组中的权限 + 直接分配的权限）
+     */
+    private List<SysPermission> getRoleAllPermissions(Long roleId) {
+        List<SysPermission> permissions = new ArrayList<>();
+        Set<Long> addedIds = new HashSet<>();
+
+        // 先添加直接分配的权限（直接从 sys_role_permission 表查询）
+        List<SysPermission> directPerms = sysRolePermissionMapper.selectPermissionsByRoleId(roleId);
+        for (SysPermission p : directPerms) {
+            if (addedIds.add(p.getId())) {
+                permissions.add(p);
+            }
+        }
+
+        // 再添加权限组中的权限
+        List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(roleId);
+        for (SysPermissionGroup group : groups) {
+            List<SysPermission> groupPerms = sysPermissionMapper.selectPermissionsByGroupId(group.getId());
+            for (SysPermission p : groupPerms) {
+                if (addedIds.add(p.getId())) {
+                    permissions.add(p);
+                }
+            }
+        }
+        return permissions;
     }
 
     @Override
@@ -289,7 +321,7 @@ public class RoleServiceImpl implements RoleService {
             return SaResult.error("权限不存在").setCode(404);
         }
 
-        // 父子权限重叠校验：与角色已有权限（直接分配+权限组）任一重叠则不通过
+        // 父子权限重叠校验：与角色已有权限（权限组+直接分配）任一重叠则不通过
         List<String> rolePermissionCodes = getRoleAllPermissionCodes(roleId);
         for (String existingCode : rolePermissionCodes) {
             if (PermissionOverlapHelper.overlaps(newPerm.getCode(), existingCode)) {
@@ -314,8 +346,8 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermission::getRoleId, roleId)
                         .eq(SysRolePermission::getPermissionId, permissionId));
         if (deleted == 0) {
-            log.warn("角色移除权限失败：该权限未分配给角色，roleId={}, permissionId={}", roleId, permissionId);
-            return SaResult.error("该权限未分配给角色").setCode(400);
+            log.warn("角色移除权限失败：该权限未直接分配给角色，roleId={}, permissionId={}", roleId, permissionId);
+            return SaResult.error("该权限未直接分配给角色").setCode(400);
         }
         log.info("角色移除权限成功，roleId={}, permissionId={}", roleId, permissionId);
         return SaResult.data("移除成功");
@@ -393,7 +425,6 @@ public class RoleServiceImpl implements RoleService {
         }
 
         // 从角色权限表中移除该权限组包含的权限（这些权限仅通过该组获得，直接分配的权限在删除组时保留）
-        // 注意：若某权限同时通过直接分配获得，此处删除会一并移除，需重新添加
         List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
                 .map(SysPermission::getId)
                 .toList();
@@ -417,16 +448,26 @@ public class RoleServiceImpl implements RoleService {
     }
 
     /**
-     * 获取角色拥有的所有权限编码（直接分配的权限 + 权限组中的权限）
+     * 获取角色拥有的所有权限编码（权限组中的权限 + 直接分配的权限）
      */
     private List<String> getRoleAllPermissionCodes(Long roleId) {
+        List<String> codes = new ArrayList<>();
+        Set<Long> addedIds = new HashSet<>();
+
+        // 先添加直接分配的权限
         List<SysPermission> directPerms = sysPermissionMapper.selectPermissionsByRoleId(roleId);
-        List<String> codes = directPerms.stream().map(SysPermission::getCode).collect(Collectors.toList());
+        for (SysPermission p : directPerms) {
+            if (addedIds.add(p.getId())) {
+                codes.add(p.getCode());
+            }
+        }
+
+        // 再添加权限组中的权限
         List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(roleId);
         for (SysPermissionGroup g : groups) {
             List<SysPermission> groupPerms = sysPermissionMapper.selectPermissionsByGroupId(g.getId());
             for (SysPermission p : groupPerms) {
-                if (!codes.contains(p.getCode())) {
+                if (addedIds.add(p.getId())) {
                     codes.add(p.getCode());
                 }
             }

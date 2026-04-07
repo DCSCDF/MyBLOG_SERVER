@@ -26,7 +26,7 @@ import java.util.List;
 public interface SysPermissionMapper extends BaseMapper<SysPermission> {
 
     /**
-     * 根据角色 ID 查询权限列表
+     * 根据角色 ID 查询直接分配的权限列表
      *
      * @param roleId 角色 ID
      * @return 权限列表

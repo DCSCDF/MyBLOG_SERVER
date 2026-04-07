@@ -16,8 +16,10 @@ package com.jiuliu.myblog_dev.service.authentication;
 
 import cn.dev33.satoken.stp.StpInterface;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
+import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
+import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import org.springframework.stereotype.Service;
@@ -34,10 +36,14 @@ public class AuthenticationService implements StpInterface {
 
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
+    private final SysPermissionGroupMapper sysPermissionGroupMapper;
 
-    public AuthenticationService(SysRoleMapper sysRoleMapper, SysPermissionMapper sysPermissionMapper) {
+    public AuthenticationService(SysRoleMapper sysRoleMapper,
+                                 SysPermissionMapper sysPermissionMapper,
+                                 SysPermissionGroupMapper sysPermissionGroupMapper) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
+        this.sysPermissionGroupMapper = sysPermissionGroupMapper;
     }
 
     //缓存 实现前要确保变更角色的权限后要刷新缓存
@@ -68,18 +74,22 @@ public class AuthenticationService implements StpInterface {
         Set<String> resultCodes = new LinkedHashSet<>();
 
         for (SysRole role : roleList) {
-            List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByRoleId(role.getId());
-            for (SysPermission permission : rolePermissions) {
-                String code = permission.getCode();
-                if (!StringUtils.hasText(code)) {
-                    continue;
-                }
-                // 先加入自身权限
-                if (resultCodes.add(code)) {
-                    // 再根据父子关系规则，将其所有子权限一并加入
-                    for (String candidate : allPermissionCodes) {
-                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
-                            resultCodes.add(candidate);
+            // 通过权限组获取权限（动态计算，不再依赖 sys_role_permission 表）
+            List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(role.getId());
+            for (SysPermissionGroup group : groups) {
+                List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByGroupId(group.getId());
+                for (SysPermission permission : rolePermissions) {
+                    String code = permission.getCode();
+                    if (!StringUtils.hasText(code)) {
+                        continue;
+                    }
+                    // 先加入自身权限
+                    if (resultCodes.add(code)) {
+                        // 再根据父子关系规则，将其所有子权限一并加入
+                        for (String candidate : allPermissionCodes) {
+                            if (PermissionOverlapHelper.isParentOf(code, candidate)) {
+                                resultCodes.add(candidate);
+                            }
                         }
                     }
                 }
