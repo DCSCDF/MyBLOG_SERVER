@@ -328,18 +328,22 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         // 发送邮件通知（仅在审核通过或垃圾评论时）
         if (newStatus == 1) {
             // 审核通过：发送审核通过通知给当前评论作者
-            sendCommentNotification(existing, true);
+            boolean sent = sendCommentNotification(existing, true);
+            log.debug("评论审核通知发送结果，commentId={}, sent={}", existing.getId(), sent);
             // 如果是子评论，发送回复通知给父评论作者
             if (existing.getParentId() != null && existing.getParentId() != 0) {
-                sendReplyNotificationToParent(existing.getParentId(), existing.getContent());
+                boolean replySent = sendReplyNotificationToParent(existing.getParentId(), existing.getContent());
+                log.debug("评论回复通知发送结果，parentId={}, sent={}", existing.getParentId(), replySent);
             }
             // 如果是顶级评论通过审核，通知文章作者
             if (isTopLevelAndApproving && blogForNotification != null) {
-                sendTopLevelCommentApprovedNotificationToAuthor(existing, blogForNotification);
+                boolean authorSent = sendTopLevelCommentApprovedNotificationToAuthor(existing, blogForNotification);
+                log.debug("文章作者通知发送结果，commentId={}, sent={}", existing.getId(), authorSent);
             }
         } else if (newStatus == 2) {
             // 设为垃圾评论：发送未通过通知给当前评论作者
-            sendCommentNotification(existing, false);
+            boolean sent = sendCommentNotification(existing, false);
+            log.debug("评论未通过通知发送结果，commentId={}, sent={}", existing.getId(), sent);
         }
 
         SysComment updated = commentMapper.selectById(commentId);
@@ -348,36 +352,44 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
     /**
      * 发送评论审核结果邮件通知
+     *
+     * @param comment  评论实体
+     * @param approved 是否审核通过
+     * @return 是否发送成功
      */
-    private void sendCommentNotification(SysComment comment, boolean approved) {
+    private boolean sendCommentNotification(SysComment comment, boolean approved) {
         // 检查评论通知是否启用
-        if (!mailService.isCommentNotificationEnabled()) {
+        boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+        if (!notificationEnabled) {
             log.debug("评论审核通知跳过：评论通知功能未启用");
-            return;
+            return false;
         }
 
         // 获取收件人邮箱
         String toEmail = getRecipientEmail(comment);
         if (!StringUtils.hasText(toEmail)) {
             log.debug("评论审核通知邮件跳过：无法获取收件人邮箱，commentId={}", comment.getId());
-            return;
+            return false;
         }
 
         // 获取网站域名
         String siteDomain = getSiteDomain();
 
-        // 发送邮件（异步执行，不影响主流程）
+        // 发送邮件
         try {
             SaResult result = mailService.sendCommentReviewNotification(toEmail, approved, siteDomain);
             if (result.getCode() == 200) {
                 log.info("评论审核通知邮件发送成功，commentId={}, to={}, approved={}",
                         comment.getId(), toEmail, approved);
+                return true;
             } else {
                 log.warn("评论审核通知邮件发送失败，commentId={}, to={}, error={}",
                         comment.getId(), toEmail, result.getMsg());
+                return false;
             }
         } catch (Exception e) {
             log.error("评论审核通知邮件发送异常，commentId={}", comment.getId(), e);
+            return false;
         }
     }
 
@@ -417,26 +429,28 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
      *
      * @param parentCommentId 父评论ID
      * @param replyContent    回复的评论内容
+     * @return 是否发送成功
      */
-    private void sendReplyNotificationToParent(Long parentCommentId, String replyContent) {
+    private boolean sendReplyNotificationToParent(Long parentCommentId, String replyContent) {
         // 检查评论通知是否启用
-        if (!mailService.isCommentNotificationEnabled()) {
+        boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+        if (!notificationEnabled) {
             log.debug("评论回复通知跳过：评论通知功能未启用");
-            return;
+            return false;
         }
 
         // 获取父评论
         SysComment parentComment = commentMapper.selectById(parentCommentId);
         if (parentComment == null) {
             log.debug("评论回复通知跳过：父评论不存在，parentId={}", parentCommentId);
-            return;
+            return false;
         }
 
         // 获取父评论作者的邮箱
         String toEmail = getRecipientEmail(parentComment);
         if (!StringUtils.hasText(toEmail)) {
             log.debug("评论回复通知跳过：无法获取收件人邮箱，parentId={}", parentCommentId);
-            return;
+            return false;
         }
 
         // 获取网站域名
@@ -447,12 +461,15 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyContent);
             if (result.getCode() == 200) {
                 log.info("评论回复通知邮件发送成功，parentId={}, to={}", parentCommentId, toEmail);
+                return true;
             } else {
                 log.warn("评论回复通知邮件发送失败，parentId={}, to={}, error={}",
                         parentCommentId, toEmail, result.getMsg());
+                return false;
             }
         } catch (Exception e) {
             log.error("评论回复通知邮件发送异常，parentId={}", parentCommentId, e);
+            return false;
         }
     }
 
@@ -462,31 +479,33 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
      *
      * @param comment 顶级评论
      * @param blog    文章
+     * @return 是否发送成功
      */
-    private void sendTopLevelCommentApprovedNotificationToAuthor(SysComment comment, SysBlog blog) {
+    private boolean sendTopLevelCommentApprovedNotificationToAuthor(SysComment comment, SysBlog blog) {
         // 检查评论通知是否启用
-        if (!mailService.isCommentNotificationEnabled()) {
+        boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+        if (!notificationEnabled) {
             log.debug("顶级评论通过通知跳过：评论通知功能未启用");
-            return;
+            return false;
         }
 
         // 获取文章作者
         if (blog.getAuthorId() == null) {
             log.debug("顶级评论通过通知跳过：文章没有作者，blogId={}", blog.getId());
-            return;
+            return false;
         }
 
         SysUser author = userMapper.selectById(blog.getAuthorId());
         if (author == null) {
             log.debug("顶级评论通过通知跳过：文章作者不存在，authorId={}", blog.getAuthorId());
-            return;
+            return false;
         }
 
         // 获取作者邮箱
         String toEmail = author.getEmail();
         if (!StringUtils.hasText(toEmail)) {
             log.debug("顶级评论通过通知跳过：作者邮箱为空，authorId={}", blog.getAuthorId());
-            return;
+            return false;
         }
 
         // 获取网站域名
@@ -503,12 +522,15 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             if (result.getCode() == 200) {
                 log.info("顶级评论通过通知发送给文章作者成功，commentId={}, authorId={}, authorEmail={}",
                         comment.getId(), blog.getAuthorId(), toEmail);
+                return true;
             } else {
                 log.warn("顶级评论通过通知发送给文章作者失败，commentId={}, authorEmail={}, error={}",
                         comment.getId(), toEmail, result.getMsg());
+                return false;
             }
         } catch (Exception e) {
             log.error("顶级评论通过通知发送异常，commentId={}", comment.getId(), e);
+            return false;
         }
     }
 

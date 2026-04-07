@@ -210,8 +210,9 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);
 
-            // 8. 发送新评论通知给管理员（异步执行，不影响主流程）
-            sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
+            // 8. 发送新评论通知给管理员
+            boolean adminNotified = sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
+            log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
 
             // 9. 返回结果
             java.util.HashMap<String, Object> result = new java.util.HashMap<>();
@@ -415,19 +416,20 @@ public class PublicCommentServiceImpl implements PublicCommentService {
      * 无论审核通过还是未通过，只要是新评论都会通知
      * 如果是游客评论，会在通知中提示需要审核
      */
-    private void sendNewCommentNotificationToAdmins(SysComment comment, SysBlog blog, String commenterName) {
+    private boolean sendNewCommentNotificationToAdmins(SysComment comment, SysBlog blog, String commenterName) {
         try {
             // 检查评论通知是否启用
-            if (!mailService.isCommentNotificationEnabled()) {
+            boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+            if (!notificationEnabled) {
                 log.debug("新评论通知跳过：评论通知功能未启用");
-                return;
+                return false;
             }
 
             // 获取拥有 system:comment:list 权限的用户邮箱列表
             List<String> adminEmails = rolePermissionMapper.selectUserEmailsByPermissionCode(PERMISSION_COMMENT_LIST);
             if (adminEmails == null || adminEmails.isEmpty()) {
                 log.debug("新评论通知跳过：没有管理员邮箱，commentId={}", comment.getId());
-                return;
+                return false;
             }
 
             // 获取网站域名
@@ -440,7 +442,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             String commenter = isGuest ? commenterName : getCommenterName(comment);
 
             // 发送邮件通知
-            mailService.sendNewCommentNotificationToAdmins(
+            SaResult result = mailService.sendNewCommentNotificationToAdmins(
                     adminEmails,
                     siteDomain,
                     isGuest,
@@ -451,12 +453,19 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                     comment.getContent()
             );
 
-            log.info("新评论通知已发送给管理员，commentId={}, isGuest={}, adminCount={}",
-                    comment.getId(), isGuest, adminEmails.size());
+            boolean sent = (result.getCode() == 200);
+            if (sent) {
+                log.info("新评论通知已发送给管理员，commentId={}, isGuest={}, adminCount={}",
+                        comment.getId(), isGuest, adminEmails.size());
+            } else {
+                log.warn("新评论通知发送失败，commentId={}, error={}", comment.getId(), result.getMsg());
+            }
+            return sent;
 
         } catch (Exception e) {
             // 邮件发送失败不影响主流程，只记录日志
             log.error("发送新评论通知邮件异常，commentId={}", comment.getId(), e);
+            return false;
         }
     }
 
