@@ -339,7 +339,7 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         insertOrUpdatePermissionGroup("系统管理组", "包含所有系统管理权限", 100);
         insertOrUpdatePermissionGroup("文章管理组", "包含所有文章管理权限", 90);
-        insertOrUpdatePermissionGroup("用户管理组", "包含用户管理相关权限", 80);
+        insertOrUpdatePermissionGroup("用户组", "包含用户相关权限", 80);
 
         log.info("默认权限组初始化完成");
     }
@@ -765,9 +765,9 @@ public class DatabaseInitializer implements CommandLineRunner {
                 "oss:list", "oss:create", "oss:delete"
         ));
 
-        // 用户管理组
-        relations.put("用户管理组", Arrays.asList(
-                "system:user:list", "system:user:edit", "system:user:delete", "system:user:assignRole"
+        // 用户组
+        relations.put("用户组", Arrays.asList(
+                "comment:list", "comment:edit", "comment:delete"
         ));
 
         return relations;
@@ -870,7 +870,7 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // 超级管理员：所有权限组
         relations.put("SUPER_ADMIN", Arrays.asList(
-                "系统管理组", "文章管理组", "用户管理组"
+                "系统管理组", "文章管理组"
         ));
 
         // 管理员：系统管理和文章管理
@@ -883,8 +883,10 @@ public class DatabaseInitializer implements CommandLineRunner {
                 "文章管理组"
         ));
 
-        // 普通用户：无权限组关联（只有直接权限）
-        relations.put("USER", List.of());
+        // 普通用户
+        relations.put("USER", List.of(
+                "用户组"
+        ));
 
         return relations;
     }
