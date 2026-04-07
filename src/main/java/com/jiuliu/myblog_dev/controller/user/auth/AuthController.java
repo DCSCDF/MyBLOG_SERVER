@@ -19,6 +19,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
+import com.jiuliu.myblog_dev.utils.disabled.Disabled;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
@@ -154,6 +155,7 @@ public class AuthController {
         return handleSaResult(authService.updateAvatarUrl(dto, currentUserId));
     }
 
+    @Disabled
     @PostMapping("/update-email")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> updateEmail(@Valid @RequestBody UpdateEmailDTO dto) {

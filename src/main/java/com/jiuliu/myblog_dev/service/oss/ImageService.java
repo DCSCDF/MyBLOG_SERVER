@@ -216,7 +216,7 @@ public class ImageService {
      * <p>使用 OSS 图片处理参数实现动态缩放。</p>
      *
      * @param size 图片尺寸规格
-     * @return OSS 处理参数字符串，格式：image/resize,w_{width},h_{height},m_fill
+     * @return OSS 处理参数字符串，格式：image/resize,w_{width},h_{height},m_lfit（按比例缩小）
      */
     private String buildOssProcessParam(OSSConfig.ImageSize size) {
         if (size == null || size == OSSConfig.ImageSize.ORIGINAL) {
@@ -228,12 +228,12 @@ public class ImageService {
             return null;
         }
 
-        // 格式: 200x200 -> image/resize,w_200,h_200,m_fill
+        // 格式: 200x200 -> image/resize,w_200,h_200,m_lfit（按比例缩小，保持原始宽高比）
         String[] parts = resizeParam.split("x");
         int width = Integer.parseInt(parts[0]);
         int height = parts.length > 1 ? Integer.parseInt(parts[1]) : width;
 
-        return String.format("image/resize,w_%d,h_%d,m_fill", width, height);
+        return String.format("image/resize,w_%d,h_%d,m_lfit", width, height);
     }
 
     /**
