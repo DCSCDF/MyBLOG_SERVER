@@ -319,6 +319,39 @@ public class MailServiceImpl implements MailService {
         return doSendMail(toEmail, subject, htmlContent);
     }
 
+    @Override
+    public SaResult sendRegisterVerificationCode(String toEmail, String code, String username) {
+        if (!StringUtils.hasText(toEmail)) {
+            log.warn("发送注册验证码邮件失败：收件人邮箱为空");
+            return SaResult.error("收件人邮箱不能为空").setCode(400);
+        }
+
+        if (!mailConfig.isConfigured()) {
+            log.warn("发送注册验证码邮件失败：SMTP 配置未完成");
+            return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+        }
+
+        String subject = "注册验证码";
+        String htmlContent = buildRegisterVerificationCodeContent(username, code);
+
+        return doSendMail(toEmail, subject, htmlContent);
+    }
+
+    private String buildRegisterVerificationCodeContent(String username, String code) {
+        return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
+                "<h2 style=\"color: #333;\">邮箱验证码注册</h2>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您好 " + escapeHtml(username) + "，</p>" +
+                "<p style=\"color: #666; line-height: 1.6;\">您的注册验证码为：</p>" +
+                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">" +
+                code +
+                "</div>" +
+                "<p style=\"color: #666; line-height: 1.6;\">验证码有效期为 5 分钟，请在有效期内完成注册。</p>" +
+                "<p style=\"color: #999; line-height: 1.6;\">如果您没有发起注册请求，请忽略此邮件。</p>" +
+                "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
+                "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
+                "</div>";
+    }
+
     private String buildNewCommentNotificationContent(boolean isGuest, Long commentId,
                                                       Long blogId, String blogTitle, String commenter, String content) {
         StringBuilder sb = new StringBuilder();

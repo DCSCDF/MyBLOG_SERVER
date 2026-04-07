@@ -99,4 +99,14 @@ public interface MailService {
     SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
                                                       Long blogId, String blogTitle, Long commentId,
                                                       String commentContent, String commenter);
+
+    /**
+     * 发送注册验证码邮件
+     *
+     * @param toEmail     收件人邮箱
+     * @param code        验证码
+     * @param username    用户名
+     * @return SaResult
+     */
+    SaResult sendRegisterVerificationCode(String toEmail, String code, String username);
 }

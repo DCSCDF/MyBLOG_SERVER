@@ -286,9 +286,13 @@
 ## 用户注册
 用户注册接口。需先调用 `/api/auth/public-key` 获取公钥和 tempToken，验证码流程与登录相同。
 
+> **注意**：注册方式由系统配置 `reg.use-email` 控制：
+> - `false`（默认）：直接注册，无需邮箱验证
+> - `true`：启用邮箱验证码注册，需先调用 `/api/auth/register/code` 获取验证码，再调用 `/api/auth/register/confirm` 完成注册
+
 - **请求方法**: `POST`
 - **请求路径**: `/api/auth/register`
-- **限流**: 60 秒内最多 5 次
+- **限流**: 60 秒内最多 6 次
 
 #### 请求参数
 
@@ -331,6 +335,118 @@
 - 用户名已存在：`code: 400`
 - 邮箱已被注册：`code: 400`
 - 验证码/临时凭证无效：`code: 400`
+- 已启用邮箱验证注册：`code: 400`（提示使用 `/api/auth/register/code` 接口）
+
+---
+
+## 请求发送注册验证码
+当系统配置 `reg.use-email=true` 时使用此接口发送注册验证码到邮箱。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/register/code`
+- **限流**: 60 秒内最多 3 次
+
+#### 请求参数
+
+`password` 使用 public-key 接口返回的公钥进行 RSA 加密。
+
+```json
+{
+  "username": "newUser",
+  "email": "user@example.com",
+  "password": "加密后的密码",
+  "tempToken": "从 public-key 接口获取",
+  "captchaVerification": "验证码二次验证返回的值"
+}
+```
+
+| 字段                  | 类型     | 必填 | 说明              |
+|---------------------|--------|----|-----------------|
+| username            | String | 是  | 用户名，4-20 字符   |
+| email               | String | 是  | 邮箱              |
+| password            | String | 是  | RSA 加密后的密码     |
+| tempToken           | String | 是  | 临时凭证            |
+| captchaVerification | String | 是  | 验证码校验信息       |
+
+#### 成功响应
+
+```json
+{
+    "data": {
+        "message": "验证码已发送到您的邮箱，请查收",
+        "email": "u***r@example.com",
+        "expiresIn": 300
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+| 字段      | 类型    | 说明              |
+|---------|-------|-----------------|
+| message | String | 提示信息          |
+| email  | String | 掩码后的邮箱地址     |
+| expiresIn | Integer | 验证码有效期（秒）   |
+
+#### 错误响应
+
+- 用户名已存在：`code: 400`
+- 邮箱已被注册：`code: 400`
+- SMTP 配置未完成：`code: 400`
+- 验证码/临时凭证无效：`code: 400`
+
+---
+
+## 确认注册（验证邮箱验证码）
+当系统配置 `reg.use-email=true` 时使用此接口完成注册。用户需提供邮箱和收到的验证码。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/register/confirm`
+- **限流**: 60 秒内最多 6 次
+
+#### 请求参数
+
+```json
+{
+  "email": "user@example.com",
+  "code": "123456"
+}
+```
+
+| 字段   | 类型     | 必填 | 说明      |
+|------|--------|----|---------|
+| email | String | 是  | 注册邮箱   |
+| code  | String | 是  | 6位验证码 |
+
+#### 成功响应
+
+```json
+{
+    "data": {
+        "message": "注册成功，请登录",
+        "userId": 123
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 错误响应
+
+- 验证码为空：`code: 400`
+- 验证码无效：`code: 400`（提示重新获取）
+- 验证码已过期：`code: 400`
+- 验证码错误：`code: 400`
+
+> **注册流程说明**：
+> 1. 调用 `/api/auth/public-key` 获取公钥和 tempToken
+> 2. 调用 `/api/captcha/gen` 获取验证码图片
+> 3. 调用 `/api/captcha/check` 校验行为轨迹
+> 4. 调用 `/api/auth/register/code` 发送注册验证码（需通过 `/api/captcha/verify` 二次验证）
+> 5. 检查邮箱收取验证码
+> 6. 调用 `/api/auth/register/confirm` 完成注册
 
 ---
 

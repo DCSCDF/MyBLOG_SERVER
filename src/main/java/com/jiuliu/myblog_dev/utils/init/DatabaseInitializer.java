@@ -372,19 +372,19 @@ public class DatabaseInitializer implements CommandLineRunner {
         insertOrUpdateConfig("smtp.username", "your-email@example.com", "email", null, "SMTP用户名", 0);
         insertOrUpdateConfig("smtp.password", "your-password", "string", null, "SMTP密码", 0);
         insertOrUpdateConfig("smtp.fromName", "your-email@example.com", "email", null, "SMTP发件人邮箱", 0);
-        insertOrUpdateConfig("smtp.ssl.enabled", "false", "boolean", String.valueOf(false), "SMTP是否启用SSL", 0);
-        insertOrUpdateConfig("smtp.comment.enabled", "false", "boolean", String.valueOf(false), "SMTP是否启用评论通知", 0);
+        insertOrUpdateConfig("smtp.ssl.enabled", "false", "boolean", null, "SMTP是否启用SSL", 0);
+        insertOrUpdateConfig("smtp.comment.enabled", "false", "boolean", null, "SMTP是否启用评论通知", 0);
 
         insertOrUpdateConfig("aliyun.Secret-key", "Secret", "string", "max_length=200", "aliyun Secret Key", 0);
         insertOrUpdateConfig("aliyun.Access-key", "Access", "string", "max_length=200", "aliyun Access Key", 0);
         insertOrUpdateConfig("aliyun.Bucket", "Bucket", "string", "max_length=200", "aliyun Bucket", 0);
         insertOrUpdateConfig("aliyun.end-point", "end-point", "string", "max_length=200", "aliyun end-point", 0);
-        insertOrUpdateConfig("aliyun.https-enabled", "false", "boolean", String.valueOf(false), "阿里云是否启用https", 0);
+        insertOrUpdateConfig("aliyun.https-enabled", "false", "boolean", null, "阿里云是否启用https", 0);
 
-        insertOrUpdateConfig("comment-show-email-enabled", "false", "boolean", String.valueOf(false), "是否显示完整的评论者邮箱", 0);
+        insertOrUpdateConfig("comment-show-email-enabled", "false", "boolean", null, "是否显示完整的评论者邮箱", 0);
         insertOrUpdateConfig("site.redirect_url", "", "string", null, "重定向URL", 1);
 
-        insertOrUpdateConfig("reg.use-email", "", "boolean", String.valueOf(false), "重定向URL", 1);
+        insertOrUpdateConfig("reg.use-email", "false", "boolean", null, "注册是否启用邮箱验证", 1);
 
         log.info("默认配置初始化完成");
     }

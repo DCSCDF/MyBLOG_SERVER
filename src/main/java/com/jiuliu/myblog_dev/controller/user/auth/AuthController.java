@@ -120,6 +120,26 @@ public class AuthController {
         return handleSaResult(authService.register(dto));
     }
 
+    /**
+     * 请求发送注册验证码（当 reg.use-email 为 true 时使用）
+     * 该接口会验证用户信息，发送验证码到邮箱，并返回验证码有效期等信息
+     */
+    @PostMapping("/register/code")
+    @RateLimit(count = 3, period = 60)
+    public Response<Map<String, Object>> requestRegisterCode(@Valid @RequestBody RegisterCodeRequestDTO dto) {
+        return handleSaResult(authService.requestRegisterCode(dto));
+    }
+
+    /**
+     * 确认注册（验证邮箱验证码并完成注册）
+     * 用户需要提供邮箱和收到的验证码来正式完成注册
+     */
+    @PostMapping("/register/confirm")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> confirmRegister(@Valid @RequestBody RegisterConfirmDTO dto) {
+        return handleSaResult(authService.confirmRegister(dto));
+    }
+
     @PostMapping("/update-nickname")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateNickname(@Valid @RequestBody UpdateNicknameDTO dto) {

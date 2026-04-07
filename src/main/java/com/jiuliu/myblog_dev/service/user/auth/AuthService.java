@@ -19,9 +19,11 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
-import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.RegisterCodeRequestDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.RegisterConfirmDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
 
 
 public interface AuthService {
@@ -44,6 +46,22 @@ public interface AuthService {
     SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId);
 
     SaResult register(RegisterDTO dto);
+
+    /**
+     * 请求发送注册验证码（当 reg.use-email 开启时使用）
+     *
+     * @param dto 注册验证码请求DTO
+     * @return 结果
+     */
+    SaResult requestRegisterCode(RegisterCodeRequestDTO dto);
+
+    /**
+     * 确认注册（验证邮箱验证码并完成注册）
+     *
+     * @param dto 注册确认DTO
+     * @return 结果
+     */
+    SaResult confirmRegister(RegisterConfirmDTO dto);
 
     SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId);
 

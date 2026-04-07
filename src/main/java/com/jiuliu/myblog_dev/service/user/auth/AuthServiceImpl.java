@@ -34,7 +34,9 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
+import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.auth.OAuthCodeService;
+import com.jiuliu.myblog_dev.utils.auth.RegisterPendingUserService;
 import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
 import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
@@ -52,6 +54,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -59,6 +62,9 @@ public class AuthServiceImpl implements AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private static final String CONFIG_KEY_REGISTER_DEFAULT_ROLE = "user_register_default_role";
+    private static final String CONFIG_KEY_REG_USE_EMAIL = "reg.use-email";
+    private static final int REGISTER_CODE_LENGTH = 6;
+    private static final int REGISTER_CODE_EXPIRE_MINUTES = 5;
 
     private final SysUserMapper sysUserMapper;
     private final SysUserRoleMapper sysUserRoleMapper;
@@ -66,11 +72,13 @@ public class AuthServiceImpl implements AuthService {
     private final SysPermissionMapper sysPermissionMapper;
     private final SysPermissionGroupMapper sysPermissionGroupMapper;
     private final SysConfigMapper sysConfigMapper;
+    private final RegisterPendingUserService registerPendingUserService;
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TempLoginTokenService tempLoginTokenService;
     private final OAuthCodeService oauthCodeService;
     private final ImageCaptchaApplication imageCaptchaApplication;
+    private final MailService mailService;
 
     public AuthServiceImpl(
             SysUserMapper sysUserMapper,
@@ -79,22 +87,26 @@ public class AuthServiceImpl implements AuthService {
             SysPermissionMapper sysPermissionMapper,
             SysPermissionGroupMapper sysPermissionGroupMapper,
             SysConfigMapper sysConfigMapper,
+            RegisterPendingUserService registerPendingUserService,
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
             TempLoginTokenService tempLoginTokenService,
             OAuthCodeService oauthCodeService,
-            ImageCaptchaApplication imageCaptchaApplication) {
+            ImageCaptchaApplication imageCaptchaApplication,
+            MailService mailService) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
         this.sysConfigMapper = sysConfigMapper;
+        this.registerPendingUserService = registerPendingUserService;
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
         this.tempLoginTokenService = tempLoginTokenService;
         this.oauthCodeService = oauthCodeService;
         this.imageCaptchaApplication = imageCaptchaApplication;
+        this.mailService = mailService;
     }
 
     //    400: '请求参数错误',
@@ -345,6 +357,187 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SaResult register(RegisterDTO dto) {
+        // 检查是否开启了邮箱验证注册
+        String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
+        boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
+
+        if (useEmail) {
+            return SaResult.error("该注册方式已停用，请使用邮箱验证码注册").setCode(400);
+        }
+
+        return doDirectRegister(dto);
+    }
+
+    @Override
+    public SaResult requestRegisterCode(RegisterCodeRequestDTO dto) {
+        // 1. 验证码校验
+        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        if (captchaResult != null) {
+            return captchaResult;
+        }
+
+        // 2. 校验临时 Token
+        String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
+        if (!"unbound".equals(tokenValue)) {
+            log.warn("请求注册验证码失败：临时 Token 无效或已过期");
+            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+        }
+
+        String username = dto.getUsername().trim();
+        String email = dto.getEmail().trim();
+
+        // 3. 验证用户名和邮箱格式
+        if (ValidationHelper.validateUsername(username)) {
+            return SaResult.error("用户名格式错误").setCode(400);
+        }
+        if (ValidationHelper.validateEmail(email)) {
+            return SaResult.error("邮箱格式不正确").setCode(400);
+        }
+
+        // 4. 检查用户名、邮箱是否已存在（正式用户表）
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("username", username)
+                .eq("is_deleted", 0)) != null) {
+            return SaResult.error("用户名已存在").setCode(400);
+        }
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", email)
+                .eq("is_deleted", 0)) != null) {
+            return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
+        // 5. 生成6位验证码
+        String code = generateRegisterCode();
+
+        // 5.5 解密密码
+        String rawPassword;
+        try {
+            rawPassword = RsaUtils.decryptByPrivateKey(dto.getPassword(), rsaKeyConfig.getPrivateKeyBase64());
+        } catch (Exception e) {
+            log.warn("请求注册验证码失败：密码解密异常，username={}", username);
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (!StringUtils.hasText(rawPassword)) {
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (ValidationHelper.validatePassword(rawPassword)) {
+            return SaResult.error("密码格式不符合要求").setCode(400);
+        }
+
+        // 6. 保存待注册用户信息到内存
+        try {
+            // 保存到内存（会自动覆盖旧记录）
+            registerPendingUserService.savePendingUser(email, username, passwordEncoder.encode(rawPassword), code, REGISTER_CODE_EXPIRE_MINUTES);
+            log.info("保存待注册用户信息成功，username={}, email={}", username, email);
+        } catch (Exception e) {
+            log.error("保存待注册用户信息失败，username={}, error={}", username, e.getMessage());
+            return SaResult.error("系统异常，请重试").setCode(500);
+        }
+
+        // 7. 发送验证码邮件
+        SaResult mailResult = mailService.sendRegisterVerificationCode(email, code, username);
+        if (mailResult.getCode() != 200) {
+            // 发送失败，删除待注册记录
+            registerPendingUserService.deletePendingUser(email);
+            return mailResult;
+        }
+
+        log.info("注册验证码发送成功，username={}, email={}", username, email);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "验证码已发送到您的邮箱，请查收");
+        data.put("email", maskEmail(email));
+        data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult confirmRegister(RegisterConfirmDTO dto) {
+        String email = dto.getEmail().trim();
+        String code = dto.getCode().trim();
+
+        if (!StringUtils.hasText(email)) {
+            return SaResult.error("邮箱不能为空").setCode(400);
+        }
+        if (!StringUtils.hasText(code)) {
+            return SaResult.error("验证码不能为空").setCode(400);
+        }
+
+        // 1. 查询待注册记录
+        RegisterPendingUserService.PendingUser pendingUser = registerPendingUserService.getPendingUser(email);
+
+        if (pendingUser == null) {
+            log.warn("注册确认失败：未找到待注册记录，email={}", email);
+            return SaResult.error("验证码无效，请重新获取").setCode(400);
+        }
+
+        // 2. 检查验证码是否过期
+        if (LocalDateTime.now().isAfter(pendingUser.getCodeExpireTime())) {
+            log.warn("注册确认失败：验证码已过期，email={}", email);
+            registerPendingUserService.deletePendingUser(email);
+            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+        }
+
+        // 3. 验证验证码是否正确
+        if (!code.equals(pendingUser.getCode())) {
+            log.warn("注册确认失败：验证码错误，email={}, inputCode={}", email, code);
+            return SaResult.error("验证码错误").setCode(400);
+        }
+
+        // 4. 获取默认注册角色
+        String configRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
+        SysRole defaultRole = null;
+
+        if (StringUtils.hasText(configRoleCode)) {
+            defaultRole = sysRoleMapper.selectOne(
+                    new QueryWrapper<SysRole>()
+                            .eq("code", configRoleCode)
+                            .eq("is_deleted", 0)
+                            .eq("status", 1));
+        }
+
+        if (defaultRole == null) {
+            defaultRole = sysRoleMapper.selectOne(
+                    new QueryWrapper<SysRole>()
+                            .eq("code", DEFAULT_ROLE_CODE)
+                            .eq("is_deleted", 0)
+                            .eq("status", 1));
+        }
+
+        if (defaultRole == null) {
+            log.error("无可用的注册角色");
+            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+        }
+
+        // 5. 创建正式用户
+        SysUser user = new SysUser();
+        user.setUsername(pendingUser.getUsername());
+        user.setNickname(pendingUser.getUsername());
+        user.setEmail(pendingUser.getEmail());
+        user.setPassword(pendingUser.getPassword());
+        user.setStatus(1);
+        sysUserMapper.insert(user);
+
+        // 6. 分配默认角色
+        SysUserRole userRole = new SysUserRole();
+        userRole.setUserId(user.getId());
+        userRole.setRoleId(defaultRole.getId());
+        sysUserRoleMapper.insert(userRole);
+
+        // 7. 删除待注册记录
+        registerPendingUserService.deletePendingUser(email);
+
+        log.info("邮箱验证码注册成功，userId={}, email={}", user.getId(), email);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "注册成功，请登录");
+        data.put("userId", user.getId());
+        return SaResult.data(data);
+    }
+
+    /**
+     * 执行直接注册（reg.use-email = false 时）
+     */
+    private SaResult doDirectRegister(RegisterDTO dto) {
         // 1. 验证码校验
         SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
@@ -391,12 +584,11 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱已被注册").setCode(400);
         }
 
-        // 5. 获取默认注册角色（检查角色存在、未删除、已启用）
+        // 5. 获取默认注册角色
         String configRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
         SysRole defaultRole = null;
 
         if (StringUtils.hasText(configRoleCode)) {
-            // 检查配置的角色是否存在且有效（未删除且启用）
             defaultRole = sysRoleMapper.selectOne(
                     new QueryWrapper<SysRole>()
                             .eq("code", configRoleCode)
@@ -411,7 +603,6 @@ public class AuthServiceImpl implements AuthService {
             log.warn("系统配置 user_register_default_role 未设置，尝试使用默认USER角色");
         }
 
-        // 如果配置的角色无效，尝试使用默认USER角色
         if (defaultRole == null) {
             defaultRole = sysRoleMapper.selectOne(
                     new QueryWrapper<SysRole>()
@@ -423,7 +614,6 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 如果没有可用的角色，返回错误
         if (defaultRole == null) {
             log.error("无可用的注册角色，配置角色={}，默认角色USER也不可用", configRoleCode);
             return SaResult.error("系统配置异常，暂无法注册").setCode(500);
@@ -450,6 +640,37 @@ public class AuthServiceImpl implements AuthService {
         data.put("message", "注册成功，请登录");
         data.put("userId", user.getId());
         return SaResult.data(data);
+    }
+
+    /**
+     * 生成6位数字注册验证码
+     */
+    private String generateRegisterCode() {
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < REGISTER_CODE_LENGTH; i++) {
+            code.append(random.nextInt(10));
+        }
+        return code.toString();
+    }
+
+    /**
+     * 掩码邮箱，用于显示
+     */
+    private String maskEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return email;
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0) {
+            return email;
+        }
+        String localPart = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        if (localPart.length() <= 2) {
+            return email;
+        }
+        return localPart.charAt(0) + "***" + localPart.charAt(localPart.length() - 1) + domain;
     }
 
     /**
