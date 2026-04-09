@@ -66,6 +66,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private final SysRolePermissionMapper rolePermissionMapper;
     private final PublicArticleService publicArticleService;
     private final MailService mailService;
+    private final CommentService commentService;
 
     public PublicCommentServiceImpl(SysCommentMapper commentMapper,
                                     SysBlogMapper blogMapper,
@@ -73,7 +74,8 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                                     SysConfigMapper sysConfigMapper,
                                     SysRolePermissionMapper rolePermissionMapper,
                                     PublicArticleService publicArticleService,
-                                    MailService mailService) {
+                                    MailService mailService,
+                                    CommentService commentService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
@@ -81,6 +83,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         this.rolePermissionMapper = rolePermissionMapper;
         this.publicArticleService = publicArticleService;
         this.mailService = mailService;
+        this.commentService = commentService;
     }
 
     @Override
@@ -206,6 +209,12 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             // 7. 清除公共文章缓存（评论数已更新）
             publicArticleService.clearPublicArticleCache();
+
+            // 7.5 清除用户评论列表缓存（新评论发布后，用户中心评论列表需要刷新）
+            if (isLogin && userId != null) {
+                commentService.clearUserCommentListCache();
+                log.debug("用户评论列表缓存已清除，userId={}", userId);
+            }
 
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);

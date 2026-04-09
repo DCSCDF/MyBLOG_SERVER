@@ -332,7 +332,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             log.debug("评论审核通知发送结果，commentId={}, sent={}", existing.getId(), sent);
             // 如果是子评论，发送回复通知给父评论作者
             if (existing.getParentId() != null && existing.getParentId() != 0) {
-                boolean replySent = sendReplyNotificationToParent(existing.getParentId(), existing.getContent());
+                boolean replySent = sendReplyNotificationToParent(existing);
                 log.debug("评论回复通知发送结果，parentId={}, sent={}", existing.getParentId(), replySent);
             }
             // 如果是顶级评论通过审核，通知文章作者
@@ -427,11 +427,10 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     /**
      * 发送评论回复通知邮件给父评论作者
      *
-     * @param parentCommentId 父评论ID
-     * @param replyContent    回复的评论内容
+     * @param replyComment 回复的评论
      * @return 是否发送成功
      */
-    private boolean sendReplyNotificationToParent(Long parentCommentId, String replyContent) {
+    private boolean sendReplyNotificationToParent(SysComment replyComment) {
         // 检查评论通知是否启用
         boolean notificationEnabled = mailService.isCommentNotificationEnabled();
         if (!notificationEnabled) {
@@ -440,9 +439,25 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         }
 
         // 获取父评论
+        Long parentCommentId = replyComment.getParentId();
         SysComment parentComment = commentMapper.selectById(parentCommentId);
         if (parentComment == null) {
             log.debug("评论回复通知跳过：父评论不存在，parentId={}", parentCommentId);
+            return false;
+        }
+
+        // 如果回复者就是被回复者本人（即自己回复自己的评论），跳过通知
+        if (replyComment.getUserId() != null && replyComment.getUserId().equals(parentComment.getUserId())) {
+            log.debug("评论回复通知跳过：回复者与被回复者为同一用户，commentId={}, parentId={}",
+                    replyComment.getId(), parentCommentId);
+            return false;
+        }
+
+        // 如果回复者邮箱与被回复者邮箱相同（游客评论场景），跳过通知
+        if (StringUtils.hasText(replyComment.getEmail()) &&
+                replyComment.getEmail().equals(parentComment.getEmail())) {
+            log.debug("评论回复通知跳过：回复者与被回复者邮箱相同，commentId={}, parentId={}",
+                    replyComment.getId(), parentCommentId);
             return false;
         }
 
@@ -458,7 +473,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 发送邮件
         try {
-            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyContent);
+            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
             if (result.getCode() == 200) {
                 log.info("评论回复通知邮件发送成功，parentId={}, to={}", parentCommentId, toEmail);
                 return true;
@@ -510,6 +525,13 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 获取网站域名
         String siteDomain = getSiteDomain();
+
+        // 如果评论者是文章作者自己，跳过邮件通知（自己给自己评论不需要通知自己）
+        if (comment.getUserId() != null && comment.getUserId().equals(blog.getAuthorId())) {
+            log.debug("顶级评论通过通知跳过：评论者是文章作者自己，commentId={}, authorId={}",
+                    comment.getId(), blog.getAuthorId());
+            return false;
+        }
 
         // 获取评论者名称
         String commenter = getCommenterName(comment);

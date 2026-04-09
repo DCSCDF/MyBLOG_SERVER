@@ -304,4 +304,10 @@ public class CommentServiceImpl implements CommentService {
 
         return true;
     }
+
+    @Override
+    public void clearUserCommentListCache() {
+        userCommentListCache.invalidateAll();
+        log.debug("用户评论列表缓存已全部清除");
+    }
 }

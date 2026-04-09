@@ -38,4 +38,10 @@ public interface CommentService {
      * 删除自己的评论
      */
     SaResult deleteComment(Long commentId, Long userId);
+
+    /**
+     * 清除用户评论列表缓存
+     * 当用户发布新评论时，需要清除该用户的评论列表缓存
+     */
+    void clearUserCommentListCache();
 }
