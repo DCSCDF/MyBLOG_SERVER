@@ -29,6 +29,7 @@ import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
+import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +71,13 @@ public class CommentServiceImpl implements CommentService {
 
     private final SysCommentMapper commentMapper;
     private final SysBlogMapper blogMapper;
+    private final PublicArticleService publicArticleService;
 
-    public CommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper) {
+    public CommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper,
+                              PublicArticleService publicArticleService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
+        this.publicArticleService = publicArticleService;
     }
 
     @Override
@@ -164,8 +168,6 @@ public class CommentServiceImpl implements CommentService {
         }
 
         updateWrapper.set(SysComment::getUpdateTime, LocalDateTime.now());
-        // 用户编辑评论后，重新设置为待审核状态
-        updateWrapper.set(SysComment::getStatus, 0);
 
         commentMapper.update(null, updateWrapper);
         log.info("评论更新成功，id={}", dto.getId());
@@ -192,8 +194,12 @@ public class CommentServiceImpl implements CommentService {
             return SaResult.error("无权限删除该评论").setCode(403);
         }
 
+        // 记录文章ID和评论状态，用于更新评论数
+        Long blogId = existing.getBlogId();
+        boolean wasApproved = (existing.getStatus() != null && existing.getStatus() == 1);
+
         // 级联删除：先删除所有子评论（递归）
-        deleteChildComments(commentId);
+        deleteChildComments(commentId, blogId);
 
         // 逻辑删除：设置 is_deleted = 1
         commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
@@ -203,7 +209,20 @@ public class CommentServiceImpl implements CommentService {
 
         log.info("评论删除成功，id={}", commentId);
 
-        // 清除缓存
+        // 如果删除的是已通过的评论，更新文章的评论数
+        if (wasApproved && blogId != null) {
+            blogMapper.update(null,
+                    new LambdaUpdateWrapper<SysBlog>()
+                            .eq(SysBlog::getId, blogId)
+                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
+            );
+            log.info("文章评论数已减少（用户删除评论），blogId={}", blogId);
+        }
+
+        // 清除公共文章缓存
+        publicArticleService.clearPublicArticleCache();
+
+        // 清除用户评论列表缓存
         clearCommentCache(commentId);
 
         return SaResult.data("删除成功");
@@ -212,7 +231,7 @@ public class CommentServiceImpl implements CommentService {
     /**
      * 递归删除子评论
      */
-    private void deleteChildComments(Long parentId) {
+    private void deleteChildComments(Long parentId, Long blogId) {
         // 查询所有直接子评论
         List<SysComment> childComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
@@ -221,7 +240,7 @@ public class CommentServiceImpl implements CommentService {
 
         for (SysComment child : childComments) {
             // 递归删除子评论的子评论
-            deleteChildComments(child.getId());
+            deleteChildComments(child.getId(), blogId);
             // 逻辑删除子评论
             commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
                     .eq(SysComment::getId, child.getId())
@@ -229,6 +248,16 @@ public class CommentServiceImpl implements CommentService {
                     .set(SysComment::getUpdateTime, LocalDateTime.now()));
             clearCommentCache(child.getId());
             log.info("子评论级联删除成功，id={}", child.getId());
+
+            // 如果子评论是已通过的，也更新文章评论数
+            if (child.getStatus() != null && child.getStatus() == 1 && blogId != null) {
+                blogMapper.update(null,
+                        new LambdaUpdateWrapper<SysBlog>()
+                                .eq(SysBlog::getId, blogId)
+                                .setSql("comment_count = GREATEST(comment_count - 1, 0)")
+                );
+                log.info("文章评论数已减少（级联删除子评论），blogId={}", blogId);
+            }
         }
     }
 
