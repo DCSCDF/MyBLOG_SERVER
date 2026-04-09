@@ -46,12 +46,10 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>图片尺寸规格说明：</b></p>
  * <table border="1">
- *   <tr><th>规格</th><th>宽度</th><th>高度</th><th>用途</th></tr>
- *   <tr><td>THUMBNAIL</td><td>200px</td><td>200px</td><td>列表缩略图</td></tr>
- *   <tr><td>SMALL</td><td>400px</td><td>400px</td><td>小图展示</td></tr>
- *   <tr><td>MEDIUM</td><td>800px</td><td>800px</td><td>中等尺寸</td></tr>
- *   <tr><td>LARGE</td><td>1200px</td><td>1200px</td><td>大图展示</td></tr>
- *   <tr><td>ORIGINAL</td><td>原始</td><td>原始</td><td>原图下载/预览</td></tr>
+ *   <tr><th>规格</th><th>宽度</th><th>用途</th></tr>
+ *   <tr><td>SM</td><td>256px</td><td>小图（头像等）</td></tr>
+ *   <tr><td>LG</td><td>1080px</td><td>大图（默认）</td></tr>
+ *   <tr><td>ORIGINAL</td><td>原始</td><td>原图下载/预览</td></tr>
  * </table>
  *
  * @author Jiu Liu
@@ -86,26 +84,18 @@ public class OSSConfig {
     /**
      * 图片尺寸规格枚举
      *
-     * <p>用于生成不同用途的图片访问 URL，通过 OSS 样式规则实现图片缩放。</p>
+     * <p>用于生成不同用途的图片访问 URL，长宽比保持不变。</p>
      */
     @Getter
     public enum ImageSize {
         /**
-         * 缩略图：200x200，适用于列表展示
+         * 头像：256px（宽），适用于用户头像展示
          */
-        THUMBNAIL("200x200", "t", "缩略图"),
+        SM("256", "sm", "头像"),
         /**
-         * 小图：400x400，适用于小图展示
+         * 大图：1080px（宽），适用于大图展示（默认）
          */
-        SMALL("400x400", "s", "小图"),
-        /**
-         * 中图：800x800，适用于中等尺寸展示
-         */
-        MEDIUM("800x800", "m", "中等图"),
-        /**
-         * 大图：1200x1200，适用于大图展示
-         */
-        LARGE("1200x1200", "l", "大图"),
+        LG("1080", "lg", "大图"),
         /**
          * 原图：不做任何处理
          */
@@ -126,14 +116,14 @@ public class OSSConfig {
          */
         public static ImageSize fromCode(String code) {
             if (code == null || code.isBlank()) {
-                return ORIGINAL;
+                return LG;
             }
             for (ImageSize size : values()) {
                 if (size.getCode().equalsIgnoreCase(code)) {
                     return size;
                 }
             }
-            return ORIGINAL;
+            return LG;
         }
 
     }
@@ -172,7 +162,6 @@ public class OSSConfig {
     private boolean httpsEnabled;
     /**
      * 图片访问域名（用于拼接图片 URL）
-     * 格式：https://bucket.endpoint 或 http://bucket.endpoint
      */
     @Getter
     private String imageUrlPrefix;
@@ -315,7 +304,7 @@ public class OSSConfig {
         }
         String prefix = getImageUrlPrefix();
         if (prefix == null) {
-            log.warn("OSS 图片 URL 前缀未初始化，请检查 OSS 配置");
+            log.warn("OSS 图片 URL 前缀未初始化，请检查OSS配置");
             return "";
         }
         return prefix + objectName;
@@ -329,18 +318,16 @@ public class OSSConfig {
      */
     public ImageUrls getAllSizeImageUrls(String objectName) {
         if (objectName == null || objectName.isBlank()) {
-            return new ImageUrls("", "", "", "", "");
+            return new ImageUrls("", "", "");
         }
         String prefix = getImageUrlPrefix();
         if (prefix == null) {
             log.warn("OSS 图片 URL 前缀未初始化，请检查 OSS 配置");
-            return new ImageUrls("", "", "", "", "");
+            return new ImageUrls("", "", "");
         }
         return new ImageUrls(
-                prefix + objectName + "@t",
-                prefix + objectName + "@s",
-                prefix + objectName + "@m",
-                prefix + objectName + "@l",
+                prefix + objectName + "@sm",
+                prefix + objectName + "@lg",
                 prefix + objectName
         );
     }
@@ -348,12 +335,10 @@ public class OSSConfig {
     /**
      * 图片 URL 映射记录
      *
-     * @param thumbnail 缩略图 URL (200x200)
-     * @param small     小图 URL (400x400)
-     * @param medium    中图 URL (800x800)
-     * @param large     大图 URL (1200x1200)
-     * @param original  原图 URL
+     * @param small    小图 URL (256px 宽)
+     * @param large    大图 URL (1080px 宽)
+     * @param original 原图 URL
      */
-    public record ImageUrls(String thumbnail, String small, String medium, String large, String original) {
+    public record ImageUrls(String small, String large, String original) {
     }
 }

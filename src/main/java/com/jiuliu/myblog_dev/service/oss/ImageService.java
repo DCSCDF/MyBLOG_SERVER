@@ -34,9 +34,9 @@ import java.io.OutputStream;
 /**
  * 图片获取服务
  *
- * <p>直接从 OSS 流式传输图片数据到客户端，不在服务器端缓存完整数据。
- * 支持根据并发负载动态调整传输速度，防止后端 503。
- * 支持通过 OSS 图片处理参数实现动态缩放。</p>
+ * <p>直接从 OSS 流式传输图片数据到客户端，支持图片压缩和缓存功能。
+ * 缓存压缩后的图片数据，减少 OSS 请求压力和网络传输量。
+ * 支持根据并发负载动态调整传输速度，防止后端 503。</p>
  */
 @Service
 public class ImageService {
@@ -56,13 +56,16 @@ public class ImageService {
     private final SysOssImageMapper sysOssImageMapper;
     private final OSSConfig ossConfig;
     private final DynamicRateLimitService dynamicRateLimitService;
+    private final ImageCacheService imageCacheService;
 
     public ImageService(SysOssImageMapper sysOssImageMapper,
                         OSSConfig ossConfig,
-                        DynamicRateLimitService dynamicRateLimitService) {
+                        DynamicRateLimitService dynamicRateLimitService,
+                        ImageCacheService imageCacheService) {
         this.sysOssImageMapper = sysOssImageMapper;
         this.ossConfig = ossConfig;
         this.dynamicRateLimitService = dynamicRateLimitService;
+        this.imageCacheService = imageCacheService;
     }
 
     /**
@@ -97,11 +100,11 @@ public class ImageService {
     }
 
     /**
-     * 流式传输图片到响应（支持尺寸选择）
+     * 流式传输图片到响应（支持尺寸选择和缓存压缩）
      *
-     * <p>直接从 OSS 读取数据并写入 HTTP 响应，不在服务器端缓存完整图片。
-     * 根据当前并发负载动态调整传输速度。
-     * 如果尺寸不为 ORIGINAL，将使用 OSS 图片处理参数进行动态缩放。</p>
+     * <p>优先从缓存获取压缩后的图片数据，缓存未命中时从 OSS 获取并压缩后缓存。
+     * 支持根据并发负载动态调整传输速度。
+     * 当尺寸不为 ORIGINAL 时，会使用服务端压缩处理。</p>
      *
      * @param hash     图片哈希值
      * @param size     图片尺寸规格
@@ -125,21 +128,104 @@ public class ImageService {
             return false;
         }
 
+        try {
+            // 如果需要压缩处理（非原图），优先使用缓存
+            if (size != null && size != OSSConfig.ImageSize.ORIGINAL) {
+                return streamCompressedImage(hash, size, ossClient, objectName,
+                        imageRecord.getFileSize(), contentType, response);
+            }
+
+            // 原图直接流式传输（不压缩）
+            return streamOriginalImage(hash, ossClient, objectName, contentType, response);
+
+        } catch (Exception e) {
+            log.error("[ImageService] 图片传输异常，hash=[{}]：{}，异常类型={}",
+                    hash, e.getMessage(), e.getClass().getSimpleName(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 流式传输压缩后的图片（使用缓存）
+     */
+    private boolean streamCompressedImage(String hash, OSSConfig.ImageSize size,
+                                          OSS ossClient, String objectName,
+                                          long originalSize, String contentType,
+                                          HttpServletResponse response) {
+        try {
+            // 先尝试从缓存获取（不需要输入流）
+            byte[] cachedImage = imageCacheService.getCompressedImage(hash, size, null, originalSize, contentType);
+
+            if (cachedImage != null) {
+                // 缓存命中，直接返回
+                log.debug("[ImageService] 缓存命中，hash=[{}], size=[{}], 大小=[{} bytes]",
+                        hash, size.getCode(), cachedImage.length);
+
+                response.setContentType(contentType);
+                response.setHeader("Content-Length", String.valueOf(cachedImage.length));
+                response.setHeader("Accept-Ranges", "bytes");
+                response.setHeader("Cache-Control", "private, max-age=600");
+                response.setHeader("X-Cache", "HIT");
+
+                try (OutputStream outputStream = response.getOutputStream()) {
+                    outputStream.write(cachedImage);
+                    outputStream.flush();
+                }
+
+                log.info("[ImageService] 图片传输完成（缓存） - hash=[{}], size=[{}], 大小={} bytes",
+                        hash, size.getCode(), cachedImage.length);
+                return true;
+            }
+
+            // 缓存未命中，从 OSS 获取并压缩
+            log.debug("[ImageService] 缓存未命中，hash=[{}], size=[{}]，从 OSS 获取并压缩", hash, size.getCode());
+
+            InputStream inputStream = null;
+            try {
+                GetObjectRequest getObjectRequest = new GetObjectRequest(ossConfig.getBucket(), objectName);
+                inputStream = ossClient.getObject(getObjectRequest).getObjectContent();
+
+                // 使用缓存服务压缩并缓存
+                cachedImage = imageCacheService.getCompressedImage(hash, size, inputStream, originalSize, contentType);
+            } finally {
+                closeQuietly(inputStream);
+            }
+
+            if (cachedImage == null) {
+                log.error("[ImageService] 图片压缩失败，hash=[{}], size=[{}]", hash, size.getCode());
+                return false;
+            }
+
+            response.setContentType(contentType);
+            response.setHeader("Content-Length", String.valueOf(cachedImage.length));
+            response.setHeader("Accept-Ranges", "bytes");
+            response.setHeader("Cache-Control", "private, max-age=600");
+            response.setHeader("X-Cache", "MISS");
+
+            try (OutputStream outputStream = response.getOutputStream()) {
+                outputStream.write(cachedImage);
+                outputStream.flush();
+            }
+
+            log.info("[ImageService] 图片传输完成（压缩） - hash=[{}], size=[{}], 大小={} bytes, 原图={} bytes",
+                    hash, size.getCode(), cachedImage.length, originalSize);
+            return true;
+
+        } catch (Exception e) {
+            log.error("[ImageService] 图片压缩传输异常，hash=[{}]：{}", hash, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 流式传输原图（不压缩）
+     */
+    private boolean streamOriginalImage(String hash, OSS ossClient, String objectName,
+                                        String contentType, HttpServletResponse response) {
         InputStream inputStream = null;
-        OutputStream outputStream = null;
 
         try {
             GetObjectRequest getObjectRequest = new GetObjectRequest(ossConfig.getBucket(), objectName);
-
-            // 如果需要缩放，添加图片处理参数
-            if (size != null && size != OSSConfig.ImageSize.ORIGINAL) {
-                String processParam = buildOssProcessParam(size);
-                getObjectRequest.setProcess(processParam);
-                log.debug("[ImageService] 添加图片处理参数，hash=[{}], size=[{}], param=[{}]",
-                        hash, size.getCode(), processParam);
-            }
-
-            log.debug("[ImageService] 开始获取 OSS 对象，bucket=[{}], objectName=[{}]", ossConfig.getBucket(), objectName);
             OSSObject ossObject = ossClient.getObject(getObjectRequest);
 
             if (ossObject == null) {
@@ -149,91 +235,52 @@ public class ImageService {
 
             ObjectMetadata metadata = ossObject.getObjectMetadata();
             long contentLength = metadata.getContentLength();
-            log.debug("[ImageService] OSS 对象获取成功，contentLength=[{}]", contentLength);
 
             response.setContentType(contentType);
             response.setHeader("Content-Length", String.valueOf(contentLength));
             response.setHeader("Accept-Ranges", "bytes");
-            response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-            response.setHeader("Pragma", "no-cache");
-            response.setHeader("Expires", "0");
+            response.setHeader("Cache-Control", "private, max-age=3600");
 
             inputStream = ossObject.getObjectContent();
-            outputStream = response.getOutputStream();
 
             int recommendedSpeed = dynamicRateLimitService.getRecommendedTransferSpeed();
             int bufferSize = calculateBufferSize(recommendedSpeed);
 
             byte[] buffer = new byte[bufferSize];
             int bytesRead;
-            long totalBytesRead = 0;
-            long lastLogTime = System.currentTimeMillis();
 
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-                totalBytesRead += bytesRead;
-
-                long currentTime = System.currentTimeMillis();
-                if (currentTime - lastLogTime >= 1000) {
-                    int currentActive = dynamicRateLimitService.getActiveRequestCount();
-                    if (size != null) {
-                        log.debug("图片传输中 - hash=[{}], size=[{}], 已传输={}/{} bytes, 活跃请求={}, 限速={} KB/s",
-                                hash, size.getCode(), totalBytesRead, contentLength, currentActive, recommendedSpeed);
-                    }
-                    lastLogTime = currentTime;
+            try (OutputStream outputStream = response.getOutputStream()) {
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
                 }
+                outputStream.flush();
             }
 
-            outputStream.flush();
-            if (size != null) {
-                log.info("[ImageService] 图片传输完成 - hash=[{}], size=[{}], 大小={} bytes", hash, size.getCode(), contentLength);
-            }
+            log.info("[ImageService] 原图传输完成 - hash=[{}], 大小={} bytes", hash, contentLength);
             return true;
 
         } catch (IOException e) {
-            log.error("[ImageService] 图片传输 IO 异常，hash=[{}]：{}，异常类型={}", hash, e.getMessage(), e.getClass().getSimpleName(), e);
+            log.error("[ImageService] 原图传输 IO 异常，hash=[{}]：{}", hash, e.getMessage(), e);
             return false;
         } catch (Exception e) {
-            log.error("[ImageService] 图片传输异常，hash=[{}]：{}，异常类型={}", hash, e.getMessage(), e.getClass().getSimpleName(), e);
+            log.error("[ImageService] 原图传输异常，hash=[{}]：{}", hash, e.getMessage(), e);
             return false;
         } finally {
-            try {
-                if (inputStream != null) {
-                    inputStream.close();
-                }
-                if (outputStream != null) {
-                    outputStream.close();
-                }
-            } catch (IOException e) {
-                log.warn("[ImageService] 关闭流时发生异常：{}", e.getMessage());
-            }
+            closeQuietly(inputStream);
         }
     }
 
     /**
-     * 构建 OSS 图片处理参数
-     *
-     * <p>使用 OSS 图片处理参数实现动态缩放。</p>
-     *
-     * @param size 图片尺寸规格
-     * @return OSS 处理参数字符串，格式：image/resize,w_{width},h_{height},m_lfit（按比例缩小）
+     * 安全关闭流
      */
-    private String buildOssProcessParam(OSSConfig.ImageSize size) {
-        if (size == null || size == OSSConfig.ImageSize.ORIGINAL) {
-            return null;
+    private void closeQuietly(java.io.Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException e) {
+                log.warn("[ImageService] 关闭流时发生异常：{}", e.getMessage());
+            }
         }
-
-        String resizeParam = size.getResizeParam();
-        if (resizeParam == null || resizeParam.isBlank()) {
-            return null;
-        }
-
-        // 格式: 200x200 -> image/resize,w_200,h_200,m_lfit（按比例缩小，保持原始宽高比）
-        String[] parts = resizeParam.split("x");
-        int width = Integer.parseInt(parts[0]);
-        int height = parts.length > 1 ? Integer.parseInt(parts[1]) : width;
-
-        return String.format("image/resize,w_%d,h_%d,m_lfit", width, height);
     }
 
     /**

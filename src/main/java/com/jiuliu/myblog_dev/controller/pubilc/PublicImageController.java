@@ -54,23 +54,21 @@ public class PublicImageController {
     /**
      * 通过哈希值获取图片
      *
-     * <p>直接流式传输 OSS 图片，不缓存。
+     * <p>支持服务端图片压缩和缓存。
      * 使用动态 IP 限流和速度调整防止后端过载。</p>
      *
      * @param hash     图片哈希值（MD5）
-     * @param size     图片尺寸规格（可选，默认原图）
-     *                  - t: 缩略图 200x200
-     *                  - s: 小图 400x400
-     *                  - m: 中图 800x800
-     *                  - l: 大图 1200x1200
-     *                  - o: 原图（默认）
+     * @param size     图片尺寸规格（可选，默认大图 1080px）
+     *                  - sm: 小图 256px 宽
+     *                  - lg: 大图 1080px 宽（默认）
+     *                  - o: 原图
      * @param request  HTTP 请求
      * @param response HTTP 响应
      */
     @GetMapping("/{hash}")
     @RateLimit(count = 30, period = 1, prefix = "image")
     public void getImage(@PathVariable String hash,
-                         @RequestParam(required = false, defaultValue = "l") String size,
+                         @RequestParam(required = false, defaultValue = "lg") String size,
                          HttpServletRequest request,
                          HttpServletResponse response) {
         String clientIp = getClientIp(request);

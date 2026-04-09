@@ -234,11 +234,10 @@ public class GlobalOssServiceImpl implements GlobalOssService {
         dto.setCreateTime(image.getCreateTime());
 
         // 填充多尺寸图片 URL
-        // thumbnailUrl 使用小图 (400x400)，适合列表展示
+        // small 使用小图尺寸 (256px 宽)
+        // large 使用大图尺寸 (1080px 宽)
         OSSConfig.ImageUrls urls = ossConfig.getAllSizeImageUrls(image.getObjectName());
-        dto.setThumbnailUrl(urls.small());
         dto.setSmallUrl(urls.small());
-        dto.setMediumUrl(urls.medium());
         dto.setLargeUrl(urls.large());
         dto.setUrl(urls.original());
 
