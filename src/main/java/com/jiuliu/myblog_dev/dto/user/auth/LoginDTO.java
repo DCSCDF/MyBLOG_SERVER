@@ -14,20 +14,18 @@
 
 package com.jiuliu.myblog_dev.dto.user.auth;
 
-import com.jiuliu.myblog_dev.utils.validation.ValidPassword;
-import com.jiuliu.myblog_dev.utils.validation.Username;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 
 @Data
 public class LoginDTO {
     @NotBlank(message = "用户名不能为空")
-    @Username
+    @Size(min = 4, max = 20, message = "用户名长度必须在 4-20 位之间")
     private String username;
 
     @NotBlank(message = "密码不能为空")
-    @ValidPassword
     private String password;
 
     @NotBlank(message = "临时登录凭证不能为空")
