@@ -23,16 +23,21 @@
 
 package com.jiuliu.myblog_dev.dto.user.auth;
 
+import com.jiuliu.myblog_dev.utils.validation.CrossFieldPassword;
+import com.jiuliu.myblog_dev.utils.validation.Username;
+import com.jiuliu.myblog_dev.utils.validation.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
+@CrossFieldPassword()
 public class RegisterDTO {
 
     @NotBlank(message = "用户名不能为空")
-    @Size(min = 4, max = 20)
+    @Size(min = 4, max = 20, message = "用户名长度必须在 4-20 位之间")
+    @Username
     private String username;
 
     @NotBlank(message = "邮箱不能为空")
@@ -40,6 +45,7 @@ public class RegisterDTO {
     private String email;
 
     @NotBlank(message = "密码不能为空")
+    @ValidPassword
     private String password;
 
     @NotBlank(message = "临时登录凭证不能为空")

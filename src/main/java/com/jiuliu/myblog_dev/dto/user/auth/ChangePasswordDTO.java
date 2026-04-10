@@ -15,10 +15,17 @@
 package com.jiuliu.myblog_dev.dto.user.auth;
 
 
+import com.jiuliu.myblog_dev.utils.validation.ValidPassword;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class ChangePasswordDTO {
+
+    @NotBlank(message = "新密码不能为空")
+    @ValidPassword
     private String new_password; //new password
+
+    @NotBlank(message = "旧密码不能为空")
     private String old_password;
 }
