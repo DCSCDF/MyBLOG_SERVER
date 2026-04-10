@@ -17,8 +17,6 @@ package com.jiuliu.myblog_dev.controller.pubilc;
 import com.jiuliu.myblog_dev.config.business.OSSConfig;
 import com.jiuliu.myblog_dev.service.oss.ImageService;
 import com.jiuliu.myblog_dev.service.oss.ImageService.ImageMeta;
-import com.jiuliu.myblog_dev.utils.rateLimit.DynamicRateLimitService;
-import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -34,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 公开图片获取接口
  *
  * <p>通过哈希值获取 OSS 中的图片，直接流式传输到客户端。
- * 支持 IP 限流、动态速度调整和图片尺寸选择。</p>
+ * 支持图片尺寸选择，不进行限流。</p>
  */
 @RestController
 @RequestMapping("/api/images")
@@ -43,12 +41,9 @@ public class PublicImageController {
     private static final Logger log = LoggerFactory.getLogger(PublicImageController.class);
 
     private final ImageService imageService;
-    private final DynamicRateLimitService dynamicRateLimitService;
 
-    public PublicImageController(ImageService imageService,
-                                 DynamicRateLimitService dynamicRateLimitService) {
+    public PublicImageController(ImageService imageService) {
         this.imageService = imageService;
-        this.dynamicRateLimitService = dynamicRateLimitService;
     }
 
     /**
@@ -66,7 +61,6 @@ public class PublicImageController {
      * @param response HTTP 响应
      */
     @GetMapping("/{hash}")
-    @RateLimit(count = 30, period = 1, prefix = "image")
     public void getImage(@PathVariable String hash,
                          @RequestParam(required = false, defaultValue = "lg") String size,
                          HttpServletRequest request,
@@ -76,23 +70,8 @@ public class PublicImageController {
 
         OSSConfig.ImageSize imageSize = OSSConfig.ImageSize.fromCode(size);
 
-        log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}], 活跃请求=[{}], 推荐速度=[{} KB/s]",
-                hash, imageSize.getCode(), imageSize.getDescription(), clientIp,
-                dynamicRateLimitService.getActiveRequestCount(),
-                dynamicRateLimitService.getRecommendedTransferSpeed());
-
-        if (!dynamicRateLimitService.tryAcquire(clientIp, "image")) {
-            log.warn("[限流拒绝] hash=[{}], IP=[{}]", hash, clientIp);
-            try {
-                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                response.setContentType("application/json");
-                response.getWriter().write("{\"code\":429,\"msg\":\"请求过于频繁，请稍后再试\"}");
-                response.getWriter().flush();
-            } catch (Exception e) {
-                log.warn("写入限流响应失败：{}", e.getMessage());
-            }
-            return;
-        }
+        log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}]",
+                hash, imageSize.getCode(), imageSize.getDescription(), clientIp);
 
         try {
             ImageMeta meta = imageService.getImageMeta(hash);
@@ -124,8 +103,6 @@ public class PublicImageController {
             if (!response.isCommitted()) {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
-        } finally {
-            dynamicRateLimitService.release();
         }
     }
 
