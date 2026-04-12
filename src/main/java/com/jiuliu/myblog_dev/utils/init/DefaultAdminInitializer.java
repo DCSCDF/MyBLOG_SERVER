@@ -77,14 +77,14 @@ public class DefaultAdminInitializer implements CommandLineRunner {
             SysUser sysUser = new SysUser();
             sysUser.setUsername("admin");
             sysUser.setNickname("管理员");
-            sysUser.setPassword(passwordEncoder.encode("a123456"));
+            sysUser.setPassword(passwordEncoder.encode("Aa123456"));
             sysUser.setEmail("admin@example.com");
             sysUser.setStatus(1); // 1表示启用
             sysUser.setCreateTime(LocalDateTime.now());
             sysUser.setUpdateTime(LocalDateTime.now());
 
             sysUserMapper.insert(sysUser);
-            log.info("默认管理员已创建: username: admin (密码: a123456, 请首次登录后修改)");
+            log.info("默认管理员已创建: username: admin (密码: Aa123456, 请首次登录后修改)");
 
             // 为管理员分配超级管理员角色
             assignSuperAdminRole(sysUser.getId());

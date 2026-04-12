@@ -135,7 +135,14 @@ public class OSSConfig {
 
     /**
      * OSS 客户端实例
+     * -- GETTER --
+     * 获取 OSS 客户端实例
+     * <p>返回缓存的 OSS 客户端实例，避免每次请求都重新初始化。
+     * 客户端在首次配置或调用
+     * 时创建。</p>
+     *
      */
+    @Getter
     private OSS ossClient;
     /**
      * 访问密钥 ID
@@ -263,18 +270,6 @@ public class OSSConfig {
                 secretKey != null && !secretKey.isBlank() && !"Secret".equals(secretKey) &&
                 endpoint != null && !endpoint.isBlank() && !"end-point".equals(endpoint) &&
                 bucket != null && !bucket.isBlank() && !"Bucket".equals(bucket);
-    }
-
-    /**
-     * 获取 OSS 客户端实例
-     *
-     * <p>每次调用都从数据库读取最新配置并重新初始化客户端。</p>
-     *
-     * @return OSS 客户端实例，如果未配置则返回 null
-     */
-    public OSS getOssClient() {
-        refreshConfiguration();
-        return ossClient;
     }
 
     /**
