@@ -35,10 +35,7 @@ import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.service.mail.MailService;
-import com.jiuliu.myblog_dev.utils.auth.ChangeEmailPendingService;
-import com.jiuliu.myblog_dev.utils.auth.OAuthCodeService;
-import com.jiuliu.myblog_dev.utils.auth.RegisterPendingUserService;
-import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
+import com.jiuliu.myblog_dev.utils.auth.*;
 import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
 import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import com.jiuliu.myblog_dev.utils.validation.ValidationHelper;
@@ -55,7 +52,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -81,6 +77,7 @@ public class AuthServiceImpl implements AuthService {
     private final OAuthCodeService oauthCodeService;
     private final ImageCaptchaApplication imageCaptchaApplication;
     private final MailService mailService;
+    private final PendingPasswordResetService pendingPasswordResetService;
 
     public AuthServiceImpl(
             SysUserMapper sysUserMapper,
@@ -96,7 +93,8 @@ public class AuthServiceImpl implements AuthService {
             TempLoginTokenService tempLoginTokenService,
             OAuthCodeService oauthCodeService,
             ImageCaptchaApplication imageCaptchaApplication,
-            MailService mailService) {
+            MailService mailService,
+            PendingPasswordResetService pendingPasswordResetService) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
@@ -111,6 +109,7 @@ public class AuthServiceImpl implements AuthService {
         this.oauthCodeService = oauthCodeService;
         this.imageCaptchaApplication = imageCaptchaApplication;
         this.mailService = mailService;
+        this.pendingPasswordResetService = pendingPasswordResetService;
     }
 
     //    400: '请求参数错误',
@@ -804,6 +803,12 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("请使用邮箱验证码方式更换邮箱").setCode(400);
         }
 
+        // 检查新邮箱是否与原邮箱相同
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user != null && email.equalsIgnoreCase(user.getEmail())) {
+            return SaResult.error("新邮箱不能与原邮箱相同").setCode(400);
+        }
+
         return doDirectChangeEmail(email, currentUserId);
     }
 
@@ -815,6 +820,15 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
+        // 检查新邮箱是否与原邮箱相同
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            return SaResult.error("用户不存在").setCode(400);
+        }
+        if (newEmail.equalsIgnoreCase(user.getEmail())) {
+            return SaResult.error("新邮箱不能与原邮箱相同").setCode(400);
+        }
+
         // 检查是否存在尚未过期的待变更记录
         ChangeEmailPendingService.PendingEmailChange existing = changeEmailPendingService.getPendingEmailChange(currentUserId);
         if (existing != null && !LocalDateTime.now().isAfter(existing.getCodeExpireTime())) {
@@ -822,16 +836,12 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
-        SysUser user = sysUserMapper.selectById(currentUserId);
-        if (user == null) {
-            return SaResult.error("用户不存在").setCode(400);
-        }
-
         // 检查新邮箱是否已被其他用户使用
         SysUser existingUser = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("email", newEmail)
+                .ne("id", currentUserId)
                 .eq("is_deleted", 0));
-        if (existingUser != null && !existingUser.getId().equals(currentUserId)) {
+        if (existingUser != null) {
             return SaResult.error("邮箱已被注册").setCode(400);
         }
 
@@ -975,6 +985,188 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return SaResult.data(List.copyOf(resultCodes));
+    }
+
+    @Override
+    public SaResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto) {
+        // 检查 reg.use-email 配置
+        String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
+        boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
+        if (!useEmail) {
+            return SaResult.error("该功能未启用").setCode(400);
+        }
+
+        // 1. 验证码校验
+        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsernameOrEmail());
+        if (captchaResult != null) {
+            return captchaResult;
+        }
+
+        // 2. 校验临时 Token
+        String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
+        if (!"unbound".equals(tokenValue)) {
+            log.warn("请求找回密码验证码失败：临时 Token 无效或已过期");
+            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+        }
+
+        String usernameOrEmail = dto.getUsernameOrEmail().trim();
+        if (!StringUtils.hasText(usernameOrEmail)) {
+            return SaResult.error("用户名或邮箱不能为空").setCode(400);
+        }
+
+        // 3. 根据用户名或邮箱查找用户
+        SysUser user;
+        if (ValidationHelper.validateEmail(usernameOrEmail)) {
+            // 如果不是邮箱格式，则按用户名查找
+            user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                    .eq("username", usernameOrEmail)
+                    .eq("is_deleted", 0));
+        } else {
+            // 按邮箱查找
+            user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                    .eq("email", usernameOrEmail)
+                    .eq("is_deleted", 0));
+        }
+
+        // 无论用户是否存在，都返回相同响应，防止用户枚举攻击
+        if (user == null || user.getEmail() == null || user.getEmail().isEmpty()) {
+            log.warn("找回密码请求：未找到用户或用户未绑定邮箱，input={}", usernameOrEmail);
+            return SaResult.error("未找到对应的用户或该用户未绑定邮箱").setCode(400);
+        }
+
+        String email = user.getEmail();
+
+        // 4. 检查是否存在尚未过期的待重置记录
+        PendingPasswordResetService.PendingPasswordReset existingReset = pendingPasswordResetService.getPendingPasswordReset(email);
+        if (existingReset != null && !LocalDateTime.now().isAfter(existingReset.getCodeExpireTime())) {
+            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingReset.getCodeExpireTime()).getSeconds();
+            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
+        }
+
+        // 5. 生成6位验证码
+        String code = generateRegisterCode();
+
+        try {
+            pendingPasswordResetService.savePendingPasswordReset(user.getId(), user.getUsername(), email, code, REGISTER_CODE_EXPIRE_MINUTES);
+            log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
+        } catch (Exception e) {
+            log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
+            return SaResult.error("系统异常，请重试").setCode(500);
+        }
+
+        // 6. 发送验证码邮件
+        SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
+        if (mailResult.getCode() != 200) {
+            pendingPasswordResetService.deletePendingPasswordReset(email);
+            return mailResult;
+        }
+
+        log.info("找回密码验证码发送成功，userId={}, email={}", user.getId(), email);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "验证码已发送到您的邮箱，请查收");
+        data.put("email", maskEmail(email));
+        data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult confirmFindPassword(FindPasswordConfirmDTO dto) {
+        // 检查 reg.use-email 配置
+        String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
+        boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
+        if (!useEmail) {
+            return SaResult.error("该功能未启用").setCode(400);
+        }
+
+        String usernameOrEmail = dto.getUsernameOrEmail().trim();
+        String code = dto.getCode().trim();
+
+        if (!StringUtils.hasText(usernameOrEmail)) {
+            return SaResult.error("用户名或邮箱不能为空").setCode(400);
+        }
+        if (!StringUtils.hasText(code)) {
+            return SaResult.error("验证码不能为空").setCode(400);
+        }
+
+        // 1. 先根据输入查找用户，获取邮箱
+        SysUser user;
+        String email;
+        if (ValidationHelper.validateEmail(usernameOrEmail)) {
+            user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                    .eq("username", usernameOrEmail)
+                    .eq("is_deleted", 0));
+        } else {
+            user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                    .eq("email", usernameOrEmail)
+                    .eq("is_deleted", 0));
+        }
+
+        if (user == null || user.getEmail() == null || user.getEmail().isEmpty()) {
+            return SaResult.error("未找到对应的用户或该用户未绑定邮箱").setCode(400);
+        }
+        email = user.getEmail();
+
+        // 2. 查询待重置记录
+        PendingPasswordResetService.PendingPasswordReset pendingReset = pendingPasswordResetService.getPendingPasswordReset(email);
+        if (pendingReset == null) {
+            log.warn("找回密码确认失败：未找到待重置记录，email={}", email);
+            return SaResult.error("验证码无效，请重新获取").setCode(400);
+        }
+
+        // 3. 验证用户ID匹配
+        if (!pendingReset.getUserId().equals(user.getId())) {
+            log.warn("找回密码确认失败：用户ID不匹配，email={}", email);
+            return SaResult.error("验证码无效，请重新获取").setCode(400);
+        }
+
+        // 4. 检查验证码是否过期
+        if (LocalDateTime.now().isAfter(pendingReset.getCodeExpireTime())) {
+            log.warn("找回密码确认失败：验证码已过期，email={}", email);
+            pendingPasswordResetService.deletePendingPasswordReset(email);
+            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+        }
+
+        // 5. 验证验证码是否正确
+        if (!code.equals(pendingReset.getCode())) {
+            log.warn("找回密码确认失败：验证码错误，email={}, inputCode={}", email, code);
+            return SaResult.error("验证码错误").setCode(400);
+        }
+
+        // 6. 解密并校验新密码
+        String rawPassword;
+        try {
+            rawPassword = RsaUtils.decryptByPrivateKey(dto.getNewPassword(), rsaKeyConfig.getPrivateKeyBase64());
+        } catch (Exception e) {
+            log.warn("找回密码确认失败：密码解密异常，userId={}", user.getId());
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (!StringUtils.hasText(rawPassword)) {
+            return SaResult.error("密码格式错误").setCode(400);
+        }
+        if (ValidationHelper.validatePassword(rawPassword)) {
+            return SaResult.error("密码格式不符合要求").setCode(400);
+        }
+
+        // 7. 更新密码
+        LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, user.getId())
+                .set(SysUser::getPassword, passwordEncoder.encode(rawPassword))
+                .set(SysUser::getUpdateTime, LocalDateTime.now());
+
+        int rows = sysUserMapper.update(null, updateWrapper);
+        if (rows != 1) {
+            log.error("找回密码确认失败：密码更新失败，userId={}", user.getId());
+            return SaResult.error("密码重置失败，请重试").setCode(500);
+        }
+
+        // 8. 删除待重置记录
+        pendingPasswordResetService.deletePendingPasswordReset(email);
+
+        log.info("找回密码成功，userId={}", user.getId());
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "密码重置成功，请使用新密码登录");
+        return SaResult.data(data);
     }
 
     /**

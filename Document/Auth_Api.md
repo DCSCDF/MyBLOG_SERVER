@@ -691,6 +691,131 @@
 
 ---
 
+## 找回密码
+
+用户找回密码接口。当系统配置 `reg.use-email=true` 时可用。
+
+> **功能说明**：
+> - 用户可以通过用户名或邮箱匹配到对应的账户
+> - 如果匹配到账户且账户绑定了邮箱，则向该邮箱发送6位验证码
+> - 用户收到验证码后，通过验证码和新密码完成密码重置
+> - 未找到用户或用户未绑定邮箱时返回统一的错误信息（防止用户枚举攻击）
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/find-password/code`
+- **限流**: 60 秒内最多 6 次
+
+### 请求发送找回密码验证码
+
+#### 请求参数
+
+```json
+{
+  "usernameOrEmail": "用户名或邮箱",
+  "tempToken": "从 public-key 接口获取",
+  "captchaVerification": "验证码二次验证返回的值"
+}
+```
+
+| 字段                  | 类型     | 必填 | 说明              |
+|---------------------|--------|----|-----------------|
+| usernameOrEmail     | String | 是  | 用户名或邮箱地址     |
+| tempToken           | String | 是  | 临时凭证           |
+| captchaVerification | String | 是  | 验证码校验信息       |
+
+#### 成功响应
+
+```json
+{
+    "data": {
+        "message": "验证码已发送到您的邮箱，请查收",
+        "email": "u***r@example.com",
+        "expiresIn": 300
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+| 字段      | 类型    | 说明              |
+|---------|-------|-----------------|
+| message | String | 提示信息          |
+| email  | String | 掩码后的邮箱地址     |
+| expiresIn | Integer | 验证码有效期（秒）   |
+
+#### 错误响应
+
+- 未找到对应的用户或用户未绑定邮箱：`code: 400`（统一错误信息，防止枚举攻击）
+- 验证码尚在有效期内：`code: 400`（提示剩余等待秒数）
+- SMTP 配置未完成：`code: 400`
+- 验证码/临时凭证无效：`code: 400`
+- 该功能未启用：`code: 400`（当 `reg.use-email=false` 时）
+
+---
+
+### 确认找回密码（重置密码）
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/find-password/confirm`
+- **限流**: 60 秒内最多 6 次
+
+#### 请求参数
+
+`newPassword` 使用 public-key 接口返回的公钥进行 RSA 加密。
+
+```json
+{
+  "usernameOrEmail": "用户名或邮箱",
+  "code": "123456",
+  "newPassword": "加密后的新密码"
+}
+```
+
+| 字段              | 类型     | 必填 | 说明              |
+|-----------------|--------|----|-----------------|
+| usernameOrEmail | String | 是  | 用户名或邮箱地址     |
+| code            | String | 是  | 6位验证码          |
+| newPassword     | String | 是  | RSA 加密后的新密码   |
+
+#### 成功响应
+
+```json
+{
+    "data": {
+        "message": "密码重置成功，请使用新密码登录"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 错误响应
+
+- 未找到对应的用户或用户未绑定邮箱：`code: 400`
+- 验证码为空：`code: 400`
+- 验证码无效：`code: 400`（提示重新获取）
+- 验证码已过期：`code: 400`
+- 验证码错误：`code: 400`
+- 密码格式错误：`code: 400`
+- 密码格式不符合要求：`code: 400`
+- 该功能未启用：`code: 400`（当 `reg.use-email=false` 时）
+
+> **找回密码流程说明**：
+> 1. 调用 `/api/auth/public-key` 获取公钥和 tempToken
+> 2. 调用 `/api/captcha/gen` 获取验证码图片
+> 3. 调用 `/api/captcha/check` 校验行为轨迹
+> 4. 调用 `/api/auth/find-password/code` 发送找回密码验证码（需通过 `/api/captcha/verify` 二次验证）
+> 5. 检查邮箱收取验证码
+> 6. 调用 `/api/auth/find-password/confirm` 完成密码重置
+
+> **注意**：
+> - 验证码有效期为 5 分钟，同一邮箱在验证码失效前无法重复获取
+> - 密码格式要求：6-20位，必须包含字母和数字，不能包含空格、引号、分号等特殊字符
+
+---
+
 ## 权限管理接口
 
 ### 分页获取权限列表

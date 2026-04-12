@@ -140,6 +140,24 @@ public class AuthController {
         return handleSaResult(authService.confirmRegister(dto));
     }
 
+    /**
+     * 请求发送找回密码验证码（当 reg.use-email 为 true 时使用）
+     */
+    @PostMapping("/find-password/code")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> requestFindPasswordCode(@Valid @RequestBody FindPasswordCodeRequestDTO dto) {
+        return handleSaResult(authService.requestFindPasswordCode(dto));
+    }
+
+    /**
+     * 确认找回密码（验证邮箱验证码并完成密码重置）
+     */
+    @PostMapping("/find-password/confirm")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> confirmFindPassword(@Valid @RequestBody FindPasswordConfirmDTO dto) {
+        return handleSaResult(authService.confirmFindPassword(dto));
+    }
+
     @PostMapping("/update-nickname")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateNickname(@Valid @RequestBody UpdateNicknameDTO dto) {

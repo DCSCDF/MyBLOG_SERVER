@@ -26,6 +26,8 @@ import com.jiuliu.myblog_dev.dto.user.auth.RegisterConfirmDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.FindPasswordCodeRequestDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.FindPasswordConfirmDTO;
 
 
 public interface AuthService {
@@ -93,4 +95,20 @@ public interface AuthService {
      * 获取当前用户拥有的权限编码列表（包含父权限展开后的所有子权限）
      */
     SaResult getCurrentUserPermissions(Long currentUserId);
+
+    /**
+     * 请求发送找回密码验证码（当 reg.use-email 为 true 时使用）
+     *
+     * @param dto 找回密码验证码请求DTO
+     * @return 结果
+     */
+    SaResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto);
+
+    /**
+     * 确认找回密码（验证邮箱验证码并完成密码重置）
+     *
+     * @param dto 找回密码确认DTO
+     * @return 结果
+     */
+    SaResult confirmFindPassword(FindPasswordConfirmDTO dto);
 }
