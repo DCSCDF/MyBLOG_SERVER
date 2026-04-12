@@ -109,4 +109,14 @@ public interface MailService {
      * @return SaResult
      */
     SaResult sendRegisterVerificationCode(String toEmail, String code, String username);
+
+    /**
+     * 发送邮箱变更验证码邮件
+     *
+     * @param toEmail  收件人邮箱
+     * @param code     验证码
+     * @param username 用户名
+     * @return SaResult
+     */
+    SaResult sendChangeEmailVerificationCode(String toEmail, String code, String username);
 }

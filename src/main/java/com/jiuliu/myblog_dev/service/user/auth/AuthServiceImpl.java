@@ -35,6 +35,7 @@ import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.service.mail.MailService;
+import com.jiuliu.myblog_dev.utils.auth.ChangeEmailPendingService;
 import com.jiuliu.myblog_dev.utils.auth.OAuthCodeService;
 import com.jiuliu.myblog_dev.utils.auth.RegisterPendingUserService;
 import com.jiuliu.myblog_dev.utils.auth.TempLoginTokenService;
@@ -73,6 +74,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysPermissionGroupMapper sysPermissionGroupMapper;
     private final SysConfigMapper sysConfigMapper;
     private final RegisterPendingUserService registerPendingUserService;
+    private final ChangeEmailPendingService changeEmailPendingService;
     private final RsaKeyConfig rsaKeyConfig;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TempLoginTokenService tempLoginTokenService;
@@ -88,6 +90,7 @@ public class AuthServiceImpl implements AuthService {
             SysPermissionGroupMapper sysPermissionGroupMapper,
             SysConfigMapper sysConfigMapper,
             RegisterPendingUserService registerPendingUserService,
+            ChangeEmailPendingService changeEmailPendingService,
             RsaKeyConfig rsaKeyConfig,
             BCryptPasswordEncoder passwordEncoder,
             TempLoginTokenService tempLoginTokenService,
@@ -101,6 +104,7 @@ public class AuthServiceImpl implements AuthService {
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
         this.sysConfigMapper = sysConfigMapper;
         this.registerPendingUserService = registerPendingUserService;
+        this.changeEmailPendingService = changeEmailPendingService;
         this.rsaKeyConfig = rsaKeyConfig;
         this.passwordEncoder = passwordEncoder;
         this.tempLoginTokenService = tempLoginTokenService;
@@ -404,6 +408,13 @@ public class AuthServiceImpl implements AuthService {
                 .eq("email", email)
                 .eq("is_deleted", 0)) != null) {
             return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
+        // 4.5 检查是否存在尚未过期的待注册记录
+        RegisterPendingUserService.PendingUser existingPending = registerPendingUserService.getPendingUser(email);
+        if (existingPending != null && !LocalDateTime.now().isAfter(existingPending.getCodeExpireTime())) {
+            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingPending.getCodeExpireTime()).getSeconds();
+            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
         // 5. 生成6位验证码
@@ -785,6 +796,109 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId) {
         String email = dto.getEmail().trim();
+
+        String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
+        boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
+
+        if (useEmail) {
+            return SaResult.error("请使用邮箱验证码方式更换邮箱").setCode(400);
+        }
+
+        return doDirectChangeEmail(email, currentUserId);
+    }
+
+    @Override
+    public SaResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId) {
+        String newEmail = dto.getEmail().trim();
+
+        if (ValidationHelper.validateEmail(newEmail)) {
+            return SaResult.error("邮箱格式不正确").setCode(400);
+        }
+
+        // 检查是否存在尚未过期的待变更记录
+        ChangeEmailPendingService.PendingEmailChange existing = changeEmailPendingService.getPendingEmailChange(currentUserId);
+        if (existing != null && !LocalDateTime.now().isAfter(existing.getCodeExpireTime())) {
+            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existing.getCodeExpireTime()).getSeconds();
+            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
+        }
+
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        // 检查新邮箱是否已被其他用户使用
+        SysUser existingUser = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", newEmail)
+                .eq("is_deleted", 0));
+        if (existingUser != null && !existingUser.getId().equals(currentUserId)) {
+            return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
+        // 生成6位验证码
+        String code = generateRegisterCode();
+
+        try {
+            changeEmailPendingService.savePendingEmailChange(currentUserId, newEmail, code, REGISTER_CODE_EXPIRE_MINUTES);
+            log.info("保存待变更邮箱信息，userId={}, newEmail={}", currentUserId, newEmail);
+        } catch (Exception e) {
+            log.error("保存待变更邮箱信息失败，userId={}, error={}", currentUserId, e.getMessage());
+            return SaResult.error("系统异常，请重试").setCode(500);
+        }
+
+        SaResult mailResult = mailService.sendChangeEmailVerificationCode(newEmail, code, user.getUsername());
+        if (mailResult.getCode() != 200) {
+            changeEmailPendingService.deletePendingEmailChange(currentUserId);
+            return mailResult;
+        }
+
+        log.info("邮箱变更验证码发送成功，userId={}, newEmail={}", currentUserId, newEmail);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "验证码已发送到您的新邮箱，请查收");
+        data.put("email", maskEmail(newEmail));
+        data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
+        return SaResult.data(data);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SaResult confirmChangeEmail(ChangeEmailConfirmDTO dto, Long currentUserId) {
+        String email = dto.getEmail().trim();
+        String code = dto.getCode().trim();
+
+        if (!StringUtils.hasText(code)) {
+            return SaResult.error("验证码不能为空").setCode(400);
+        }
+
+        ChangeEmailPendingService.PendingEmailChange pending = changeEmailPendingService.getPendingEmailChange(currentUserId);
+
+        if (pending == null) {
+            log.warn("邮箱变更确认失败：未找到待变更记录，userId={}", currentUserId);
+            return SaResult.error("验证码无效，请重新获取").setCode(400);
+        }
+
+        if (!email.equals(pending.getNewEmail())) {
+            return SaResult.error("邮箱不匹配，请使用获取验证码时填写的邮箱").setCode(400);
+        }
+
+        if (LocalDateTime.now().isAfter(pending.getCodeExpireTime())) {
+            log.warn("邮箱变更确认失败：验证码已过期，userId={}", currentUserId);
+            changeEmailPendingService.deletePendingEmailChange(currentUserId);
+            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+        }
+
+        if (!code.equals(pending.getCode())) {
+            log.warn("邮箱变更确认失败：验证码错误，userId={}, inputCode={}", currentUserId, code);
+            return SaResult.error("验证码错误").setCode(400);
+        }
+
+        return doDirectChangeEmail(email, currentUserId);
+    }
+
+    /**
+     * 直接更换邮箱（reg.use-email = false 时）
+     */
+    private SaResult doDirectChangeEmail(String email, Long currentUserId) {
         if (!StringUtils.hasText(email)) {
             log.warn("邮箱修改失败：邮箱为空，userId={}", currentUserId);
             return SaResult.error("邮箱不能为空").setCode(400);
@@ -795,30 +909,18 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
-        // 检查邮箱是否已被其他用户使用
-        SysUser existingUser = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
-                .eq("email", email)
-                .eq("is_deleted", 0));
-        if (existingUser != null && !existingUser.getId().equals(currentUserId)) {
-            log.warn("邮箱修改失败：邮箱已被注册，userId={}, email={}", currentUserId, email);
-            return SaResult.error("邮箱已被注册").setCode(400);
-        }
-
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("邮箱修改失败：用户不存在，userId={}", currentUserId);
             return SaResult.error("用户不存在").setCode(400);
         }
 
-        user.setEmail(email);
-        long timestamp = System.currentTimeMillis();
-        LocalDateTime localDateTime = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(timestamp),
-                ZoneId.systemDefault()
-        );
-        user.setUpdateTime(localDateTime);
+        LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, currentUserId)
+                .set(SysUser::getEmail, email)
+                .set(SysUser::getUpdateTime, LocalDateTime.now());
 
-        int rows = sysUserMapper.updateById(user);
+        int rows = sysUserMapper.update(null, updateWrapper);
         if (rows != 1) {
             log.error("邮箱修改失败：数据库更新失败，userId={}", currentUserId);
             return SaResult.error("邮箱修改失败，请重试").setCode(400);

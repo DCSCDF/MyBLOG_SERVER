@@ -19,7 +19,6 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
-import com.jiuliu.myblog_dev.utils.disabled.Disabled;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
@@ -126,7 +125,7 @@ public class AuthController {
      * 该接口会验证用户信息，发送验证码到邮箱，并返回验证码有效期等信息
      */
     @PostMapping("/register/code")
-    @RateLimit(count = 3, period = 60)
+    @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> requestRegisterCode(@Valid @RequestBody RegisterCodeRequestDTO dto) {
         return handleSaResult(authService.requestRegisterCode(dto));
     }
@@ -155,12 +154,35 @@ public class AuthController {
         return handleSaResult(authService.updateAvatarUrl(dto, currentUserId));
     }
 
-    @Disabled
+    /**
+     * 直接修改邮箱（当 reg.use-email 为 false 时使用）
+     * 直接传入新邮箱进行修改，无需验证码
+     */
     @PostMapping("/update-email")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> updateEmail(@Valid @RequestBody UpdateEmailDTO dto) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         return handleSaResult(authService.updateEmail(dto, currentUserId));
+    }
+
+    /**
+     * 请求发送邮箱变更验证码（当 reg.use-email 为 true 时使用）
+     */
+    @PostMapping("/change-email/code")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> requestChangeEmailCode(@Valid @RequestBody ChangeEmailDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.requestChangeEmailCode(dto, currentUserId));
+    }
+
+    /**
+     * 确认邮箱变更（验证邮箱验证码并完成邮箱更换）
+     */
+    @PostMapping("/change-email/confirm")
+    @RateLimit(count = 6, period = 60)
+    public Response<Map<String, Object>> confirmChangeEmail(@Valid @RequestBody ChangeEmailConfirmDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.confirmChangeEmail(dto, currentUserId));
     }
 
     /**
