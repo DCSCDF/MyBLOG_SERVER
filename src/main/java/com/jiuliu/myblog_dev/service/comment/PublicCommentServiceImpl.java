@@ -219,9 +219,15 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);
 
-            // 8. 发送新评论通知给管理员
-            boolean adminNotified = sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
-            log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
+            // 8. 发送新评论通知给管理员（排除文章作者给自己文章发评论的情况）
+            boolean isOwnArticle = isCommentOnOwnArticle(comment, blog);
+            if (!isOwnArticle) {
+                boolean adminNotified = sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
+                log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
+            } else {
+                log.debug("评论者为文章作者，跳过管理员通知，commentId={}, authorId={}",
+                        comment.getId(), blog.getAuthorId());
+            }
 
             // 9. 返回结果
             java.util.HashMap<String, Object> result = new java.util.HashMap<>();
@@ -418,6 +424,17 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.debug("获取邮箱显示配置失败，使用默认值 false: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 检查评论者是否是文章作者（即自己的文章）
+     * 如果是文章作者给自己发评论，则跳过管理员通知
+     */
+    private boolean isCommentOnOwnArticle(SysComment comment, SysBlog blog) {
+        if (blog.getAuthorId() == null || comment.getUserId() == null) {
+            return false;
+        }
+        return blog.getAuthorId().equals(comment.getUserId());
     }
 
     /**
