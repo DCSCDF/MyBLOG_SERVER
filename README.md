@@ -2,9 +2,16 @@
 <h4 align="center">使用 SpringBoot 框架，方法实现采用更安全的方式。</h4>
 <div align="center">
 
+
+
 [![My Skills](https://skillicons.dev/icons?i=java,spring,mysql,git&theme=light)](https://skillicons.dev)
 </div>
 
+---
+## 部署改项目：
+
+如果想部署该项目，请跳转到下方链接根据文档安装发行版。
+> https://github.com/DCSCDF/MYBLOG-Distribution
 ---
 
 ![MySQL](https://img.shields.io/badge/MySQL-8.4.0-00758F?logo=mysql&logoColor=white)
