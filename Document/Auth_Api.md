@@ -344,7 +344,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/auth/register/code`
-- **限流**: 60 秒内最多 3 次
+- **限流**: 60 秒内最多 6 次
 
 #### 请求参数
 
@@ -443,7 +443,7 @@
 
 > **注册流程说明**：
 > 1. 调用 `/api/auth/public-key` 获取公钥和 tempToken
-> 2. 调用 `/api/captcha/gen` 获取验证码图片
+> 2. 调用 `/api/captcha/get` 获取验证码图片
 > 3. 调用 `/api/captcha/check` 校验行为轨迹
 > 4. 调用 `/api/auth/register/code` 发送注册验证码（需通过 `/api/captcha/verify` 二次验证）
 > 5. 检查邮箱收取验证码
@@ -596,7 +596,7 @@
 - **请求方法**: `POST`
 - **请求路径**: `/api/auth/change-email/code`
 - **需要登录**: 是
-- **限流**: 60 秒内最多 3 次
+- **限流**: 60 秒内最多 6 次
 
 #### 请求参数
 
@@ -804,7 +804,7 @@
 
 > **找回密码流程说明**：
 > 1. 调用 `/api/auth/public-key` 获取公钥和 tempToken
-> 2. 调用 `/api/captcha/gen` 获取验证码图片
+> 2. 调用 `/api/captcha/get` 获取验证码图片
 > 3. 调用 `/api/captcha/check` 校验行为轨迹
 > 4. 调用 `/api/auth/find-password/code` 发送找回密码验证码（需通过 `/api/captcha/verify` 二次验证）
 > 5. 检查邮箱收取验证码
