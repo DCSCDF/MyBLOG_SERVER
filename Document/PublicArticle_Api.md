@@ -132,7 +132,7 @@
       "categoryId": 5,
       "categoryName": "技术",
       "title": "Spring Boot 最佳实践",
-      "htmlContent": "<h1>Spring Boot 最佳实践</h1><h2>项目结构</h2><p>合理的项目结构可以提高代码的可维护性...</p>",
+      "mdContent": "# Spring Boot 最佳实践\n\n## 项目结构\n\n合理的项目结构可以提高代码的可维护性...",
       "tags": "Java,Spring,后端",
       "commentCount": 56,
       "isTop": true,
@@ -153,7 +153,7 @@
 | categoryId     | Long     | 分类ID                              |
 | categoryName   | String   | 分类名称（如果分类已隐藏则返回null）              |
 | title          | String   | 文章标题                              |
-| htmlContent    | String   | 文章内容（HTML格式全文，由Markdown转换，已净化XSS） |
+| mdContent      | String   | 文章内容（Markdown格式原文，前端负责渲染） |
 | tags           | String   | 标签（逗号分隔）                          |
 | commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）              |
 | isTop          | Boolean  | 是否置顶                              |

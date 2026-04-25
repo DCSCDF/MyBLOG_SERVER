@@ -45,9 +45,9 @@ public class PublicArticleDetailResponseDTO {
     private String title;
 
     /**
-     * 文章内容（HTML格式全文）
+     * 文章内容（Markdown格式原文）
      */
-    private String htmlContent;
+    private String mdContent;
 
     /**
      * 标签（逗号分隔）

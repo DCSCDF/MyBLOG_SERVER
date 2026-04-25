@@ -30,7 +30,6 @@ import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
-import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import com.jiuliu.myblog_dev.utils.segment.ChineseSegmentUtil;
 import org.slf4j.Logger;
@@ -296,8 +295,8 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             dto.setCategoryId(blog.getCategoryId());
             dto.setCategoryName(categoryName);
             dto.setTitle(blog.getTitle());
-            // MD转HTML并净化XSS
-            dto.setHtmlContent(HtmlUtil.markdownToHtml(blog.getContent()));
+            // 返回原始Markdown内容，不渲染HTML
+            dto.setMdContent(blog.getContent());
             dto.setTags(blog.getTags());
             dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
             dto.setIsTop(blog.getTop());
