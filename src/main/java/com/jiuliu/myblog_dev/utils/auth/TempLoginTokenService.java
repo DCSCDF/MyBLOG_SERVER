@@ -16,21 +16,41 @@ package com.jiuliu.myblog_dev.utils.auth;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.util.SaFoxUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class TempLoginTokenService {
 
+    private static final Logger log = LoggerFactory.getLogger(TempLoginTokenService.class);
     private static final String TOKEN_PREFIX = "temp_login_token:";
     private static final long EXPIRE_SECONDS = 60;
+    private static final int MAX_LOCK_ENTRIES = 5000;
+    private static final long LOCK_CLEANUP_INTERVAL_MINUTES = 10;
 
     private final SaTokenDao saTokenDao;
+
+    // 每个 token 的锁（用于防止并发消费）
+    private final ConcurrentHashMap<String, Object> tokenLocks = new ConcurrentHashMap<>();
 
     // 构造函数注入
     public TempLoginTokenService(SaTokenDao saTokenDao) {
         this.saTokenDao = saTokenDao;
+        // 启动定时清理任务
+        // 定时清理任务
+        ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "token-lock-cleanup");
+            t.setDaemon(true);
+            return t;
+        });
+        cleanupScheduler.scheduleAtFixedRate(this::cleanupStaleLocks,
+                LOCK_CLEANUP_INTERVAL_MINUTES, LOCK_CLEANUP_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
 
     /**
@@ -38,8 +58,6 @@ public class TempLoginTokenService {
      * 前端先申请 token，后续在登录时携带该 token 完成认证
      * return 32位随机字符串 token
      */
-    private final ConcurrentHashMap<String, Object> tokenLocks = new ConcurrentHashMap<>();
-
     public String generateTempToken() {
         String token = SaFoxUtil.getRandomString(32);
         String key = TOKEN_PREFIX + token;
@@ -84,6 +102,26 @@ public class TempLoginTokenService {
                 // 清理锁
                 tokenLocks.remove(token, lock);
             }
+        }
+    }
+
+    /**
+     * 清理长时间未使用的锁对象，防止内存泄漏
+     * 注意：这是兜底机制，正常情况下锁会在 consumeToken 的 finally 块中被移除
+     */
+    private void cleanupStaleLocks() {
+        int beforeSize = tokenLocks.size();
+        if (beforeSize > MAX_LOCK_ENTRIES) {
+            // 当锁数量超过阈值时，清除一半
+            int targetSize = MAX_LOCK_ENTRIES / 2;
+            int removed = 0;
+            for (String key : tokenLocks.keySet()) {
+                if (tokenLocks.size() <= targetSize) break;
+                if (tokenLocks.remove(key) != null) {
+                    removed++;
+                }
+            }
+            log.warn("Token锁缓存清理完成，移除 {} 个过期锁，当前剩余: {}", removed, tokenLocks.size());
         }
     }
 

@@ -36,8 +36,8 @@ public class RsaKeyConfig {
     private static final int KEY_SIZE = 2048;
     private static final long REFRESH_INTERVAL_HOURS = 720;
 
-    private String publicKeyBase64;
-    private String privateKeyBase64;
+    private volatile String publicKeyBase64;
+    private volatile String privateKeyBase64;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 

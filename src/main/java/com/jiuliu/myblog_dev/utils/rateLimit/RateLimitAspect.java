@@ -39,6 +39,9 @@ public class RateLimitAspect {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitAspect.class);
 
+    // 最大缓存条目数，防止内存溢出
+    private static final int MAX_ENTRIES = 10000;
+
     // 计数器和过期时间
     private final ConcurrentHashMap<String, AtomicInteger> counterMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Long> expireTimeMap = new ConcurrentHashMap<>();
@@ -90,6 +93,12 @@ public class RateLimitAspect {
     }
 
     private AtomicInteger getOrCreateCounter(String key, long now, long periodMs) {
+        // 检查容量限制，必要时触发清理
+        if (expireTimeMap.size() > MAX_ENTRIES) {
+            log.warn("限流缓存达到容量上限，触发紧急清理");
+            cleanupExpiredKeys();
+        }
+
         // 为每个 key 获取独立锁
         ReentrantLock lock = lockMap.computeIfAbsent(key, k -> new ReentrantLock());
         lock.lock();
@@ -114,13 +123,16 @@ public class RateLimitAspect {
 
     private void cleanupExpiredKeys() {
         long now = System.currentTimeMillis();
-        // 清理 expireTimeMap 中已过期的 key
-        expireTimeMap.entrySet().removeIf(entry -> now > entry.getValue());
+        // 计算需要清理的宽限期（额外保留5分钟以应对时区误差）
+        long gracePeriod = 5 * 60 * 1000;
+        // 清理 expireTimeMap 中已过期且超过宽限期的 key
+        expireTimeMap.entrySet().removeIf(entry -> now > entry.getValue() + gracePeriod);
         // 同步清理 counterMap 和 lockMap（避免内存泄漏）
         counterMap.keySet().removeIf(key -> !expireTimeMap.containsKey(key));
         lockMap.keySet().removeIf(key -> !expireTimeMap.containsKey(key));
         if (log.isDebugEnabled()) {
-            log.debug("限流缓存清理完成，当前活跃 key 数: {}", expireTimeMap.size());
+            log.debug("限流缓存清理完成，当前活跃 key 数: {}, counterMap: {}, lockMap: {}",
+                    expireTimeMap.size(), counterMap.size(), lockMap.size());
         }
     }
 

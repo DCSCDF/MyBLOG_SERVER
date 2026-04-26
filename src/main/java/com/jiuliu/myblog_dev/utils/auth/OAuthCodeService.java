@@ -21,6 +21,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * OAuth 授权码服务
@@ -34,12 +37,43 @@ public class OAuthCodeService {
     private static final String CODE_PREFIX = "oauth_code:";
     private static final String TOKEN_KEY_SUFFIX = ":token";
     private static final long CODE_EXPIRE_SECONDS = 300; // 5分钟
+    private static final int MAX_LOCK_ENTRIES = 5000;
+    private static final long LOCK_CLEANUP_INTERVAL_MINUTES = 10;
 
     private final SaTokenDao saTokenDao;
     private final ConcurrentHashMap<String, Object> codeLocks = new ConcurrentHashMap<>();
 
     public OAuthCodeService(SaTokenDao saTokenDao) {
         this.saTokenDao = saTokenDao;
+        // 启动定时清理任务
+        // 定时清理任务
+        ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "oauth-code-lock-cleanup");
+            t.setDaemon(true);
+            return t;
+        });
+        cleanupScheduler.scheduleAtFixedRate(this::cleanupStaleLocks,
+                LOCK_CLEANUP_INTERVAL_MINUTES, LOCK_CLEANUP_INTERVAL_MINUTES, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 清理长时间未使用的锁对象，防止内存泄漏
+     * 注意：这是兜底机制，正常情况下锁会在 consumeCodeAndGetToken 的 finally 块中被移除
+     */
+    private void cleanupStaleLocks() {
+        int beforeSize = codeLocks.size();
+        if (beforeSize > MAX_LOCK_ENTRIES) {
+            // 当锁数量超过阈值时，清除一半
+            int targetSize = MAX_LOCK_ENTRIES / 2;
+            int removed = 0;
+            for (String key : codeLocks.keySet()) {
+                if (codeLocks.size() <= targetSize) break;
+                if (codeLocks.remove(key) != null) {
+                    removed++;
+                }
+            }
+            log.warn("OAuth Code锁缓存清理完成，移除 {} 个过期锁，当前剩余: {}", removed, codeLocks.size());
+        }
     }
 
     /**
