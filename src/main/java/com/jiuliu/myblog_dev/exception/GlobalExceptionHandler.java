@@ -236,17 +236,15 @@ public class GlobalExceptionHandler {
         String requestPath = request.getRequestURI();
         String httpMethod = request.getMethod();
         String queryString = request.getQueryString();
-        
+
         // 详细调试日志
-        log.warn("========== 参数类型不匹配 ==========");
         log.warn("请求路径: {}", requestPath);
         log.warn("HTTP方法: {}", httpMethod);
         log.warn("查询参数: {}", queryString);
         log.warn("参数名称: {}", paramName);
         log.warn("无效值: '{}'", invalidValue);
         log.warn("期望类型: {}", targetType);
-        log.warn("====================================");
-        
+
         return ResponseUtil.fail("参数格式错误，请检查请求参数", 400);
     }
 
