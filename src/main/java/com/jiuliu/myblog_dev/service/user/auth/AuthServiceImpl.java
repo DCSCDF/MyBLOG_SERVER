@@ -397,7 +397,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
-        // 4. 检查用户名、邮箱是否已存在（正式用户表）
+        // 4. 检查用户名、邮箱是否已存在
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("username", username)
                 .eq("is_deleted", 0)) != null) {
