@@ -16,11 +16,16 @@ package com.jiuliu.myblog_dev.utils.rateLimit;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,11 +50,6 @@ public class DynamicRateLimitService {
     private static final int MIN_REQUESTS_PER_MINUTE = 10;
 
     /**
-     * 最大限流数
-     */
-    private static final int MAX_REQUESTS_PER_MINUTE = 200;
-
-    /**
      * 当前活跃请求计数器
      */
     private final AtomicInteger activeRequests = new AtomicInteger(0);
@@ -67,6 +67,7 @@ public class DynamicRateLimitService {
     /**
      * 限流器缓存
      */
+    @Getter
     private final ConcurrentHashMap<String, RateLimiter> limiterCache = new ConcurrentHashMap<>();
 
     /**
@@ -104,60 +105,9 @@ public class DynamicRateLimitService {
         }
     }
 
-    /**
-     * 获取当前活跃请求数
-     */
-    public int getActiveRequestCount() {
-        return activeRequests.get();
-    }
 
     /**
-     * 获取当前限流阈值
-     */
-    public int getCurrentRateLimit(String key) {
-        RateLimiter limiter = limiterCache.get(key);
-        if (limiter != null) {
-            return limiter.getPermitsPerMinute();
-        }
-        return DEFAULT_REQUESTS_PER_MINUTE;
-    }
-
-    /**
-     * 尝试获取令牌
-     *
-     * @param ip 客户端 IP
-     * @param key 限流 key
-     * @return true 表示允许请求，false 表示被限流
-     */
-    public boolean tryAcquire(String ip, String key) {
-        String fullKey = key + ":" + ip;
-        long currentMinute = System.currentTimeMillis() / 60000;
-
-        ConcurrentHashMap<Long, AtomicInteger> window = windowMap.computeIfAbsent(fullKey,
-                k -> new ConcurrentHashMap<>());
-
-        AtomicInteger count = window.computeIfAbsent(currentMinute, k -> new AtomicInteger(0));
-
-        int rateLimit = getEffectiveRateLimit();
-        if (count.incrementAndGet() > rateLimit) {
-            count.decrementAndGet();
-            log.warn("IP [{}] 触发限流，当前阈值: {} req/min", ip, rateLimit);
-            return false;
-        }
-
-        activeRequests.incrementAndGet();
-        return true;
-    }
-
-    /**
-     * 释放请求计数
-     */
-    public void release() {
-        activeRequests.decrementAndGet();
-    }
-
-    /**
-     * 获取有效的限流阈值（考虑当前活跃请求数）
+     * 获取有效限流阈值（考虑当前活跃请求数）
      */
     private int getEffectiveRateLimit() {
         int active = activeRequests.get();
@@ -169,7 +119,7 @@ public class DynamicRateLimitService {
             baseLimit = 60 - ((active - 30) * 2);
         }
 
-        return Math.max(MIN_REQUESTS_PER_MINUTE, Math.min(baseLimit, MAX_REQUESTS_PER_MINUTE));
+        return baseLimit;
     }
 
     /**
@@ -200,24 +150,6 @@ public class DynamicRateLimitService {
     }
 
     /**
-     * 获取系统负载状态
-     */
-    public LoadStatus getLoadStatus() {
-        int active = activeRequests.get();
-        int limit = getEffectiveRateLimit();
-
-        if (active < 20) {
-            return LoadStatus.LOW;
-        } else if (active < 50) {
-            return LoadStatus.NORMAL;
-        } else if (active < 100) {
-            return LoadStatus.HIGH;
-        } else {
-            return LoadStatus.CRITICAL;
-        }
-    }
-
-    /**
      * 获取推荐的传输速度（KB/s）
      */
     public int getRecommendedTransferSpeed() {
@@ -239,6 +171,8 @@ public class DynamicRateLimitService {
     /**
      * 限流器
      */
+    @Setter
+    @Getter
     public static class RateLimiter {
         private volatile int permitsPerMinute;
 
@@ -246,22 +180,6 @@ public class DynamicRateLimitService {
             this.permitsPerMinute = permitsPerMinute;
         }
 
-        public int getPermitsPerMinute() {
-            return permitsPerMinute;
-        }
-
-        public void setPermitsPerMinute(int permitsPerMinute) {
-            this.permitsPerMinute = permitsPerMinute;
-        }
     }
 
-    /**
-     * 负载状态枚举
-     */
-    public enum LoadStatus {
-        LOW,
-        NORMAL,
-        HIGH,
-        CRITICAL
-    }
 }
