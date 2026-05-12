@@ -28,17 +28,19 @@ import org.springframework.context.annotation.Configuration;
 public class CaptchaConfig {
 
     /**
-     * 配置 TianAi-Captcha 资源存储，使用 classpath 下的本地 PNG 图片。
+     * 使用 classpath 下的本地 PNG 图片。
      * 具体图片文件需放在 resources/images 目录中，例如 a.png、b.png、c.png、48.png。
      */
     @Bean
     public ResourceStore resourceStore() {
         LocalMemoryResourceStore resourceStore = new LocalMemoryResourceStore();
 
+
         // 滑块验证码背景图（resources/images，PNG）
         resourceStore.addResource(CaptchaTypeConstant.SLIDER, new Resource("classpath", "images/a.png", "default"));
         resourceStore.addResource(CaptchaTypeConstant.SLIDER, new Resource("classpath", "images/b.png", "default"));
         resourceStore.addResource(CaptchaTypeConstant.SLIDER, new Resource("classpath", "images/c.png", "default"));
+
 
         // 旋转验证码、滑动还原、文字点选验证码背景图（resources/images，PNG）
         resourceStore.addResource(CaptchaTypeConstant.ROTATE, new Resource("classpath", "images/a.png", "default"));
