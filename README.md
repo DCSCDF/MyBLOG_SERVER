@@ -42,17 +42,6 @@
 
 ---
 
-```
-# 查看当前配置
-java -jar myblog_dev.jar --help
-
-# 启动时覆盖配置
-java -jar myblog_dev.jar --app.cors.allowed-origins="https://prod.example.com"
-
-```
-
----
-
 ## 项目开发参考
 
 ### 关系参考图
