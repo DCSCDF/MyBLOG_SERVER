@@ -55,6 +55,7 @@ public class SysSeo {
 
     private String robots;             // robots meta标签（如index,follow、no index,no follow）
 
+    @TableLogic
     @TableField("is_deleted")
     private Integer isDeleted;         // 0=未删除，1=已删除
 

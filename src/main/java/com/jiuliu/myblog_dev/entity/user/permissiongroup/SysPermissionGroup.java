@@ -36,6 +36,7 @@ public class SysPermissionGroup {
     @TableField("is_system")
     private Boolean isSystem;       // 是否系统内置（不可删除/修改）
 
+    @TableLogic
     @TableField("is_deleted")
     private Integer isDeleted;      // 0=未删除，1=已删除
 

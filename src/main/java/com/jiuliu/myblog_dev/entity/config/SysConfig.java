@@ -55,6 +55,7 @@ public class SysConfig {
     @TableField("is_open")
     private Integer isOpen;
 
+    @TableLogic
     @TableField("is_deleted")
     private Integer isDeleted;
 

@@ -63,6 +63,7 @@ public class SysFriendLink {
      */
     private Integer status;
 
+    @TableLogic
     @TableField("is_deleted")
     private Integer isDeleted;
 
