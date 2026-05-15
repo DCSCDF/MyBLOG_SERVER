@@ -51,8 +51,8 @@ public class RssFeedServiceImpl implements RssFeedService {
     private final SysConfigService sysConfigService;
 
     public RssFeedServiceImpl(SysBlogMapper blogMapper,
-                              SysUserMapper userMapper,
-                              SysConfigService sysConfigService) {
+            SysUserMapper userMapper,
+            SysConfigService sysConfigService) {
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.sysConfigService = sysConfigService;
@@ -77,8 +77,7 @@ public class RssFeedServiceImpl implements RssFeedService {
         Map<Long, String> authorMap = new HashMap<>();
         if (!authorIds.isEmpty()) {
             List<SysUser> authors = userMapper.selectList(
-                    new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds)
-            );
+                    new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
             for (SysUser user : authors) {
                 authorMap.put(user.getId(), user.getNickname());
             }
@@ -112,9 +111,9 @@ public class RssFeedServiceImpl implements RssFeedService {
      * 生成 Atom Feed XML
      */
     private String generateAtomFeed(Map<String, String> siteConfig,
-                                    List<SysBlog> articles,
-                                    Map<Long, String> authorMap,
-                                    String siteUrl) {
+            List<SysBlog> articles,
+            Map<Long, String> authorMap,
+            String siteUrl) {
         // 使用 SyndFeed 创建 Atom 1.0 Feed
         SyndFeed feed = new SyndFeedImpl();
         feed.setFeedType(FEED_TYPE);
@@ -173,12 +172,11 @@ public class RssFeedServiceImpl implements RssFeedService {
             // 标签
             if (article.getTags() != null && !article.getTags().isBlank()) {
                 List<com.rometools.rome.feed.synd.SyndCategory> categories = Arrays.stream(
-                                article.getTags().split(","))
+                        article.getTags().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .map(tag -> {
-                            com.rometools.rome.feed.synd.SyndCategory cat =
-                                    new com.rometools.rome.feed.synd.SyndCategoryImpl();
+                            com.rometools.rome.feed.synd.SyndCategory cat = new com.rometools.rome.feed.synd.SyndCategoryImpl();
                             cat.setName(tag);
                             return cat;
                         })
@@ -213,6 +211,7 @@ public class RssFeedServiceImpl implements RssFeedService {
     /**
      * 构建文章摘要
      */
+    @SuppressWarnings("null")
     private String buildArticleSummary(SysBlog article) {
         StringBuilder summary = new StringBuilder();
 
@@ -228,7 +227,8 @@ public class RssFeedServiceImpl implements RssFeedService {
         }
 
         // 转义HTML特殊字符
-        return HtmlUtils.htmlEscape(summary.toString());
+        String result = HtmlUtils.htmlEscape(summary.toString());
+        return result != null ? result : "";
     }
 
     /**
@@ -240,7 +240,9 @@ public class RssFeedServiceImpl implements RssFeedService {
         // 构建文章元信息
         content.append("<div style='margin-bottom: 20px; color: #666;'>");
         if (article.getAuthorId() != null) {
-            content.append("<span>作者：").append(HtmlUtils.htmlEscape(getAuthorName(article.getAuthorId()))).append("</span>");
+            String authorName = getAuthorName(article.getAuthorId());
+            content.append("<span>作者：").append(HtmlUtils.htmlEscape(authorName != null ? authorName : ""))
+                    .append("</span>");
         }
         if (article.getCreateTime() != null) {
             content.append(" &nbsp;|&nbsp; ");
@@ -248,7 +250,8 @@ public class RssFeedServiceImpl implements RssFeedService {
         }
         if (article.getTags() != null && !article.getTags().isBlank()) {
             content.append(" &nbsp;|&nbsp; ");
-            content.append("<span>标签：").append(HtmlUtils.htmlEscape(article.getTags())).append("</span>");
+            String tags = article.getTags();
+            content.append("<span>标签：").append(HtmlUtils.htmlEscape(tags != null ? tags : "")).append("</span>");
         }
         content.append("</div>");
 
@@ -302,8 +305,8 @@ public class RssFeedServiceImpl implements RssFeedService {
         try {
             var result = sysConfigService.getSiteInfo();
             if (result.getCode() == 200 && result.getData() != null) {
-                com.jiuliu.myblog_dev.dto.config.SiteInfoDTO siteInfo =
-                        (com.jiuliu.myblog_dev.dto.config.SiteInfoDTO) result.getData();
+                com.jiuliu.myblog_dev.dto.config.SiteInfoDTO siteInfo = (com.jiuliu.myblog_dev.dto.config.SiteInfoDTO) result
+                        .getData();
                 if (siteInfo.getSiteName() != null) {
                     config.put("site.name", siteInfo.getSiteName());
                 }

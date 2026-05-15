@@ -41,7 +41,8 @@ public class MailServiceImpl implements MailService {
     private final SmtpConnectionTester smtpConnectionTester;
     private final SysConfigMapper sysConfigMapper;
 
-    public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester, SysConfigMapper sysConfigMapper) {
+    public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester,
+            SysConfigMapper sysConfigMapper) {
         this.mailConfig = mailConfig;
         this.smtpConnectionTester = smtpConnectionTester;
         this.sysConfigMapper = sysConfigMapper;
@@ -87,10 +88,10 @@ public class MailServiceImpl implements MailService {
                 fromAddress = "noreply@localhost";
             }
 
-            helper.setFrom(fromAddress);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(content, true);
+            helper.setFrom(fromAddress != null ? fromAddress : "noreply@localhost");
+            helper.setTo(to != null ? to : "");
+            helper.setSubject(subject != null ? subject : "");
+            helper.setText(content != null ? content : "", true);
 
             mailSender.send(message);
 
@@ -227,11 +228,12 @@ public class MailServiceImpl implements MailService {
                 "<p style=\"color: #666; line-height: 1.6;\">" +
                 (approved ? "您的评论已通过审核，感谢您的参与！" : "很抱歉，您的评论未通过审核，可能是因为内容不符合相关规定。") +
                 "</p>" +
-//        if (StringUtils.hasText(siteDomain)) {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
-//            sb.append("</p>");
-//        }
+                // if (StringUtils.hasText(siteDomain)) {
+                // sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+                // sb.append("查看详情：<a
+                // href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+                // sb.append("</p>");
+                // }
                 "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
                 "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
                 "</div>";
@@ -242,14 +244,16 @@ public class MailServiceImpl implements MailService {
                 "<h2 style=\"color: #333;\">您的评论收到新的回复</h2>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您好，</p>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您的评论有了新的回复：</p>" +
-                "<blockquote style=\"background: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0;\">" +
+                "<blockquote style=\"background: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 15px 0;\">"
+                +
                 "<p style=\"color: #333; margin: 0;\">" + escapeHtml(replyContent) + "</p>" +
                 "</blockquote>" +
-//        if (StringUtils.hasText(siteDomain)) {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
-//            sb.append("</p>");
-//        }
+                // if (StringUtils.hasText(siteDomain)) {
+                // sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+                // sb.append("查看详情：<a
+                // href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+                // sb.append("</p>");
+                // }
                 "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
                 "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
                 "</div>";
@@ -257,8 +261,8 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public SaResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
-                                                       boolean isGuest, Long commentId, Long blogId,
-                                                       String blogTitle, String commenter, String content) {
+            boolean isGuest, Long commentId, Long blogId,
+            String blogTitle, String commenter, String content) {
         if (toEmailList == null || toEmailList.isEmpty()) {
             log.warn("发送新评论通知邮件失败：收件人列表为空");
             return SaResult.error("收件人列表为空").setCode(400);
@@ -300,8 +304,8 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
-                                                            Long blogId, String blogTitle, Long commentId,
-                                                            String commentContent, String commenter) {
+            Long blogId, String blogTitle, Long commentId,
+            String commentContent, String commenter) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送顶级评论通过通知失败：收件人邮箱为空");
             return SaResult.error("收件人邮箱为空").setCode(400);
@@ -378,7 +382,8 @@ public class MailServiceImpl implements MailService {
                 "<h2 style=\"color: #333;\">邮箱验证码注册</h2>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您好 " + escapeHtml(username) + "，</p>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您的注册验证码为：</p>" +
-                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">" +
+                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">"
+                +
                 code +
                 "</div>" +
                 "<p style=\"color: #666; line-height: 1.6;\">验证码有效期为 5 分钟，请在有效期内完成注册。</p>" +
@@ -393,7 +398,8 @@ public class MailServiceImpl implements MailService {
                 "<h2 style=\"color: #333;\">邮箱变更验证</h2>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您好 " + escapeHtml(username) + "，</p>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您正在更换邮箱，验证码为：</p>" +
-                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">" +
+                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">"
+                +
                 code +
                 "</div>" +
                 "<p style=\"color: #666; line-height: 1.6;\">验证码有效期为 5 分钟，请在有效期内完成邮箱更换。</p>" +
@@ -408,7 +414,8 @@ public class MailServiceImpl implements MailService {
                 "<h2 style=\"color: #333;\">找回密码验证</h2>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您好 " + escapeHtml(username) + "，</p>" +
                 "<p style=\"color: #666; line-height: 1.6;\">您正在找回密码，验证码为：</p>" +
-                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">" +
+                "<div style=\"background: #f5f5f5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;\">"
+                +
                 code +
                 "</div>" +
                 "<p style=\"color: #666; line-height: 1.6;\">验证码有效期为 5 分钟，请在有效期内完成密码重置。</p>" +
@@ -419,7 +426,7 @@ public class MailServiceImpl implements MailService {
     }
 
     private String buildNewCommentNotificationContent(boolean isGuest, Long commentId,
-                                                      Long blogId, String blogTitle, String commenter, String content) {
+            Long blogId, String blogTitle, String commenter, String content) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
         sb.append("<h2 style=\"color: #333;\">").append(isGuest ? "【待审核】网站有新评论需要处理" : "网站有新评论").append("</h2>");
@@ -434,25 +441,29 @@ public class MailServiceImpl implements MailService {
         sb.append("<div style=\"background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;\">");
         sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>文章ID：</strong>").append(blogId).append("</p>");
         sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论ID：</strong>").append(commentId).append("</p>");
-        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>文章：</strong>").append(escapeHtml(blogTitle)).append("</p>");
-        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论者：</strong>").append(escapeHtml(commenter)).append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>文章：</strong>").append(escapeHtml(blogTitle))
+                .append("</p>");
+        sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论者：</strong>").append(escapeHtml(commenter))
+                .append("</p>");
         sb.append("<p style=\"color: #666; margin: 5px 0;\"><strong>评论内容：</strong></p>");
-        sb.append("<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">");
+        sb.append(
+                "<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">");
         sb.append("<p style=\"color: #333; margin: 0;\">").append(escapeHtml(content)).append("</p>");
         sb.append("</blockquote>");
         sb.append("</div>");
 
-//        if (isGuest) {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">请登录后台进行审核。</p>");
-//        } else {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">查看详情。</p>");
-//        }
+        // if (isGuest) {
+        // sb.append("<p style=\"color: #666; line-height: 1.6;\">请登录后台进行审核。</p>");
+        // } else {
+        // sb.append("<p style=\"color: #666; line-height: 1.6;\">查看详情。</p>");
+        // }
 
-//        if (StringUtils.hasText(siteDomain)) {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-//            sb.append("<a href=\"").append(siteDomain).append("/admin/comment\" style=\"color: #4CAF50;\">前往评论管理</a>");
-//            sb.append("</p>");
-//        }
+        // if (StringUtils.hasText(siteDomain)) {
+        // sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+        // sb.append("<a href=\"").append(siteDomain).append("/admin/comment\"
+        // style=\"color: #4CAF50;\">前往评论管理</a>");
+        // sb.append("</p>");
+        // }
 
         sb.append("<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">");
         sb.append("<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>");
@@ -461,7 +472,7 @@ public class MailServiceImpl implements MailService {
     }
 
     private String buildTopLevelCommentApprovedContent(Long blogId, String blogTitle,
-                                                       Long commentId, String commentContent, String commenter) {
+            Long commentId, String commentContent, String commenter) {
 
         return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
                 "<h2 style=\"color: #333;\">您的文章有新评论</h2>" +
@@ -472,16 +483,18 @@ public class MailServiceImpl implements MailService {
                 "<p style=\"color: #666; margin: 5px 0;\"><strong>评论ID：</strong>" + commentId + "</p>" +
                 "<p style=\"color: #666; margin: 5px 0;\"><strong>评论者：</strong>" + escapeHtml(commenter) + "</p>" +
                 "<p style=\"color: #666; margin: 5px 0;\"><strong>评论内容：</strong></p>" +
-                "<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">" +
+                "<blockquote style=\"background: #fff; padding: 10px; border-left: 3px solid #4CAF50; margin: 10px 0;\">"
+                +
                 "<p style=\"color: #333; margin: 0;\">" + escapeHtml(commentContent) + "</p>" +
                 "</blockquote>" +
                 "</div>" +
 
-//        if (StringUtils.hasText(siteDomain)) {
-//            sb.append("<p style=\"color: #666; line-height: 1.6;\">");
-//            sb.append("查看详情：<a href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
-//            sb.append("</p>");
-//        }
+                // if (StringUtils.hasText(siteDomain)) {
+                // sb.append("<p style=\"color: #666; line-height: 1.6;\">");
+                // sb.append("查看详情：<a
+                // href=\"").append(siteDomain).append("\">").append(siteDomain).append("</a>");
+                // sb.append("</p>");
+                // }
 
                 "<hr style=\"border: none; border-top: 1px solid #eee; margin: 20px 0;\">" +
                 "<p style=\"color: #999; font-size: 12px;\">此邮件由系统自动发送，请勿回复。</p>" +
@@ -489,7 +502,8 @@ public class MailServiceImpl implements MailService {
     }
 
     private String escapeHtml(String text) {
-        if (text == null) return "";
+        if (text == null)
+            return "";
         return text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
@@ -512,10 +526,10 @@ public class MailServiceImpl implements MailService {
                 fromAddress = "noreply@localhost";
             }
 
-            helper.setFrom(fromAddress);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(content, true);
+            helper.setFrom(fromAddress != null ? fromAddress : "noreply@localhost");
+            helper.setTo(to != null ? to : "");
+            helper.setSubject(subject != null ? subject : "");
+            helper.setText(content != null ? content : "", true);
 
             mailSender.send(message);
 

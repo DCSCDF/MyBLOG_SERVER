@@ -82,28 +82,29 @@ public class GlobalExceptionHandler {
     /**
      * 处理 Sa-Token 鉴权异常
      */
-    @ExceptionHandler({NotLoginException.class, NotRoleException.class, NotPermissionException.class})
+    @ExceptionHandler({ NotLoginException.class, NotRoleException.class, NotPermissionException.class })
     @SuppressWarnings("unused")
     public Response<Void> handleAuthException(Exception e, HttpServletRequest request) {
         log.warn("鉴权异常: {}", e.getClass().getSimpleName());
 
-//        // 如果是OPTIONS请求且是登录异常，直接放行
-//        if (e instanceof NotLoginException && "OPTIONS".equalsIgnoreCase(request.getMethod())) {
-//            log.debug("OPTIONS预检请求，跳过登录检查");
-//            return SaResult.ok();
-//        }
+        // // 如果是OPTIONS请求且是登录异常，直接放行
+        // if (e instanceof NotLoginException &&
+        // "OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        // log.debug("OPTIONS预检请求，跳过登录检查");
+        // return SaResult.ok();
+        // }
 
         // 不记录 e.toString() 或堆栈，避免泄露内部信息
-//        400: '请求参数错误',
-//        401: '未授权，请重新登录',
-//        403: '拒绝访问',
-//        404: '请求的资源不存在', 
-//        408: '请求超时',
-//        429: '请求过于频繁',
-//        500: '服务器内部错误',
-//        502: '网关错误',
-//        503: '服务不可用',
-//        504: '网关超时'
+        // 400: '请求参数错误',
+        // 401: '未授权，请重新登录',
+        // 403: '拒绝访问',
+        // 404: '请求的资源不存在',
+        // 408: '请求超时',
+        // 429: '请求过于频繁',
+        // 500: '服务器内部错误',
+        // 502: '网关错误',
+        // 503: '服务不可用',
+        // 504: '网关超时'
 
         if (e instanceof NotLoginException) {
             return ResponseUtil.fail("未授权，请先登录", 401);
@@ -184,7 +185,7 @@ public class GlobalExceptionHandler {
     /**
      * 处理数据库访问异常（给出更明确的错误提示）
      */
-    @ExceptionHandler({BadSqlGrammarException.class, DataAccessException.class})
+    @ExceptionHandler({ BadSqlGrammarException.class, DataAccessException.class })
     @SuppressWarnings("unused")
     public Response<Void> handleDataAccessException(Exception e) {
         Throwable root = getRootCause(e);
@@ -229,10 +230,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e, HttpServletRequest request) {
+    public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e,
+            HttpServletRequest request) {
         String paramName = e.getName();
-        String invalidValue = e.getValue() != null ? e.getValue().toString() : "null";
-        String targetType = e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "unknown";
+        Object value = e.getValue();
+        String invalidValue = value != null ? value.toString() : "null";
+        Class<?> requiredType = e.getRequiredType();
+        String targetType = requiredType != null ? requiredType.getSimpleName() : "unknown";
         String requestPath = request.getRequestURI();
         String httpMethod = request.getMethod();
         String queryString = request.getQueryString();
