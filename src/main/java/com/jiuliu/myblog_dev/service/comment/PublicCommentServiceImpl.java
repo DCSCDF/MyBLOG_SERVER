@@ -28,6 +28,7 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.service.mail.MailService;
+import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -131,7 +132,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             SysComment comment = new SysComment();
             comment.setBlogId(dto.getBlogId());
             comment.setParentId(parentId != null ? parentId : 0L);
-            comment.setContent(dto.getContent());
+            comment.setContent(HtmlUtil.sanitize(dto.getContent()));
 
             // 4. 处理已登录用户和游客的差异化字段
             if (isLogin && userId != null) {
