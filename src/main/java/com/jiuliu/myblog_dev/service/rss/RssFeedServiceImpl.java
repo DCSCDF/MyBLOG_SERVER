@@ -51,8 +51,8 @@ public class RssFeedServiceImpl implements RssFeedService {
     private final SysConfigService sysConfigService;
 
     public RssFeedServiceImpl(SysBlogMapper blogMapper,
-            SysUserMapper userMapper,
-            SysConfigService sysConfigService) {
+                              SysUserMapper userMapper,
+                              SysConfigService sysConfigService) {
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.sysConfigService = sysConfigService;
@@ -111,9 +111,9 @@ public class RssFeedServiceImpl implements RssFeedService {
      * 生成 Atom Feed XML
      */
     private String generateAtomFeed(Map<String, String> siteConfig,
-            List<SysBlog> articles,
-            Map<Long, String> authorMap,
-            String siteUrl) {
+                                    List<SysBlog> articles,
+                                    Map<Long, String> authorMap,
+                                    String siteUrl) {
         // 使用 SyndFeed 创建 Atom 1.0 Feed
         SyndFeed feed = new SyndFeedImpl();
         feed.setFeedType(FEED_TYPE);
@@ -172,7 +172,7 @@ public class RssFeedServiceImpl implements RssFeedService {
             // 标签
             if (article.getTags() != null && !article.getTags().isBlank()) {
                 List<com.rometools.rome.feed.synd.SyndCategory> categories = Arrays.stream(
-                        article.getTags().split(","))
+                                article.getTags().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .map(tag -> {
@@ -227,8 +227,7 @@ public class RssFeedServiceImpl implements RssFeedService {
         }
 
         // 转义HTML特殊字符
-        String result = HtmlUtils.htmlEscape(summary.toString());
-        return result != null ? result : "";
+        return HtmlUtils.htmlEscape(summary.toString());
     }
 
     /**

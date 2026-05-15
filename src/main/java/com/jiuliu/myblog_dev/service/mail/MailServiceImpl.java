@@ -42,7 +42,7 @@ public class MailServiceImpl implements MailService {
     private final SysConfigMapper sysConfigMapper;
 
     public MailServiceImpl(MailConfig mailConfig, SmtpConnectionTester smtpConnectionTester,
-            SysConfigMapper sysConfigMapper) {
+                           SysConfigMapper sysConfigMapper) {
         this.mailConfig = mailConfig;
         this.smtpConnectionTester = smtpConnectionTester;
         this.sysConfigMapper = sysConfigMapper;
@@ -88,10 +88,10 @@ public class MailServiceImpl implements MailService {
                 fromAddress = "noreply@localhost";
             }
 
-            helper.setFrom(fromAddress != null ? fromAddress : "noreply@localhost");
-            helper.setTo(to != null ? to : "");
-            helper.setSubject(subject != null ? subject : "");
-            helper.setText(content != null ? content : "", true);
+            helper.setFrom(fromAddress);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(content, true);
 
             mailSender.send(message);
 
@@ -261,8 +261,8 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public SaResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
-            boolean isGuest, Long commentId, Long blogId,
-            String blogTitle, String commenter, String content) {
+                                                       boolean isGuest, Long commentId, Long blogId,
+                                                       String blogTitle, String commenter, String content) {
         if (toEmailList == null || toEmailList.isEmpty()) {
             log.warn("发送新评论通知邮件失败：收件人列表为空");
             return SaResult.error("收件人列表为空").setCode(400);
@@ -304,8 +304,8 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
-            Long blogId, String blogTitle, Long commentId,
-            String commentContent, String commenter) {
+                                                            Long blogId, String blogTitle, Long commentId,
+                                                            String commentContent, String commenter) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送顶级评论通过通知失败：收件人邮箱为空");
             return SaResult.error("收件人邮箱为空").setCode(400);
@@ -426,7 +426,7 @@ public class MailServiceImpl implements MailService {
     }
 
     private String buildNewCommentNotificationContent(boolean isGuest, Long commentId,
-            Long blogId, String blogTitle, String commenter, String content) {
+                                                      Long blogId, String blogTitle, String commenter, String content) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">");
         sb.append("<h2 style=\"color: #333;\">").append(isGuest ? "【待审核】网站有新评论需要处理" : "网站有新评论").append("</h2>");
@@ -472,7 +472,7 @@ public class MailServiceImpl implements MailService {
     }
 
     private String buildTopLevelCommentApprovedContent(Long blogId, String blogTitle,
-            Long commentId, String commentContent, String commenter) {
+                                                       Long commentId, String commentContent, String commenter) {
 
         return "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">" +
                 "<h2 style=\"color: #333;\">您的文章有新评论</h2>" +

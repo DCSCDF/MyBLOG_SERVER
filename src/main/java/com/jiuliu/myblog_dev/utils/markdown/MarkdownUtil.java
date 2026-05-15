@@ -93,6 +93,6 @@ public final class MarkdownUtil {
         // 合并多余空白
         text = text.replaceAll("\\s+", " ").trim();
 
-        return text != null ? text : "";
+        return text;
     }
 }
