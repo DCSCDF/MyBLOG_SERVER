@@ -526,7 +526,7 @@ public class MailServiceImpl implements MailService {
                 fromAddress = "noreply@localhost";
             }
 
-            helper.setFrom(fromAddress != null ? fromAddress : "noreply@localhost");
+            helper.setFrom(fromAddress);
             helper.setTo(to != null ? to : "");
             helper.setSubject(subject != null ? subject : "");
             helper.setText(content != null ? content : "", true);
