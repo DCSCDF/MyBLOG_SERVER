@@ -390,10 +390,10 @@ public class AuthServiceImpl implements AuthService {
         String email = dto.getEmail().trim();
 
         // 3. 验证用户名和邮箱格式
-        if (ValidationHelper.validateUsername(username)) {
+        if (!ValidationHelper.validateUsername(username)) {
             return SaResult.error("用户名格式错误").setCode(400);
         }
-        if (ValidationHelper.validateEmail(email)) {
+        if (!ValidationHelper.validateEmail(email)) {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
@@ -430,7 +430,7 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(rawPassword)) {
             return SaResult.error("密码格式错误").setCode(400);
         }
-        if (ValidationHelper.validatePassword(rawPassword)) {
+        if (!ValidationHelper.validatePassword(rawPassword)) {
             return SaResult.error("密码格式不符合要求").setCode(400);
         }
 
@@ -564,10 +564,10 @@ public class AuthServiceImpl implements AuthService {
         String username = dto.getUsername().trim();
         String email = dto.getEmail().trim();
 
-        if (ValidationHelper.validateUsername(username)) {
+        if (!ValidationHelper.validateUsername(username)) {
             return SaResult.error("用户名格式错误").setCode(400);
         }
-        if (ValidationHelper.validateEmail(email)) {
+        if (!ValidationHelper.validateEmail(email)) {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
@@ -582,15 +582,19 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(rawPassword)) {
             return SaResult.error("密码格式错误").setCode(400);
         }
-        if (ValidationHelper.validatePassword(rawPassword)) {
+        if (!ValidationHelper.validatePassword(rawPassword)) {
             return SaResult.error("密码格式不符合要求").setCode(400);
         }
 
         // 4. 检查用户名、邮箱是否已存在
-        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("username", username)) != null) {
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("username", username)
+                .eq("is_deleted", 0)) != null) {
             return SaResult.error("用户名已存在").setCode(400);
         }
-        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>().eq("email", email)) != null) {
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", email)
+                .eq("is_deleted", 0)) != null) {
             return SaResult.error("邮箱已被注册").setCode(400);
         }
 
@@ -816,7 +820,7 @@ public class AuthServiceImpl implements AuthService {
     public SaResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId) {
         String newEmail = dto.getEmail().trim();
 
-        if (ValidationHelper.validateEmail(newEmail)) {
+        if (!ValidationHelper.validateEmail(newEmail)) {
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
 
@@ -914,7 +918,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("邮箱不能为空").setCode(400);
         }
 
-        if (ValidationHelper.validateEmail(email)) {
+        if (!ValidationHelper.validateEmail(email)) {
             log.warn("邮箱修改失败：邮箱格式不正确，userId={}", currentUserId);
             return SaResult.error("邮箱格式不正确").setCode(400);
         }
@@ -1016,7 +1020,8 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. 根据用户名或邮箱查找用户
         SysUser user;
-        if (ValidationHelper.validateEmail(usernameOrEmail)) {
+        String email;
+        if (!ValidationHelper.validateEmail(usernameOrEmail)) {
             // 如果不是邮箱格式，则按用户名查找
             user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                     .eq("username", usernameOrEmail)
@@ -1028,43 +1033,49 @@ public class AuthServiceImpl implements AuthService {
                     .eq("is_deleted", 0));
         }
 
-        // 无论用户是否存在，都返回相同响应，防止用户枚举攻击
-        if (user == null || user.getEmail() == null || user.getEmail().isEmpty()) {
-            log.warn("找回密码请求：未找到用户或用户未绑定邮箱，input={}", usernameOrEmail);
-            return SaResult.error("未找到对应的用户或该用户未绑定邮箱").setCode(400);
-        }
-
-        String email = user.getEmail();
-
-        // 4. 检查是否存在尚未过期的待重置记录
-        PendingPasswordResetService.PendingPasswordReset existingReset = pendingPasswordResetService.getPendingPasswordReset(email);
+        // 防止用户枚举：无论用户是否存在，都先检查是否存在尚未过期的待重置记录（模拟处理）
+        String dummyEmail = "dummy@example.com";
+        PendingPasswordResetService.PendingPasswordReset existingReset = pendingPasswordResetService
+                .getPendingPasswordReset(
+                        (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) ? user.getEmail()
+                                : dummyEmail);
         if (existingReset != null && !LocalDateTime.now().isAfter(existingReset.getCodeExpireTime())) {
             long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingReset.getCodeExpireTime()).getSeconds();
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
-        // 5. 生成6位验证码
-        String code = generateRegisterCode();
+        // 只有在用户确实存在且有邮箱时才继续处理
+        if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
+            email = user.getEmail();
 
-        try {
-            pendingPasswordResetService.savePendingPasswordReset(user.getId(), user.getUsername(), email, code, REGISTER_CODE_EXPIRE_MINUTES);
-            log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
-        } catch (Exception e) {
-            log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
-            return SaResult.error("系统异常，请重试").setCode(500);
+            // 生成6位验证码
+            String code = generateRegisterCode();
+
+            try {
+                pendingPasswordResetService.savePendingPasswordReset(user.getId(), user.getUsername(), email, code,
+                        REGISTER_CODE_EXPIRE_MINUTES);
+                log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
+            } catch (Exception e) {
+                log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
+                // 即使这里失败，也不返回错误，继续返回成功响应
+            }
+
+            // 发送验证码邮件
+            SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
+            if (mailResult.getCode() != 200) {
+                pendingPasswordResetService.deletePendingPasswordReset(email);
+                // 即使发送失败，也不返回错误
+            } else {
+                log.info("找回密码验证码发送成功，userId={}, email={}", user.getId(), email);
+            }
+        } else {
+            log.warn("找回密码请求：未找到用户或用户未绑定邮箱，input={}", usernameOrEmail);
         }
 
-        // 6. 发送验证码邮件
-        SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
-        if (mailResult.getCode() != 200) {
-            pendingPasswordResetService.deletePendingPasswordReset(email);
-            return mailResult;
-        }
-
-        log.info("找回密码验证码发送成功，userId={}, email={}", user.getId(), email);
+        // 无论用户是否存在，都返回相同的成功响应，防止用户枚举攻击
         Map<String, Object> data = new HashMap<>();
         data.put("message", "验证码已发送到您的邮箱，请查收");
-        data.put("email", maskEmail(email));
+        data.put("email", maskEmail((user != null && user.getEmail() != null) ? user.getEmail() : usernameOrEmail));
         data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
         return SaResult.data(data);
     }
@@ -1092,7 +1103,7 @@ public class AuthServiceImpl implements AuthService {
         // 1. 先根据输入查找用户，获取邮箱
         SysUser user;
         String email;
-        if (ValidationHelper.validateEmail(usernameOrEmail)) {
+        if (!ValidationHelper.validateEmail(usernameOrEmail)) {
             user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                     .eq("username", usernameOrEmail)
                     .eq("is_deleted", 0));
@@ -1144,7 +1155,7 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(rawPassword)) {
             return SaResult.error("密码格式错误").setCode(400);
         }
-        if (ValidationHelper.validatePassword(rawPassword)) {
+        if (!ValidationHelper.validatePassword(rawPassword)) {
             return SaResult.error("密码格式不符合要求").setCode(400);
         }
 
