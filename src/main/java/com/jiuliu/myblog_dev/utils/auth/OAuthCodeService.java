@@ -14,16 +14,18 @@
 
 package com.jiuliu.myblog_dev.utils.auth;
 
-import cn.dev33.satoken.dao.SaTokenDao;
-import cn.dev33.satoken.util.SaFoxUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import cn.dev33.satoken.dao.SaTokenDao;
+import cn.dev33.satoken.util.SaFoxUtil;
+import jakarta.annotation.PreDestroy;
 
 /**
  * OAuth 授权码服务
@@ -43,11 +45,13 @@ public class OAuthCodeService {
     private final SaTokenDao saTokenDao;
     private final ConcurrentHashMap<String, Object> codeLocks = new ConcurrentHashMap<>();
 
+    private final ScheduledExecutorService cleanupScheduler;
+
     public OAuthCodeService(SaTokenDao saTokenDao) {
         this.saTokenDao = saTokenDao;
         // 启动定时清理任务
         // 定时清理任务
-        ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "oauth-code-lock-cleanup");
             t.setDaemon(true);
             return t;
@@ -73,6 +77,19 @@ public class OAuthCodeService {
                 }
             }
             log.warn("OAuth Code锁缓存清理完成，移除 {} 个过期锁，当前剩余: {}", removed, codeLocks.size());
+        }
+    }
+
+    @PreDestroy
+    public void destroy() {
+        cleanupScheduler.shutdown();
+        try {
+            if (!cleanupScheduler.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                cleanupScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            cleanupScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 

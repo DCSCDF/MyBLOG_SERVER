@@ -15,6 +15,7 @@
 package com.jiuliu.myblog_dev.config.business;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +65,19 @@ public class RsaKeyConfig {
             // 记录异常但不泄露密钥
             log.error("RSA 密钥生成失败: {}", e.getMessage(), e);
             throw new RuntimeException("无法生成 RSA 密钥对", e);
+        }
+    }
+
+    @PreDestroy
+    public void destroy() {
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }

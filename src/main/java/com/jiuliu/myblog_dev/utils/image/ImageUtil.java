@@ -295,15 +295,18 @@ public class ImageUtil {
         }
 
         ImageWriter writer = writers.next();
-        ImageWriteParam param = writer.getDefaultWriteParam();
-        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-        param.setCompressionQuality(JPEG_QUALITY);
+        try {
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(JPEG_QUALITY);
 
-        ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
-        writer.setOutput(ios);
-        writer.write(null, new IIOImage(image, null, null), param);
-        writer.dispose();
-        ios.close();
+            try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                writer.setOutput(ios);
+                writer.write(null, new IIOImage(image, null, null), param);
+            }
+        } finally {
+            writer.dispose();
+        }
 
         //        log.debug("JPEG 压缩完成：原始大小 {} bytes，压缩后 {} bytes，压缩率 {:.2f}%",
 //                bytes.length, compressed.length,
@@ -336,18 +339,21 @@ public class ImageUtil {
         }
 
         ImageWriter writer = writers.next();
-        ImageWriteParam param = writer.getDefaultWriteParam();
+        try {
+            ImageWriteParam param = writer.getDefaultWriteParam();
 
-        // PNG 不支持质量参数，但可以通过设置滤波器进行一定程度的压缩
-        if (param.canWriteProgressive()) {
-            param.setProgressiveMode(ImageWriteParam.MODE_DEFAULT);
+            // PNG 不支持质量参数，但可以通过设置滤波器进行一定程度的压缩
+            if (param.canWriteProgressive()) {
+                param.setProgressiveMode(ImageWriteParam.MODE_DEFAULT);
+            }
+
+            try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                writer.setOutput(ios);
+                writer.write(null, new IIOImage(image, null, null), param);
+            }
+        } finally {
+            writer.dispose();
         }
-
-        ImageOutputStream ios = ImageIO.createImageOutputStream(baos);
-        writer.setOutput(ios);
-        writer.write(null, new IIOImage(image, null, null), param);
-        writer.dispose();
-        ios.close();
 
         //        double ratio = (1 - (double) compressed.length / bytes.length) * 100;
 //        log.debug("PNG 处理完成：原始大小 {} bytes，处理后 {} bytes，压缩率 {:.2f}%",

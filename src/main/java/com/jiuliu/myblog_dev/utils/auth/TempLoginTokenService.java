@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.utils.auth;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.util.SaFoxUtil;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,12 +40,14 @@ public class TempLoginTokenService {
     // 每个 token 的锁（用于防止并发消费）
     private final ConcurrentHashMap<String, Object> tokenLocks = new ConcurrentHashMap<>();
 
+    private final ScheduledExecutorService cleanupScheduler;
+
     // 构造函数注入
     public TempLoginTokenService(SaTokenDao saTokenDao) {
         this.saTokenDao = saTokenDao;
         // 启动定时清理任务
         // 定时清理任务
-        ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "token-lock-cleanup");
             t.setDaemon(true);
             return t;
@@ -125,6 +128,18 @@ public class TempLoginTokenService {
         }
     }
 
+    @PreDestroy
+    public void destroy() {
+        cleanupScheduler.shutdown();
+        try {
+            if (!cleanupScheduler.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                cleanupScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            cleanupScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
 
 //    /**
 //     * 验证令牌是否已使用或已过期
