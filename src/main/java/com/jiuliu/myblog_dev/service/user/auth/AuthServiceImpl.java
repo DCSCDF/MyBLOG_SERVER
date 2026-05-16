@@ -155,7 +155,7 @@ public class AuthServiceImpl implements AuthService {
         String username = dto.getUsername();
         String encryptedPassword = dto.getPassword();
 
-        if (ValidationHelper.validateUsername(username)) {
+        if (!ValidationHelper.validateUsername(username)) {
             log.warn("登录失败：用户名格式错误，username={}", username);
             return SaResult.error("用户名格式错误").setCode(400);
         }
@@ -310,7 +310,7 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("密码格式错误").setCode(400);
         }
 
-        if (ValidationHelper.validatePassword(rawNewPassword)) {
+        if (!ValidationHelper.validatePassword(rawNewPassword)) {
             log.warn("密码修改失败：新密码格式不符合要求，userId={}", currentUserId);
             return SaResult.error("新密码格式不符合要求").setCode(400);
         }
