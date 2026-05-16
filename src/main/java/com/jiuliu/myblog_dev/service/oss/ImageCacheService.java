@@ -145,15 +145,34 @@ public class ImageCacheService {
             int targetSize = parseTargetSize(size);
             String outputFormat = getOutputFormat(contentType);
 
+            byte[] originalBytes = readInputStream(inputStream);
+            if (originalBytes == null || originalBytes.length == 0) {
+                return null;
+            }
+
+            java.awt.image.BufferedImage originalImage = Thumbnails.of(new java.io.ByteArrayInputStream(originalBytes))
+                    .scale(1.0)
+                    .asBufferedImage();
+            int originalWidth = originalImage.getWidth();
+            int originalHeight = originalImage.getHeight();
+
+            if (originalWidth <= targetSize && originalHeight <= targetSize) {
+                return originalBytes;
+            }
+
             byte[] result;
             try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                Thumbnails.of(inputStream)
+                Thumbnails.of(new java.io.ByteArrayInputStream(originalBytes))
                         .size(targetSize, targetSize)
                         .keepAspectRatio(true)
                         .outputQuality(COMPRESSION_QUALITY)
                         .outputFormat(outputFormat)
                         .toOutputStream(outputStream);
                 result = outputStream.toByteArray();
+            }
+
+            if (result.length >= originalBytes.length) {
+                return originalBytes;
             }
 
             return result;

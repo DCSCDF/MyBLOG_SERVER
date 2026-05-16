@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS sys_comment
     id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '评论ID',
     blog_id     BIGINT NOT NULL COMMENT '关联的文章ID',
     parent_id   BIGINT     DEFAULT 0 COMMENT '父评论ID，0表示顶级评论',
-    user_id     BIGINT     NULL COMMENT '用户ID（已登录用户）',
+    user_id     BIGINT NULL COMMENT '用户ID（已登录用户）',
     username    VARCHAR(50) COMMENT '评论者名称',
     email       VARCHAR(100) COMMENT '邮箱',
     avatar_url  VARCHAR(200) COMMENT '头像URL',
@@ -318,8 +318,6 @@ CREATE TABLE IF NOT EXISTS sys_oss_image
   DEFAULT CHARSET = utf8mb4 COMMENT ='OSS 图片映射表';
 
 -- 创建索引
-
--- 创建新索引
 CREATE INDEX idx_user_status ON sys_user (status) COMMENT '用户状态索引';
 CREATE INDEX idx_role_code ON sys_role (code) COMMENT '角色编码索引';
 CREATE INDEX idx_role_status ON sys_role (status) COMMENT '角色状态索引';
