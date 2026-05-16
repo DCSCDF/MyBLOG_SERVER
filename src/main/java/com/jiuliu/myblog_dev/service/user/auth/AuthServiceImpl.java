@@ -112,16 +112,16 @@ public class AuthServiceImpl implements AuthService {
         this.pendingPasswordResetService = pendingPasswordResetService;
     }
 
-    //    400: '请求参数错误',
-    //    401: '未授权，请重新登录',
-    //    403: '拒绝访问',
-    //    404: '请求的资源不存在',
-    //    408: '请求超时',
-    //    429: '请求过于频繁',
-    //    500: '服务器内部错误',
-    //    502: '网关错误',
-    //    503: '服务不可用',
-    //    504: '网关超时'
+    // 400: '请求参数错误',
+    // 401: '未授权，请重新登录',
+    // 403: '拒绝访问',
+    // 404: '请求的资源不存在',
+    // 408: '请求超时',
+    // 429: '请求过于频繁',
+    // 500: '服务器内部错误',
+    // 502: '网关错误',
+    // 503: '服务不可用',
+    // 504: '网关超时'
 
     @Override
     public SaResult getPublicKey() {
@@ -231,7 +231,6 @@ public class AuthServiceImpl implements AuthService {
         return SaResult.data(data);
     }
 
-
     @Override
     public SaResult getUserProfile(Long userId) {
         SysUser user = sysUserMapper.selectById(userId);
@@ -273,8 +272,7 @@ public class AuthServiceImpl implements AuthService {
                 return SaResult.data(Map.of(
                         "message", "登出成功",
                         "logoutTime", System.currentTimeMillis(),
-                        "wasLoggedIn", true
-                ));
+                        "wasLoggedIn", true));
             } else {
                 // 用户未登录，返回错误状态
                 log.warn("登出请求来自未认证会话（可能 token 无效、过期或未提供）");
@@ -285,7 +283,6 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("登出失败").setCode(500);
         }
     }
-
 
     @Override
     public SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {
@@ -336,8 +333,7 @@ public class AuthServiceImpl implements AuthService {
         long timestamp = System.currentTimeMillis();
         LocalDateTime localDateTime = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(timestamp),
-                ZoneId.systemDefault()
-        );
+                ZoneId.systemDefault());
         user.setUpdateTime(localDateTime);
 
         int rows = sysUserMapper.updateById(user);
@@ -412,7 +408,8 @@ public class AuthServiceImpl implements AuthService {
         // 4.5 检查是否存在尚未过期的待注册记录
         RegisterPendingUserService.PendingUser existingPending = registerPendingUserService.getPendingUser(email);
         if (existingPending != null && !LocalDateTime.now().isAfter(existingPending.getCodeExpireTime())) {
-            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingPending.getCodeExpireTime()).getSeconds();
+            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingPending.getCodeExpireTime())
+                    .getSeconds();
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
@@ -437,7 +434,8 @@ public class AuthServiceImpl implements AuthService {
         // 6. 保存待注册用户信息到内存
         try {
             // 保存到内存（会自动覆盖旧记录）
-            registerPendingUserService.savePendingUser(email, username, passwordEncoder.encode(rawPassword), code, REGISTER_CODE_EXPIRE_MINUTES);
+            registerPendingUserService.savePendingUser(email, username, passwordEncoder.encode(rawPassword), code,
+                    REGISTER_CODE_EXPIRE_MINUTES);
             log.info("保存待注册用户信息成功，username={}, email={}", username, email);
         } catch (Exception e) {
             log.error("保存待注册用户信息失败，username={}, error={}", username, e.getMessage());
@@ -741,8 +739,7 @@ public class AuthServiceImpl implements AuthService {
         long timestamp = System.currentTimeMillis();
         LocalDateTime localDateTime = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(timestamp),
-                ZoneId.systemDefault()
-        );
+                ZoneId.systemDefault());
         user.setUpdateTime(localDateTime);
 
         int rows = sysUserMapper.updateById(user);
@@ -834,9 +831,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 检查是否存在尚未过期的待变更记录
-        ChangeEmailPendingService.PendingEmailChange existing = changeEmailPendingService.getPendingEmailChange(currentUserId);
+        ChangeEmailPendingService.PendingEmailChange existing = changeEmailPendingService
+                .getPendingEmailChange(currentUserId);
         if (existing != null && !LocalDateTime.now().isAfter(existing.getCodeExpireTime())) {
-            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existing.getCodeExpireTime()).getSeconds();
+            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existing.getCodeExpireTime())
+                    .getSeconds();
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
@@ -853,7 +852,8 @@ public class AuthServiceImpl implements AuthService {
         String code = generateRegisterCode();
 
         try {
-            changeEmailPendingService.savePendingEmailChange(currentUserId, newEmail, code, REGISTER_CODE_EXPIRE_MINUTES);
+            changeEmailPendingService.savePendingEmailChange(currentUserId, newEmail, code,
+                    REGISTER_CODE_EXPIRE_MINUTES);
             log.info("保存待变更邮箱信息，userId={}, newEmail={}", currentUserId, newEmail);
         } catch (Exception e) {
             log.error("保存待变更邮箱信息失败，userId={}, error={}", currentUserId, e.getMessage());
@@ -884,7 +884,8 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("验证码不能为空").setCode(400);
         }
 
-        ChangeEmailPendingService.PendingEmailChange pending = changeEmailPendingService.getPendingEmailChange(currentUserId);
+        ChangeEmailPendingService.PendingEmailChange pending = changeEmailPendingService
+                .getPendingEmailChange(currentUserId);
 
         if (pending == null) {
             log.warn("邮箱变更确认失败：未找到待变更记录，userId={}", currentUserId);
@@ -1033,14 +1034,10 @@ public class AuthServiceImpl implements AuthService {
                     .eq("is_deleted", 0));
         }
 
-        // 防止用户枚举：无论用户是否存在，都先检查是否存在尚未过期的待重置记录（模拟处理）
-        String dummyEmail = "dummy@example.com";
-        PendingPasswordResetService.PendingPasswordReset existingReset = pendingPasswordResetService
-                .getPendingPasswordReset(
-                        (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) ? user.getEmail()
-                                : dummyEmail);
-        if (existingReset != null && !LocalDateTime.now().isAfter(existingReset.getCodeExpireTime())) {
-            long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingReset.getCodeExpireTime()).getSeconds();
+        // 检查频率限制：无论用户是否存在，都使用输入的标识符进行频率限制
+        long remainingSeconds = pendingPasswordResetService.checkRateLimit(usernameOrEmail,
+                REGISTER_CODE_EXPIRE_MINUTES);
+        if (remainingSeconds > 0) {
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
@@ -1071,6 +1068,9 @@ public class AuthServiceImpl implements AuthService {
         } else {
             log.warn("找回密码请求：未找到用户或用户未绑定邮箱，input={}", usernameOrEmail);
         }
+
+        // 无论用户是否存在，都设置频率限制，防止用户枚举攻击
+        pendingPasswordResetService.setRateLimit(usernameOrEmail, REGISTER_CODE_EXPIRE_MINUTES);
 
         // 无论用户是否存在，都返回相同的成功响应，防止用户枚举攻击
         Map<String, Object> data = new HashMap<>();
@@ -1119,7 +1119,8 @@ public class AuthServiceImpl implements AuthService {
         email = user.getEmail();
 
         // 2. 查询待重置记录
-        PendingPasswordResetService.PendingPasswordReset pendingReset = pendingPasswordResetService.getPendingPasswordReset(email);
+        PendingPasswordResetService.PendingPasswordReset pendingReset = pendingPasswordResetService
+                .getPendingPasswordReset(email);
         if (pendingReset == null) {
             log.warn("找回密码确认失败：未找到待重置记录，email={}", email);
             return SaResult.error("验证码无效，请重新获取").setCode(400);

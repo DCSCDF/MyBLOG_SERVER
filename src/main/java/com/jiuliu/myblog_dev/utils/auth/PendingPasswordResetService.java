@@ -33,6 +33,7 @@ public class PendingPasswordResetService {
     private static final Logger log = LoggerFactory.getLogger(PendingPasswordResetService.class);
 
     private static final String PENDING_RESET_PREFIX = "password_reset:";
+    private static final String RATE_LIMIT_PREFIX = "password_reset_rate_limit:";
 
     private final SaTokenDao saTokenDao;
 
@@ -105,6 +106,44 @@ public class PendingPasswordResetService {
         String key = PENDING_RESET_PREFIX + email;
         saTokenDao.delete(key);
         log.info("删除待重置密码信息，email={}", email);
+    }
+
+    /**
+     * 检查频率限制
+     *
+     * @param identifier    标识符（可以是邮箱或用户名）
+     * @param expireMinutes 频率限制时间（分钟）
+     * @return 如果还在频率限制期内，返回剩余秒数；否则返回0
+     */
+    public long checkRateLimit(String identifier, int expireMinutes) {
+        String key = RATE_LIMIT_PREFIX + identifier;
+        String data = saTokenDao.get(key);
+        if (data == null) {
+            return 0;
+        }
+        try {
+            LocalDateTime expireTime = LocalDateTime.parse(data);
+            if (LocalDateTime.now().isAfter(expireTime)) {
+                return 0;
+            }
+            return java.time.Duration.between(LocalDateTime.now(), expireTime).getSeconds();
+        } catch (Exception e) {
+            log.error("解析频率限制时间失败，identifier={}", identifier, e);
+            return 0;
+        }
+    }
+
+    /**
+     * 设置频率限制
+     *
+     * @param identifier    标识符（可以是邮箱或用户名）
+     * @param expireMinutes 频率限制时间（分钟）
+     */
+    public void setRateLimit(String identifier, int expireMinutes) {
+        String key = RATE_LIMIT_PREFIX + identifier;
+        LocalDateTime expireTime = LocalDateTime.now().plusMinutes(expireMinutes);
+        saTokenDao.set(key, expireTime.toString(), expireMinutes * 60L);
+        log.info("设置频率限制，identifier={}, expireTime={}", identifier, expireTime);
     }
 
     private String serialize(PendingPasswordReset reset) {
