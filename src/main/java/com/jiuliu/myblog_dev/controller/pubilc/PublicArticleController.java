@@ -20,6 +20,7 @@ import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleResponseDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleDetailResponseDTO;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,6 +60,7 @@ public class PublicArticleController {
      * POST /api/public/article/list
      * 无需登录，所有用户均可访问
      */
+    @RateLimit(count = 60, period = 1, prefix = "public_article_list")
     @PostMapping("/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticles(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticles(dto);
@@ -71,6 +73,7 @@ public class PublicArticleController {
      * 无需登录，所有用户均可访问
      * 隐藏或已删除的文章无法访问
      */
+    @RateLimit(count = 60, period = 1, prefix = "public_article_detail")
     @GetMapping("/{id}")
     public Response<PublicArticleDetailResponseDTO> getPublicArticleDetail(@PathVariable Long id) {
         SaResult saResult = publicArticleService.getPublicArticleDetail(id);

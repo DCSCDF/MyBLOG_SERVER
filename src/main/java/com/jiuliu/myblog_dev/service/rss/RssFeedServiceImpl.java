@@ -15,6 +15,8 @@
 package com.jiuliu.myblog_dev.service.rss;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.rss.RssFeedResponseDTO;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
@@ -33,6 +35,8 @@ import org.springframework.web.util.HtmlUtils;
 import java.io.StringWriter;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -45,10 +49,15 @@ public class RssFeedServiceImpl implements RssFeedService {
 
     private static final int DEFAULT_ARTICLE_LIMIT = 10;
     private static final String FEED_TYPE = "atom_1.0";
+    private static final int CACHE_EXPIRE_MINUTES = 10;
+    private static final String CACHE_KEY = "rss_feed";
 
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
     private final SysConfigService sysConfigService;
+    
+    private final Cache<String, RssFeedResponseDTO> rssCache;
+    private final ConcurrentHashMap<String, Object> generationLocks;
 
     public RssFeedServiceImpl(SysBlogMapper blogMapper,
                               SysUserMapper userMapper,
@@ -56,10 +65,54 @@ public class RssFeedServiceImpl implements RssFeedService {
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.sysConfigService = sysConfigService;
+        
+        this.rssCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES)
+                .maximumSize(1)
+                .softValues()
+                .recordStats()
+                .build();
+        this.generationLocks = new ConcurrentHashMap<>();
+        
+        log.info("RSS Feed缓存服务初始化完成，缓存过期时间={}分钟", CACHE_EXPIRE_MINUTES);
     }
 
     @Override
     public RssFeedResponseDTO generateRssFeed() {
+        // 首先尝试从缓存获取
+        RssFeedResponseDTO cachedResponse = rssCache.getIfPresent(CACHE_KEY);
+        if (cachedResponse != null) {
+            log.debug("RSS Feed缓存命中，共 {} 篇文章", cachedResponse.getArticleCount());
+            return cachedResponse;
+        }
+
+        // 缓存未命中，使用并发锁防止重复生成
+        Object lock = generationLocks.computeIfAbsent(CACHE_KEY, k -> new Object());
+        synchronized (lock) {
+            // 再次检查缓存，防止在等待锁期间其他线程已经完成生成
+            cachedResponse = rssCache.getIfPresent(CACHE_KEY);
+            if (cachedResponse != null) {
+                log.debug("RSS Feed二次缓存命中，共 {} 篇文章", cachedResponse.getArticleCount());
+                generationLocks.remove(CACHE_KEY);
+                return cachedResponse;
+            }
+
+            // 实际生成 RSS Feed
+            RssFeedResponseDTO response = generateRssFeedInternal();
+            
+            // 存入缓存
+            rssCache.put(CACHE_KEY, response);
+            generationLocks.remove(CACHE_KEY);
+            
+            log.info("RSS Feed生成成功并缓存，共 {} 篇文章", response.getArticleCount());
+            return response;
+        }
+    }
+    
+    /**
+     * 内部方法：实际生成 RSS Feed
+     */
+    private RssFeedResponseDTO generateRssFeedInternal() {
         RssFeedResponseDTO response = new RssFeedResponseDTO();
 
         // 获取网站配置
@@ -103,7 +156,6 @@ public class RssFeedServiceImpl implements RssFeedService {
                 .map(SysBlog::getTitle)
                 .collect(Collectors.toList()));
 
-        log.info("RSS Feed生成成功，共 {} 篇文章", articles.size());
         return response;
     }
 

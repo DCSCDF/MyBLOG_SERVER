@@ -19,6 +19,7 @@ import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.config.ConfigItemResponseDTO;
 import com.jiuliu.myblog_dev.dto.config.SiteInfoDTO;
 import com.jiuliu.myblog_dev.service.config.SysConfigService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -45,6 +46,7 @@ public class GlobalConfigController {
      * POST /api/public/config
      * 请求体示例：{ "keys": ["site.name", "site.logo"] }
      */
+    @RateLimit(count = 30, period = 1, prefix = "public_config_keys")
     @PostMapping
     public Response<List<ConfigItemResponseDTO>> getConfigByKeys(@Valid @RequestBody ConfigKeysDTO dto) {
         SaResult saResult = sysConfigService.getPublicConfigByKeys(dto.getKeys());
@@ -61,6 +63,7 @@ public class GlobalConfigController {
      * - siteDescription: 网站描述
      * - recordNumber: 备案号
      */
+    @RateLimit(count = 60, period = 1, prefix = "public_config_site_info")
     @GetMapping("/site-info")
     public Response<SiteInfoDTO> getSiteInfo() {
         SaResult saResult = sysConfigService.getSiteInfo();

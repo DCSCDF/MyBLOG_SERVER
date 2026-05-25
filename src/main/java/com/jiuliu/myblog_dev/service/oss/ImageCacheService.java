@@ -23,9 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,20 +47,20 @@ public class ImageCacheService {
     private static final Logger log = LoggerFactory.getLogger(ImageCacheService.class);
 
     /**
-     * 图片缓存最大大小（100MB，可通过修改此常量调整）
+     * 图片缓存最大大小（50MB，更保守设置）
      * 单位：字节
      */
-    private static final long MAX_CACHE_SIZE_BYTES = 100 * 1024 * 1024;
+    private static final long MAX_CACHE_SIZE_BYTES = 50 * 1024 * 1024;
 
     /**
-     * 缓存过期时间（10分钟）
+     * 缓存过期时间（5分钟，更快过期释放内存）
      */
-    private static final int CACHE_EXPIRE_MINUTES = 10;
+    private static final int CACHE_EXPIRE_MINUTES = 5;
 
     /**
-     * 图片质量（压缩质量 0.8 表示 80%）
+     * 图片质量（压缩质量 0.75 表示 75%，更小的文件）
      */
-    private static final float COMPRESSION_QUALITY = 0.8f;
+    private static final float COMPRESSION_QUALITY = 0.75f;
 
     /**
      * 图片缓存
@@ -66,13 +68,21 @@ public class ImageCacheService {
      */
     private final Cache<String, byte[]> imageCache;
 
+    /**
+     * 并发控制：防止同一张图片同时被多个请求压缩
+     */
+    private final ConcurrentHashMap<String, Object> compressionLocks;
+
     public ImageCacheService() {
         this.imageCache = CacheBuilder.newBuilder()
                 .maximumWeight(MAX_CACHE_SIZE_BYTES)
                 .weigher(new ImageCacheWeigher())
                 .expireAfterWrite(CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES)
+                .concurrencyLevel(4)
+                .softValues()
                 .recordStats()
                 .build();
+        this.compressionLocks = new ConcurrentHashMap<>();
         log.info("图片压缩缓存服务初始化完成，最大缓存大小=[{} MB]，过期时间=[{} 分钟]",
                 MAX_CACHE_SIZE_BYTES / (1024 * 1024), CACHE_EXPIRE_MINUTES);
     }
@@ -83,18 +93,18 @@ public class ImageCacheService {
      * <p>如果缓存中存在，直接返回缓存数据。
      * 如果不存在，从 OSS 获取原图，进行压缩处理后存入缓存并返回。</p>
      *
-     * @param hash          图片哈希值
-     * @param size          图片尺寸规格
-     * @param inputStream   OSS 图片输入流（如果缓存未命中，需要传入此流进行压缩）
-     * @param originalSize  原图大小
-     * @param contentType   图片 MIME 类型
+     * @param hash         图片哈希值
+     * @param size         图片尺寸规格
+     * @param inputStream  OSS 图片输入流（如果缓存未命中，需要传入此流进行压缩）
+     * @param originalSize 原图大小
+     * @param contentType  图片 MIME 类型
      * @return 压缩后的图片字节数组
      */
     public byte[] getCompressedImage(String hash, OSSConfig.ImageSize size,
                                      InputStream inputStream, long originalSize, String contentType) {
         String cacheKey = buildCacheKey(hash, size);
 
-        // 尝试从缓存获取
+        // 尝试从缓存获取（双重检查）
         byte[] cached = imageCache.getIfPresent(cacheKey);
         if (cached != null) {
             log.debug("[缓存命中] hash=[{}], size=[{}], 缓存大小=[{} bytes]",
@@ -111,29 +121,43 @@ public class ImageCacheService {
         // 缓存未命中，进行压缩处理
         log.debug("[缓存未命中] hash=[{}], size=[{}], 开始压缩", hash, size.getCode());
 
-        try {
-            byte[] compressed = compressImage(inputStream, size, contentType);
-            if (compressed != null && compressed.length > 0) {
-                // 存入缓存
-                imageCache.put(cacheKey, compressed);
-                log.info("[图片压缩完成] hash=[{}], size=[{}], 原图大小=[{} bytes], 压缩后=[{} bytes], 压缩率=[{}%]",
-                        hash, size.getCode(), originalSize, compressed.length,
-                        String.format("%.1f", (1 - (double) compressed.length / originalSize) * 100));
-                printCacheStats();
+        // 使用并发锁防止同一张图片被重复压缩
+        Object lock = compressionLocks.computeIfAbsent(cacheKey, k -> new Object());
+        synchronized (lock) {
+            // 再次检查缓存，防止在等待锁期间其他线程已经完成压缩
+            cached = imageCache.getIfPresent(cacheKey);
+            if (cached != null) {
+                log.debug("[缓存二次命中] hash=[{}], size=[{}]", hash, size.getCode());
+                compressionLocks.remove(cacheKey);
+                return cached;
             }
-            return compressed;
-        } catch (Exception e) {
-            log.error("[图片压缩失败] hash=[{}], size=[{}]：{}", hash, size.getCode(), e.getMessage(), e);
-            return null;
+
+            try {
+                byte[] compressed = compressImage(inputStream, size, contentType);
+                if (compressed != null && compressed.length > 0) {
+                    // 存入缓存
+                    imageCache.put(cacheKey, compressed);
+                    log.info("[图片压缩完成] hash=[{}], size=[{}], 原图大小=[{} bytes], 压缩后=[{} bytes], 压缩率=[{}%]",
+                            hash, size.getCode(), originalSize, compressed.length,
+                            String.format("%.1f", (1 - (double) compressed.length / originalSize) * 100));
+                    printCacheStats();
+                }
+                compressionLocks.remove(cacheKey);
+                return compressed;
+            } catch (Exception e) {
+                log.error("[图片压缩失败] hash=[{}], size=[{}]：{}", hash, size.getCode(), e.getMessage(), e);
+                compressionLocks.remove(cacheKey);
+                return null;
+            }
         }
     }
 
     /**
      * 压缩图片
      *
-     * @param inputStream   输入流
-     * @param size          目标尺寸
-     * @param contentType   MIME 类型
+     * @param inputStream 输入流
+     * @param size        目标尺寸
+     * @param contentType MIME 类型
      * @return 压缩后的字节数组
      */
     private byte[] compressImage(InputStream inputStream, OSSConfig.ImageSize size, String contentType) {
@@ -145,24 +169,16 @@ public class ImageCacheService {
             int targetSize = parseTargetSize(size);
             String outputFormat = getOutputFormat(contentType);
 
+            // 首先一次性读取原图到字节数组（只读取一次）
             byte[] originalBytes = readInputStream(inputStream);
             if (originalBytes == null || originalBytes.length == 0) {
                 return null;
             }
 
-            java.awt.image.BufferedImage originalImage = Thumbnails.of(new java.io.ByteArrayInputStream(originalBytes))
-                    .scale(1.0)
-                    .asBufferedImage();
-            int originalWidth = originalImage.getWidth();
-            int originalHeight = originalImage.getHeight();
-
-            if (originalWidth <= targetSize && originalHeight <= targetSize) {
-                return originalBytes;
-            }
-
+            // 尝试直接压缩，如果压缩后更小就返回，否则返回原图
             byte[] result;
-            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                Thumbnails.of(new java.io.ByteArrayInputStream(originalBytes))
+            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(originalBytes.length / 2)) {
+                Thumbnails.of(new ByteArrayInputStream(originalBytes))
                         .size(targetSize, targetSize)
                         .keepAspectRatio(true)
                         .outputQuality(COMPRESSION_QUALITY)
@@ -171,11 +187,13 @@ public class ImageCacheService {
                 result = outputStream.toByteArray();
             }
 
-            if (result.length >= originalBytes.length) {
+            if (result.length < originalBytes.length) {
+                return result;
+            } else {
+                log.debug("[无需压缩] 原图更小，直接返回，hash相关, size相关, 原图=[{}], 压缩后=[{}]",
+                        originalBytes.length, result.length);
                 return originalBytes;
             }
-
-            return result;
 
         } catch (IOException e) {
             log.error("[图片压缩 IO 异常]：{}", e.getMessage(), e);

@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.controller.pubilc;
 
 import com.jiuliu.myblog_dev.dto.rss.RssFeedResponseDTO;
 import com.jiuliu.myblog_dev.service.rss.RssFeedService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -45,6 +46,7 @@ public class RssFeedController {
      * 无需登录，所有用户均可访问
      * 返回最新10篇文章的Atom格式RSS Feed
      */
+    @RateLimit(count = 30, period = 1, prefix = "public_rss_feed")
     @GetMapping(produces = MediaType.APPLICATION_ATOM_XML_VALUE)
     public ResponseEntity<String> getRssFeed() {
         try {
@@ -52,7 +54,7 @@ public class RssFeedController {
             log.info("RSS Feed 请求成功，共 {} 篇文章", response.getArticleCount());
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("application/atom+xml; charset=UTF-8"))
-                    .header("Cache-Control", "public, max-age=1800") // 缓存30分钟
+                    .header("Cache-Control", "public, max-age=1800")
                     .body(response.getFeedXml());
         } catch (Exception e) {
             log.error("RSS Feed 生成失败", e);

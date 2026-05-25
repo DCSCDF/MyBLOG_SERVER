@@ -18,6 +18,7 @@ import cn.dev33.satoken.util.SaResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicCategoryResponseDTO;
 import com.jiuliu.myblog_dev.service.blog.category.PublicCategoryService;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,6 +58,7 @@ public class PublicCategoryController {
      * 无需登录，所有用户均可访问
      * 返回所有未隐藏的分类，包含ID、名称、描述、排序
      */
+    @RateLimit(count = 60, period = 1, prefix = "public_category_list")
     @GetMapping("/list")
     public Response<List<PublicCategoryResponseDTO>> getVisibleCategories() {
         SaResult saResult = publicCategoryService.getVisibleCategories();
@@ -69,6 +71,7 @@ public class PublicCategoryController {
      * 无需登录，所有用户均可访问
      * 仅返回未隐藏的分类
      */
+    @RateLimit(count = 60, period = 1, prefix = "public_category_detail")
     @GetMapping("/{id}")
     public Response<PublicCategoryResponseDTO> getCategoryById(@PathVariable("id") Long id) {
         SaResult saResult = publicCategoryService.getCategoryById(id);
