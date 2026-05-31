@@ -55,11 +55,6 @@ public class DynamicRateLimitService {
     private final AtomicInteger activeRequests = new AtomicInteger(0);
 
     /**
-     * 滑动窗口请求记录（每分钟一个桶）
-     */
-    private final ConcurrentHashMap<String, ConcurrentHashMap<Long, AtomicInteger>> windowMap = new ConcurrentHashMap<>();
-
-    /**
      * 健康检查定时器
      */
     private ScheduledExecutorService healthCheckScheduler;
@@ -136,16 +131,9 @@ public class DynamicRateLimitService {
      * 清理过期的限流器
      */
     private void cleanupExpiredLimiters() {
-        long currentMinute = System.currentTimeMillis() / 60000;
-        long expireThreshold = currentMinute - 5;
-
-        windowMap.entrySet().removeIf(entry -> {
-            entry.getValue().keySet().removeIf(minute -> minute < expireThreshold);
-            return entry.getValue().isEmpty();
-        });
-
+        // limiterCache 目前没有过期机制，这里预留位置
         if (log.isDebugEnabled()) {
-            log.debug("限流器清理完成，当前活跃 IP 数: {}", windowMap.size());
+            log.debug("限流器清理检查完成，当前缓存数: {}", limiterCache.size());
         }
     }
 

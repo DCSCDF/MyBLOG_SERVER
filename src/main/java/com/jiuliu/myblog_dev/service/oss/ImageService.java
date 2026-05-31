@@ -147,11 +147,13 @@ public class ImageService {
 
     /**
      * 流式传输压缩后的图片（使用缓存）
+     * <p>如果压缩失败，会回退到直接传输原图</p>
      */
     private boolean streamCompressedImage(String hash, OSSConfig.ImageSize size,
                                           OSS ossClient, String objectName,
                                           long originalSize, String contentType,
                                           HttpServletResponse response) {
+        String sizeCode = (size != null) ? size.getCode() : "o";
         try {
             // 先尝试从缓存获取（不需要输入流）
             byte[] cachedImage = imageCacheService.getCompressedImage(hash, size, null, originalSize, contentType);
@@ -159,7 +161,7 @@ public class ImageService {
             if (cachedImage != null) {
                 // 缓存命中，直接返回
                 log.debug("[ImageService] 缓存命中，hash=[{}], size=[{}], 大小=[{} bytes]",
-                        hash, size.getCode(), cachedImage.length);
+                        hash, sizeCode, cachedImage.length);
 
                 response.setContentType(contentType);
                 response.setHeader("Content-Length", String.valueOf(cachedImage.length));
@@ -173,12 +175,12 @@ public class ImageService {
                 }
 
                 log.info("[ImageService] 图片传输完成（缓存） - hash=[{}], size=[{}], 大小={} bytes",
-                        hash, size.getCode(), cachedImage.length);
+                        hash, sizeCode, cachedImage.length);
                 return true;
             }
 
-            // 缓存未命中，从 OSS 获取并压缩
-            log.debug("[ImageService] 缓存未命中，hash=[{}], size=[{}]，从 OSS 获取并压缩", hash, size.getCode());
+            // 缓存未命中，尝试压缩，失败则回退到原图
+            log.debug("[ImageService] 缓存未命中，hash=[{}], size=[{}]，尝试从 OSS 获取", hash, sizeCode);
 
             InputStream inputStream = null;
             try {
@@ -191,29 +193,39 @@ public class ImageService {
                 closeQuietly(inputStream);
             }
 
-            if (cachedImage == null) {
-                log.error("[ImageService] 图片压缩失败，hash=[{}], size=[{}]", hash, size.getCode());
-                return false;
+            if (cachedImage != null && cachedImage.length > 0) {
+                // 压缩成功
+                response.setContentType(contentType);
+                response.setHeader("Content-Length", String.valueOf(cachedImage.length));
+                response.setHeader("Accept-Ranges", "bytes");
+                response.setHeader("Cache-Control", "private, max-age=600");
+                response.setHeader("X-Cache", "MISS");
+
+                try (OutputStream outputStream = response.getOutputStream()) {
+                    outputStream.write(cachedImage);
+                    outputStream.flush();
+                }
+
+                log.info("[ImageService] 图片传输完成（压缩） - hash=[{}], size=[{}], 大小={} bytes, 原图={} bytes",
+                        hash, sizeCode, cachedImage.length, originalSize);
+                return true;
+            } else {
+                // 压缩失败，回退到传输原图
+                log.warn("[ImageService] 压缩失败或返回空数据，hash=[{}], size=[{}]，回退到原图",
+                        hash, sizeCode);
+                return streamOriginalImage(hash, ossClient, objectName, contentType, response);
             }
-
-            response.setContentType(contentType);
-            response.setHeader("Content-Length", String.valueOf(cachedImage.length));
-            response.setHeader("Accept-Ranges", "bytes");
-            response.setHeader("Cache-Control", "private, max-age=600");
-            response.setHeader("X-Cache", "MISS");
-
-            try (OutputStream outputStream = response.getOutputStream()) {
-                outputStream.write(cachedImage);
-                outputStream.flush();
-            }
-
-            log.info("[ImageService] 图片传输完成（压缩） - hash=[{}], size=[{}], 大小={} bytes, 原图={} bytes",
-                    hash, size.getCode(), cachedImage.length, originalSize);
-            return true;
 
         } catch (Exception e) {
-            log.error("[ImageService] 图片压缩传输异常，hash=[{}]：{}", hash, e.getMessage(), e);
-            return false;
+            log.error("[ImageService] 图片压缩传输异常，hash=[{}]：{}，回退到原图",
+                    hash, e.getMessage(), e);
+            // 异常时也回退到原图
+            try {
+                return streamOriginalImage(hash, ossClient, objectName, contentType, response);
+            } catch (Exception ex) {
+                log.error("[ImageService] 回退原图也失败，hash=[{}]：{}", hash, ex.getMessage(), ex);
+                return false;
+            }
         }
     }
 

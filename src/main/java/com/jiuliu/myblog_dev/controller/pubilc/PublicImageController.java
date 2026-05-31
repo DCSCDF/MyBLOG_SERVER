@@ -69,9 +69,11 @@ public class PublicImageController {
         long startTime = System.currentTimeMillis();
 
         OSSConfig.ImageSize imageSize = OSSConfig.ImageSize.fromCode(size);
+        String sizeCode = (imageSize != null) ? imageSize.getCode() : "lg";
+        String sizeDesc = (imageSize != null) ? imageSize.getDescription() : "大图";
 
         log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}]",
-                hash, imageSize.getCode(), imageSize.getDescription(), clientIp);
+                hash, sizeCode, sizeDesc, clientIp);
 
         try {
             ImageMeta meta = imageService.getImageMeta(hash);
@@ -85,7 +87,7 @@ public class PublicImageController {
             response.setStatus(HttpStatus.OK.value());
 
             log.debug("[开始传输] hash=[{}], size=[{}], 大小=[{} bytes], 类型=[{}]",
-                    hash, imageSize.getCode(), meta.contentLength(), meta.contentType());
+                    hash, sizeCode, meta.contentLength(), meta.contentType());
             boolean success = imageService.streamImage(hash, imageSize, response);
 
             if (!success && !response.isCommitted()) {
@@ -96,7 +98,7 @@ public class PublicImageController {
             } else {
                 long duration = System.currentTimeMillis() - startTime;
                 log.info("[传输成功] hash=[{}], size=[{}], 耗时=[{}ms], 大小=[{} bytes]",
-                        hash, imageSize.getCode(), duration, meta.contentLength());
+                        hash, sizeCode, duration, meta.contentLength());
             }
         } catch (Exception e) {
             log.error("[图片获取异常] hash=[{}]：{}", hash, e.getMessage(), e);

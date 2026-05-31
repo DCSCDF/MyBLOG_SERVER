@@ -79,7 +79,7 @@ public class DatabaseInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        log.info("========== 开始数据库初始化 ==========");
+        log.info("开始数据库初始化");
 
         try {
             // 检查数据库表是否存在
@@ -114,10 +114,10 @@ public class DatabaseInitializer implements CommandLineRunner {
             // 初始化默认SEO配置
             initDefaultSeoConfigs();
 
-            log.info("========== 数据库初始化完成 ==========");
+            log.info("数据库初始化完成");
 
         } catch (Exception e) {
-            log.error("========== 数据库初始化失败 ==========", e);
+            log.error("数据库初始化失败", e);
             log.error("可能的解决方案：");
             log.error("1. 确认数据库用户有足够的权限 (SELECT, INSERT, UPDATE, DELETE)");
             log.error("2. 检查数据库连接配置");

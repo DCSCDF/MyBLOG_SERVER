@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.jiuliu.myblog_dev.config.business.OSSConfig;
+import com.jiuliu.myblog_dev.utils.image.ImageUtil;
 import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,36 +91,44 @@ public class ImageCacheService {
     /**
      * 获取压缩后的图片数据
      *
-     * <p>如果缓存中存在，直接返回缓存数据。
-     * 如果不存在，从 OSS 获取原图，进行压缩处理后存入缓存并返回。</p>
+     * <p>
+     * 如果缓存中存在，直接返回缓存数据。
+     * 如果不存在，从 OSS 获取原图，进行压缩处理后存入缓存并返回。
+     * 如果压缩失败，会返回原图数据。
+     * </p>
      *
      * @param hash         图片哈希值
      * @param size         图片尺寸规格
      * @param inputStream  OSS 图片输入流（如果缓存未命中，需要传入此流进行压缩）
      * @param originalSize 原图大小
      * @param contentType  图片 MIME 类型
-     * @return 压缩后的图片字节数组
+     * @return 图片字节数组（压缩后的或原图），如果无法获取任何数据则返回 null
      */
     public byte[] getCompressedImage(String hash, OSSConfig.ImageSize size,
                                      InputStream inputStream, long originalSize, String contentType) {
         String cacheKey = buildCacheKey(hash, size);
+        String sizeCode = (size != null) ? size.getCode() : "o";
 
         // 尝试从缓存获取（双重检查）
         byte[] cached = imageCache.getIfPresent(cacheKey);
         if (cached != null) {
             log.debug("[缓存命中] hash=[{}], size=[{}], 缓存大小=[{} bytes]",
-                    hash, size.getCode(), cached.length);
+                    hash, sizeCode, cached.length);
             return cached;
         }
 
-        // 缓存未命中，且没有传入输入流，无法压缩
-        if (inputStream == null) {
-            log.warn("[缓存未命中且无输入流] hash=[{}], size=[{}]", hash, size.getCode());
+        // 如果是原图尺寸或没有输入流，直接读取原图
+        if (size == null || size == OSSConfig.ImageSize.ORIGINAL || inputStream == null) {
+            if (inputStream != null) {
+                log.debug("[直接返回原图] hash=[{}], size=[{}]", hash, sizeCode);
+                return readInputStream(inputStream);
+            }
+            log.warn("[缓存未命中且无输入流] hash=[{}], size=[{}]", hash, sizeCode);
             return null;
         }
 
         // 缓存未命中，进行压缩处理
-        log.debug("[缓存未命中] hash=[{}], size=[{}], 开始压缩", hash, size.getCode());
+        log.debug("[缓存未命中] hash=[{}], size=[{}], 开始压缩", hash, sizeCode);
 
         // 使用并发锁防止同一张图片被重复压缩
         Object lock = compressionLocks.computeIfAbsent(cacheKey, k -> new Object());
@@ -127,7 +136,7 @@ public class ImageCacheService {
             // 再次检查缓存，防止在等待锁期间其他线程已经完成压缩
             cached = imageCache.getIfPresent(cacheKey);
             if (cached != null) {
-                log.debug("[缓存二次命中] hash=[{}], size=[{}]", hash, size.getCode());
+                log.debug("[缓存二次命中] hash=[{}], size=[{}]", hash, sizeCode);
                 compressionLocks.remove(cacheKey);
                 return cached;
             }
@@ -138,16 +147,27 @@ public class ImageCacheService {
                     // 存入缓存
                     imageCache.put(cacheKey, compressed);
                     log.info("[图片压缩完成] hash=[{}], size=[{}], 原图大小=[{} bytes], 压缩后=[{} bytes], 压缩率=[{}%]",
-                            hash, size.getCode(), originalSize, compressed.length,
+                            hash, sizeCode, originalSize, compressed.length,
                             String.format("%.1f", (1 - (double) compressed.length / originalSize) * 100));
                     printCacheStats();
                 }
                 compressionLocks.remove(cacheKey);
                 return compressed;
             } catch (Exception e) {
-                log.error("[图片压缩失败] hash=[{}], size=[{}]：{}", hash, size.getCode(), e.getMessage(), e);
+                log.error("[图片压缩失败] hash=[{}], size=[{}]：{}", hash, sizeCode, e.getMessage(), e);
                 compressionLocks.remove(cacheKey);
-                return null;
+                // 压缩失败，重新读取并返回原图
+                try {
+                    // 注意：此时输入流可能已被读取过，这里需要特殊处理
+                    // 但在实际场景中，我们已经在 compressImage 中保存了 originalBytes，
+                    // 所以那里已经处理了返回原图的情况，这里主要是兜底
+                    log.warn("[压缩异常兜底] hash=[{}], size=[{}], 返回 null，调用方需回退到原图",
+                            hash, sizeCode);
+                    return null;
+                } catch (Exception ex) {
+                    log.error("[压缩异常兜底失败] hash=[{}]：{}", hash, ex.getMessage(), ex);
+                    return null;
+                }
             }
         }
     }
@@ -158,21 +178,31 @@ public class ImageCacheService {
      * @param inputStream 输入流
      * @param size        目标尺寸
      * @param contentType MIME 类型
-     * @return 压缩后的字节数组
+     * @return 压缩后的字节数组，如果压缩失败则返回原图
      */
     private byte[] compressImage(InputStream inputStream, OSSConfig.ImageSize size, String contentType) {
         if (size == null || size == OSSConfig.ImageSize.ORIGINAL) {
             return readInputStream(inputStream);
         }
 
+        // 首先一次性读取原图到字节数组（只读取一次）
+        byte[] originalBytes = readInputStream(inputStream);
+        if (originalBytes == null || originalBytes.length == 0) {
+            log.warn("[compressImage] 无法读取输入流，返回 null");
+            return null;
+        }
+
         try {
             int targetSize = parseTargetSize(size);
             String outputFormat = getOutputFormat(contentType);
 
-            // 首先一次性读取原图到字节数组（只读取一次）
-            byte[] originalBytes = readInputStream(inputStream);
-            if (originalBytes == null || originalBytes.length == 0) {
-                return null;
+            // 从 contentType 推断文件扩展名
+            String extension = getExtensionFromContentType(contentType);
+
+            // 验证图片格式（检查文件头），而不仅仅是依赖表面扩展名
+            if (!ImageUtil.isValidFormat(originalBytes, extension)) {
+                log.warn("[图片格式校验失败]：无法识别的图片格式，直接返回原图，contentType=[{}]", contentType);
+                return originalBytes;
             }
 
             // 尝试直接压缩，如果压缩后更小就返回，否则返回原图
@@ -187,21 +217,35 @@ public class ImageCacheService {
                 result = outputStream.toByteArray();
             }
 
-            if (result.length < originalBytes.length) {
+            if (result.length > 0 && result.length < originalBytes.length) {
                 return result;
             } else {
-                log.debug("[无需压缩] 原图更小，直接返回，hash相关, size相关, 原图=[{}], 压缩后=[{}]",
-                        originalBytes.length, result.length);
+                log.debug("[无需压缩] 原图更小或压缩失败，直接返回原图，原图=[{} bytes], 压缩后=[{} bytes]",
+                                originalBytes.length, result.length);
                 return originalBytes;
             }
 
-        } catch (IOException e) {
-            log.error("[图片压缩 IO 异常]：{}", e.getMessage(), e);
-            return null;
-        } catch (Exception e) {
-            log.error("[图片压缩异常]：{}", e.getMessage(), e);
-            return null;
+        } catch (Throwable t) {
+            // 捕获所有 Throwable，包括 Error，确保不会崩溃
+            log.error("[图片压缩异常]：{}", t.getMessage(), t);
+            return originalBytes; // 任何异常都返回原图
         }
+    }
+
+    /**
+     * 根据 Content-Type 推断文件扩展名
+     */
+    private String getExtensionFromContentType(String contentType) {
+        if (contentType == null) {
+            return "jpg";
+        }
+        return switch (contentType.toLowerCase()) {
+            case "image/png" -> "png";
+            case "image/gif" -> "gif";
+            case "image/webp" -> "webp";
+            case "image/bmp" -> "bmp";
+            default -> "jpg";
+        };
     }
 
     /**
