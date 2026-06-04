@@ -21,15 +21,18 @@ import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.disabled.DisabledException;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -37,6 +40,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.SQLSyntaxErrorException;
 
 /**
@@ -46,6 +51,45 @@ import java.sql.SQLSyntaxErrorException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * Jackson 序列化工具，用于直接把 Response 写入 HttpServletResponse，
+     * 彻底绕开 Spring 的内容协商（避免因客户端 Accept 头不匹配导致二次抛异常）。
+     */
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * 将统一响应体直接写入 HttpServletResponse，绕开 Spring 的内容协商与 HttpMessageConverter。
+     * 当客户端 Accept 头无法匹配任何支持的媒体类型（如爬虫、扫描器请求），
+     * 常规的返回 Response 对象的方式会再次触发 HttpMediaTypeNotAcceptableException，
+     * 导致异常处理器被判定为失败，转而进入 Spring 默认错误页。
+     * 此方法通过手动设置 Content-Type 并直接输出 JSON 字节解决该问题。
+     */
+    private void writeJsonResponse(HttpServletResponse response, int httpStatus, Response<Void> body) {
+        response.setStatus(httpStatus);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write(objectMapper.writeValueAsString(body));
+            writer.flush();
+        } catch (IOException e) {
+            // 写入失败时仅记录，不再抛出，避免无限循环
+            log.error("写入异常响应失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 处理媒体类型不可接受异常（客户端 Accept 头不匹配）
+     * 典型来源：爬虫、扫描器发送奇怪的 Accept 头。
+     * 直接写 JSON 到 response，绕开内容协商。
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    @SuppressWarnings("unused")
+    public void handleHttpMediaTypeNotAcceptableException(HttpMediaTypeNotAcceptableException e,
+            HttpServletResponse response) {
+        log.warn("Accept头不匹配: {}", e.getMessage());
+        writeJsonResponse(response, 406, ResponseUtil.fail("不支持的响应格式", 406));
+    }
 
     /**
      * 处理参数校验失败（@Valid 触发）
@@ -204,15 +248,21 @@ public class GlobalExceptionHandler {
         return ResponseUtil.fail("数据库异常，请检查数据库连接与初始化状态", 503);
     }
 
+    /**
+     * 处理其他未预期的系统异常（兜底）
+     * 直接写 JSON 到 HttpServletResponse，绕开 Spring 的内容协商。
+     * 这样即使客户端 Accept 头奇怪，也能确保返回统一的 JSON 错误体，
+     * 并且避免"Failure in @ExceptionHandler"导致回退到 Spring 默认白标页。
+     */
     @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleGeneralException(Exception e) {
+    public void handleGeneralException(Exception e, HttpServletResponse response) {
         // 记录异常类型和消息（不记录堆栈，除非调试）
         log.error("系统异常: {}", e.getClass().getSimpleName());
         log.error("异常消息: {}", e.getMessage());
 
-        // 返回通用错误
-        return ResponseUtil.fail("当前服务暂时不可用，请稍后再试", 500);
+        // 直接写响应，绕过内容协商
+        writeJsonResponse(response, 500, ResponseUtil.fail("当前服务暂时不可用，请稍后再试", 500));
     }
 
     /**
