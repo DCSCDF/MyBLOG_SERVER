@@ -124,40 +124,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理 Sa-Token 鉴权异常
+     * 处理 Sa-Token 未登录异常（业务正常分支，不作为 WARN 记录）
+     * 用户未登录访问受保护接口属于预期行为，降级为 DEBUG 以避免污染生产日志。
      */
-    @ExceptionHandler({ NotLoginException.class, NotRoleException.class, NotPermissionException.class })
+    @ExceptionHandler(NotLoginException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleAuthException(Exception e, HttpServletRequest request) {
-        log.warn("鉴权异常: {}", e.getClass().getSimpleName());
+    public Response<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {
+        log.debug("未登录访问: {} {}", request.getMethod(), request.getRequestURI());
+        return ResponseUtil.fail("未授权，请先登录", 401);
+    }
 
-        // // 如果是OPTIONS请求且是登录异常，直接放行
-        // if (e instanceof NotLoginException &&
-        // "OPTIONS".equalsIgnoreCase(request.getMethod())) {
-        // log.debug("OPTIONS预检请求，跳过登录检查");
-        // return SaResult.ok();
-        // }
-
-        // 不记录 e.toString() 或堆栈，避免泄露内部信息
-        // 400: '请求参数错误',
-        // 401: '未授权，请重新登录',
-        // 403: '拒绝访问',
-        // 404: '请求的资源不存在',
-        // 408: '请求超时',
-        // 429: '请求过于频繁',
-        // 500: '服务器内部错误',
-        // 502: '网关错误',
-        // 503: '服务不可用',
-        // 504: '网关超时'
-
-        if (e instanceof NotLoginException) {
-            return ResponseUtil.fail("未授权，请先登录", 401);
-        } else if (e instanceof NotRoleException) {
-            return ResponseUtil.fail("没有权限", 403);
-        } else if (e instanceof NotPermissionException) {
-            return ResponseUtil.fail("没有权限", 403);
-        }
-        return ResponseUtil.fail("鉴权失败", 403);
+    /**
+     * 处理 Sa-Token 角色/权限不足异常（真正的越权访问，保留 WARN）
+     */
+    @ExceptionHandler({ NotRoleException.class, NotPermissionException.class })
+    @SuppressWarnings("unused")
+    public Response<Void> handlePermissionDeniedException(Exception e, HttpServletRequest request) {
+        log.warn("鉴权失败: {} {} {}", e.getClass().getSimpleName(),
+                request.getMethod(), request.getRequestURI());
+        return ResponseUtil.fail("没有权限", 403);
     }
 
     /**
