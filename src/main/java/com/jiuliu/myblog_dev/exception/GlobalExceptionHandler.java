@@ -17,11 +17,11 @@ package com.jiuliu.myblog_dev.exception;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
 import cn.dev33.satoken.exception.NotRoleException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.disabled.DisabledException;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -38,6 +38,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
@@ -86,7 +87,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     @SuppressWarnings("unused")
     public void handleHttpMediaTypeNotAcceptableException(HttpMediaTypeNotAcceptableException e,
-            HttpServletResponse response) {
+                                                          HttpServletResponse response) {
         log.warn("Accept头不匹配: {}", e.getMessage());
         writeJsonResponse(response, 406, ResponseUtil.fail("不支持的响应格式", 406));
     }
@@ -137,7 +138,7 @@ public class GlobalExceptionHandler {
     /**
      * 处理 Sa-Token 角色/权限不足异常（真正的越权访问，保留 WARN）
      */
-    @ExceptionHandler({ NotRoleException.class, NotPermissionException.class })
+    @ExceptionHandler({NotRoleException.class, NotPermissionException.class})
     @SuppressWarnings("unused")
     public Response<Void> handlePermissionDeniedException(Exception e, HttpServletRequest request) {
         log.warn("鉴权失败: {} {} {}", e.getClass().getSimpleName(),
@@ -214,7 +215,7 @@ public class GlobalExceptionHandler {
     /**
      * 处理数据库访问异常（给出更明确的错误提示）
      */
-    @ExceptionHandler({ BadSqlGrammarException.class, DataAccessException.class })
+    @ExceptionHandler({BadSqlGrammarException.class, DataAccessException.class})
     @SuppressWarnings("unused")
     public Response<Void> handleDataAccessException(Exception e) {
         Throwable root = getRootCause(e);
@@ -266,7 +267,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e,
-            HttpServletRequest request) {
+                                                      HttpServletRequest request) {
         String paramName = e.getName();
         Object value = e.getValue();
         String invalidValue = value != null ? value.toString() : "null";
@@ -288,11 +289,105 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理 404 资源未找到异常
+     * 判定是否为"扫描器/爬虫/误触"类的 404 请求。
+     * 这类请求不是业务问题，降级为 DEBUG 以避免污染生产日志。
+     */
+    private static boolean isScannerOrNoiseRequest(String resourcePath, HttpServletRequest request) {
+        if (resourcePath == null) {
+            return true;
+        }
+        String path = resourcePath.trim();
+        if (path.isEmpty() || "/".equals(path)) {
+            return true;
+        }
+
+        String lower = path.toLowerCase(java.util.Locale.ROOT);
+
+        // favicon / robots 等浏览器默认请求
+        if (lower.endsWith("/favicon.ico") || lower.equals("/robots.txt")) {
+            return true;
+        }
+
+        // 常见的静态资源后缀，可能是前端路径拼错或扫描器
+        if (lower.endsWith(".ico") || lower.endsWith(".png") || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".svg")
+                || lower.endsWith(".css") || lower.endsWith(".js") || lower.endsWith(".map")
+                || lower.endsWith(".woff") || lower.endsWith(".woff2") || lower.endsWith(".ttf")) {
+            return true;
+        }
+
+//        // 常见扫描器/探针路径（phpMyAdmin、wp-admin、.env、.git 等）
+//        if (lower.contains("/phpmyadmin") || lower.contains("/wp-") || lower.contains("/admin/")
+//                || lower.contains("/.git") || lower.contains("/.env") || lower.contains("/.svn")
+//                || lower.contains("/cgi-bin") || lower.contains("/.htaccess")
+//                || lower.contains("/actuator/") || lower.endsWith("/actuator")) {
+//            return true;
+//        }
+
+        // 明显非 URL 合法字符（注入/扫描特征）
+        if (path.indexOf('<') >= 0 || path.indexOf('\'') >= 0 || path.indexOf('"') >= 0) {
+            return true;
+        }
+
+        // 常见扫描器 UA（可选）
+        if (request != null) {
+            String ua = request.getHeader("User-Agent");
+            if (ua != null) {
+                String ual = ua.toLowerCase(java.util.Locale.ROOT);
+                // 以下都是真实存在的扫描/爬虫工具名称，忽略拼写检查
+                return ual.contains("curl") || ual.contains("python-requests")
+                        || ual.contains("wget") || ual.contains("sqlmap")
+                        || ual.contains("nikto") || ual.contains("nmap")
+                        || ual.contains("scanner") || ual.contains("bot")
+                        || ual.contains("crawler") || ual.contains("spider");
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 处理 Spring MVC 静态资源 404（Spring Boot 3+ 默认走这里）。
+     * 对扫描器、favicon、静态资源误触等请求降级为 DEBUG，其他正常业务 404 保留 WARN。
      */
     @ExceptionHandler(NoResourceFoundException.class)
-    public Response<Void> handleNotFoundException(NoResourceFoundException ex) {
-        log.warn("请求的资源不存在: {}", ex.getResourcePath());
+    @SuppressWarnings("unused")
+    public Response<Void> handleNoResourceFoundException(NoResourceFoundException ex,
+                                                         HttpServletRequest request) {
+        String resourcePath = ex.getResourcePath();
+        if (isScannerOrNoiseRequest(resourcePath, request)) {
+            log.debug("静态资源未命中(忽略): {} {}",
+                    request != null ? request.getMethod() : "-",
+                    resourcePath);
+            return ResponseUtil.fail("请求的资源不存在", 404);
+        }
+        log.warn("请求的资源不存在: {} {}",
+                request != null ? request.getMethod() : "-", resourcePath);
+        return ResponseUtil.fail("请求的资源不存在", 404);
+    }
+
+    /**
+     * 处理无处理器匹配的 404（当 spring.mvc.throw-exception-if-no-handler-found=true 时生效）。
+     * 同样对扫描器/误触类请求降级为 DEBUG。
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleNoHandlerFoundException(NoHandlerFoundException ex,
+                                                        HttpServletRequest request) {
+        String path = ex.getRequestURL();
+        try {
+            int queryIdx = path.indexOf('?');
+            if (queryIdx > 0) {
+                path = path.substring(0, queryIdx);
+            }
+        } catch (Exception ignore) {
+            // 保持原 URL 不变
+        }
+        if (isScannerOrNoiseRequest(path, request)) {
+            log.debug("无处理器匹配(忽略): {} {}", ex.getHttpMethod(), path);
+            return ResponseUtil.fail("请求的资源不存在", 404);
+        }
+        log.warn("无处理器匹配: {} {}", ex.getHttpMethod(), path);
         return ResponseUtil.fail("请求的资源不存在", 404);
     }
 
