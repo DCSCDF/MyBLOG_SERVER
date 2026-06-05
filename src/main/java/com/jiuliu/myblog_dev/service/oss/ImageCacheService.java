@@ -10,6 +10,19 @@
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
  * UpdateTime: 2026/4/9
+ *
+ * =======================================
+ * DEPRECATED - 此服务已不再使用
+ * =======================================
+ *
+ * 原因：改为使用 OSS 图片处理服务直接请求压缩图片，不在服务端内存中处理。
+ * 所有图片通过流式传输直接返回给客户端，无需服务端缓存。
+ *
+ * 替代方案：ImageService 直接使用 OSS 的图片处理参数（@sm, @lg 等）
+ * 来获取不同尺寸的图片，通过 GetObjectRequest.setProcess() 实现。
+ *
+ * 此类保留仅供参考，可以安全删除。
+ * =======================================
  */
 
 package com.jiuliu.myblog_dev.service.oss;
@@ -22,7 +35,6 @@ import com.jiuliu.myblog_dev.utils.image.ImageUtil;
 import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,17 +44,44 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 图片压缩缓存服务
+ * 图片压缩缓存服务（已弃用）
+ *
+ * @deprecated 此服务已不再使用。改为使用 OSS 图片处理服务直接请求压缩图片。
+ * 请使用 {@link ImageService#streamImage} 方法，该方法直接使用 OSS 图片处理参数。
+ * 所有图片通过流式传输直接返回给客户端，无需服务端缓存。
+ *
+ * <p><b>弃用原因：</b></p>
+ * <ul>
+ *   <li>内存占用过高：将整个图片加载到内存可能导致内存溢出</li>
+ *   <li>性能瓶颈：服务端压缩增加了响应延迟</li>
+ *   <li>更好替代方案：OSS 图片处理服务更高效，无需服务端处理</li>
+ * </ul>
+ *
+ * <p><b>替代方案：</b></p>
+ * <ul>
+ *   <li>使用 OSS 图片处理样式（@sm, @lg 等）直接获取压缩图片</li>
+ *   <li>通过 GetObjectRequest.setProcess() 添加处理参数</li>
+ *   <li>所有图片通过流式传输直接返回给客户端</li>
+ * </ul>
  *
  * <p>提供服务端图片压缩和缓存功能，支持：</p>
  * <ul>
  *   <li>从 OSS 获取原图后进行压缩处理</li>
  *   <li>使用内存缓存压缩后的图片数据</li>
- *   <li>缓存大小限制：100MB（可通过代码修改）</li>
- *   <li>缓存过期时间：10分钟</li>
+ *   <li>缓存大小限制：50MB</li>
+ *   <li>单张图片最大处理限制：10MB（防止内存溢出）</li>
+ *   <li>缓存过期时间：5分钟</li>
+ *   <li>使用 softValues() 在内存不足时自动释放缓存</li>
+ * </ul>
+ *
+ * <p><b>安全机制：</b></p>
+ * <ul>
+ *   <li>超过 10MB 的图片将跳过压缩，直接返回原图</li>
+ *   <li>读取输入流时会实时检查大小，防止读取超大文件</li>
+ *   <li>压缩失败时会自动回退到原图</li>
  * </ul>
  */
-@Service
+@Deprecated
 public class ImageCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageCacheService.class);
@@ -62,6 +101,13 @@ public class ImageCacheService {
      * 图片质量（压缩质量 0.75 表示 75%，更小的文件）
      */
     private static final float COMPRESSION_QUALITY = 0.75f;
+
+    /**
+     * 单张图片最大处理大小（10MB）
+     * 超过此大小的图片将不进行压缩处理，直接返回原图
+     * 防止大图片导致内存溢出
+     */
+    private static final int MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
     /**
      * 图片缓存
@@ -104,6 +150,7 @@ public class ImageCacheService {
      * @param contentType  图片 MIME 类型
      * @return 图片字节数组（压缩后的或原图），如果无法获取任何数据则返回 null
      */
+    @SuppressWarnings("unused")
     public byte[] getCompressedImage(String hash, OSSConfig.ImageSize size,
                                      InputStream inputStream, long originalSize, String contentType) {
         String cacheKey = buildCacheKey(hash, size);
@@ -185,11 +232,18 @@ public class ImageCacheService {
             return readInputStream(inputStream);
         }
 
-        // 首先一次性读取原图到字节数组（只读取一次）
+        // 首先一次性读取原图到字节数组（只读取一次，带大小限制）
         byte[] originalBytes = readInputStream(inputStream);
         if (originalBytes == null || originalBytes.length == 0) {
-            log.warn("[compressImage] 无法读取输入流，返回 null");
+            log.warn("[compressImage] 无法读取输入流或图片大小超过限制，返回 null");
             return null;
+        }
+
+        // 检查图片大小，超大图片不进行压缩处理
+        if (originalBytes.length > MAX_IMAGE_SIZE_BYTES) {
+            log.warn("[图片过大跳过压缩] 大小=[{} bytes]，超过限制=[{} bytes]，直接返回原图",
+                    originalBytes.length, MAX_IMAGE_SIZE_BYTES);
+            return originalBytes;
         }
 
         try {
@@ -221,7 +275,7 @@ public class ImageCacheService {
                 return result;
             } else {
                 log.debug("[无需压缩] 原图更小或压缩失败，直接返回原图，原图=[{} bytes], 压缩后=[{} bytes]",
-                                originalBytes.length, result.length);
+                        originalBytes.length, result.length);
                 return originalBytes;
             }
 
@@ -279,15 +333,31 @@ public class ImageCacheService {
     }
 
     /**
-     * 从输入流读取所有字节
+     * 从输入流读取所有字节（带大小限制）
+     *
+     * @param inputStream 输入流
+     * @return 字节数组，如果超过最大限制或读取失败则返回 null
      */
     private byte[] readInputStream(InputStream inputStream) {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192];
             int bytesRead;
+            int totalBytesRead = 0;
+
             while ((bytesRead = inputStream.read(buffer)) != -1) {
+                totalBytesRead += bytesRead;
+
+                // 检查是否超过最大限制
+                if (totalBytesRead > MAX_IMAGE_SIZE_BYTES) {
+                    log.warn("[图片大小超限] 当前已读取=[{} bytes]，超过最大限制=[{} bytes]，终止读取",
+                            totalBytesRead, MAX_IMAGE_SIZE_BYTES);
+                    return null;
+                }
+
                 outputStream.write(buffer, 0, bytesRead);
             }
+
+            log.debug("[读取输入流完成] 总大小=[{} bytes]", totalBytesRead);
             return outputStream.toByteArray();
         } catch (IOException e) {
             log.error("[读取输入流异常]：{}", e.getMessage(), e);

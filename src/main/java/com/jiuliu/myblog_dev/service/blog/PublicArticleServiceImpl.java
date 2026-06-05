@@ -76,179 +76,184 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     @Override
     public SaResult getPagePublicArticles(PagePublicArticleDTO dto) {
         try {
-            // 构建缓存键
             String cacheKey = buildCacheKey(dto);
 
-            // 尝试从缓存获取
             PagePublicArticleResponseDTO cached = publicArticleListCache.getIfPresent(cacheKey);
             if (cached != null) {
-//                log.debug("从缓存获取公共文章列表，key={}", cacheKey);
                 return SaResult.data(cached);
             }
 
-            // 查询所有分类用于后续映射
             Map<Long, String> categoryMap = getCategoryMap();
 
-            // 构建查询条件 - 只查询公开的文章
             LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(SysBlog::getHidden, false);
 
-            // 如果传入了分类ID，只查询该分类下的文章
             Long categoryId = dto.getCategoryId();
             if (categoryId != null) {
                 queryWrapper.eq(SysBlog::getCategoryId, categoryId);
             }
 
-            // 关键词搜索：使用分词器进行智能分词搜索
-            // 必须匹配所有分词词（AND 逻辑）
-            String keyword;
-            List<String> searchTokens = Collections.emptyList();
             if (StringUtils.hasText(dto.getKeyword())) {
-                keyword = dto.getKeyword().trim();
-
-                // 对关键词进行分词，获取分词列表
-                searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
-
-                if (searchTokens.isEmpty()) {
-                    // 分词为空时，用原始关键词搜索
-                    searchTokens = List.of(keyword);
-                }
+                return searchArticlesWithKeyword(dto, categoryMap, cacheKey);
             }
 
-            // 排序规则：置顶优先，然后按创建时间
-            // 注意：先不加关键词排序，拿到所有匹配文章后在 Java 中过滤和排序
-            queryWrapper.orderByDesc(SysBlog::getTop)
-                    .orderByDesc(SysBlog::getCreateTime);
-
-            // 先查询所有文章（用于后续过滤）
-            List<SysBlog> allArticles = blogMapper.selectList(queryWrapper);
-
-            // 如果有搜索关键词，进行 AND 匹配过滤
-            List<SysBlog> allMatchedArticles;
-            if (!searchTokens.isEmpty()) {
-                // 计算每篇文章的匹配分数，并过滤出包含所有分词的文章
-                final List<String> finalSearchTokens = searchTokens;
-                Map<Long, Integer> articleScoreMap = new HashMap<>();
-
-                allMatchedArticles = allArticles.stream().filter(article -> {
-                    int score = calculateMatchScore(article, finalSearchTokens);
-                    articleScoreMap.put(article.getId(), score);
-                    // AND 逻辑：只有分数 > 0 才表示匹配了所有分词
-                    return score > 0;
-                }).collect(Collectors.toList());
-
-                // 如果没有传入分类ID，还需要搜索分类名称匹配的文章
-                // 注意：即使没有直接匹配的文章，也要搜索分类匹配
-                if (categoryId == null) {
-                    // 查询分词匹配的分类
-                    Set<Long> matchedCategoryIds = new HashSet<>();
-                    for (String token : finalSearchTokens) {
-                        List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
-                                new LambdaQueryWrapper<SysCategory>()
-                                        .like(SysCategory::getName, token)
-                                        .eq(SysCategory::getHidden, false)
-                        );
-                        tokenMatchedCategories.forEach(cat -> matchedCategoryIds.add(cat.getId()));
-                    }
-
-                    // 保留分类匹配的文章
-                    List<SysBlog> categoryMatchedArticles = allArticles.stream()
-                            .filter(a -> a.getCategoryId() != null && matchedCategoryIds.contains(a.getCategoryId()))
-                            .toList();
-
-                    // 合并结果（去重）
-                    Set<Long> existingIds = allMatchedArticles.stream()
-                            .map(SysBlog::getId)
-                            .collect(Collectors.toSet());
-
-                    for (SysBlog article : categoryMatchedArticles) {
-                        if (!existingIds.contains(article.getId())) {
-                            allMatchedArticles.add(article);
-                            articleScoreMap.put(article.getId(), calculateMatchScore(article, finalSearchTokens));
-                        }
-                    }
-                }
-
-                // 有关键词时：按匹配分数 > 创建时间排序（置顶不生效）
-                allMatchedArticles.sort((a, b) -> {
-                    // 1. 匹配分数降序
-                    int scoreCompare = articleScoreMap.get(b.getId()).compareTo(articleScoreMap.get(a.getId()));
-                    if (scoreCompare != 0) return scoreCompare;
-                    // 2. 创建时间降序（新的在前）
-                    return b.getCreateTime().compareTo(a.getCreateTime());
-                });
-            } else {
-                // 没有关键词时：直接使用所有文章，按置顶优先 > 创建时间排序
-                allMatchedArticles = allArticles;
-                allMatchedArticles.sort((a, b) -> {
-                    // 1. 置顶优先
-                    Boolean aTop = a.getTop() != null && a.getTop();
-                    Boolean bTop = b.getTop() != null && b.getTop();
-                    if (!aTop.equals(bTop)) {
-                        return bTop.compareTo(aTop);
-                    }
-                    // 2. 创建时间降序
-                    return b.getCreateTime().compareTo(a.getCreateTime());
-                });
-            }
-
-            // 计算总匹配数（用于日志）
-            int totalMatched = allMatchedArticles.size();
-            int totalPages = (int) Math.ceil((double) totalMatched / dto.getPageSize());
-            int fromIndex = (dto.getCurrentPage() - 1) * dto.getPageSize();
-            int toIndex = Math.min(fromIndex + dto.getPageSize(), totalMatched);
-
-            // 分页截取
-            List<SysBlog> pagedArticles = (fromIndex < totalMatched)
-                    ? allMatchedArticles.subList(fromIndex, toIndex)
-                    : Collections.emptyList();
-
-            // 收集所有作者 ID
-            List<Long> authorIds = pagedArticles.stream()
-                    .map(SysBlog::getAuthorId)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            // 批量查询用户信息
-            Map<Long, String> authorNicknameMap = new HashMap<>();
-            if (!authorIds.isEmpty()) {
-                List<SysUser> users = userMapper.selectList(
-                        new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds)
-                );
-                for (SysUser user : users) {
-                    authorNicknameMap.put(user.getId(), user.getNickname());
-                }
-            }
-
-            // 转换为响应DTO
-            List<PublicArticleResponseDTO> records = pagedArticles.stream()
-                    .map(blog -> convertToResponseDTO(blog, categoryMap, authorNicknameMap))
-                    .collect(Collectors.toList());
-
-//            // 打印搜索结果日志
-//            log.info("【文章搜索结果】keyword={}, searchTokens={}, totalMatched={}, pageTotal={}, results=[{}]",
-//                    keyword, searchTokens, totalMatched, totalPages,
-//                    pagedArticles.stream()
-//                            .map(b -> b.getTitle() + "(score:" + articleScoreMap.get(b.getId()) + ")")
-//                            .collect(Collectors.joining(", ")));
-
-            // 构建响应
-            PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
-            response.setRecords(records);
-            response.setTotal((long) totalMatched);
-            response.setSize((long) dto.getPageSize());
-            response.setCurrent((long) dto.getCurrentPage());
-            response.setPages((long) totalPages);
-
-            // 存入缓存
-            publicArticleListCache.put(cacheKey, response);
-
-            return SaResult.data(response);
+            return queryArticlesWithoutKeyword(dto, categoryMap, queryWrapper, cacheKey);
         } catch (Exception e) {
-//            log.error("分页获取公共文章列表异常", e);
+            log.error("分页获取公共文章列表异常", e);
             return SaResult.error("获取文章列表失败").setCode(500);
         }
+    }
+
+    private SaResult queryArticlesWithoutKeyword(PagePublicArticleDTO dto,
+                                                 Map<Long, String> categoryMap,
+                                                 LambdaQueryWrapper<SysBlog> queryWrapper,
+                                                 String cacheKey) {
+        queryWrapper.orderByDesc(SysBlog::getTop).orderByDesc(SysBlog::getCreateTime);
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<SysBlog> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                dto.getCurrentPage(), dto.getPageSize());
+        com.baomidou.mybatisplus.core.metadata.IPage<SysBlog> pageResult = blogMapper.selectPage(page, queryWrapper);
+
+        List<SysBlog> pagedArticles = pageResult.getRecords();
+
+        Map<Long, String> authorNicknameMap = getAuthorNicknameMap(pagedArticles);
+
+        List<PublicArticleResponseDTO> records = pagedArticles.stream()
+                .map(blog -> convertToResponseDTO(blog, categoryMap, authorNicknameMap))
+                .collect(Collectors.toList());
+
+        PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
+        response.setRecords(records);
+        response.setTotal(pageResult.getTotal());
+        response.setSize(pageResult.getSize());
+        response.setCurrent(pageResult.getCurrent());
+        response.setPages(pageResult.getPages());
+
+        publicArticleListCache.put(cacheKey, response);
+
+        return SaResult.data(response);
+    }
+
+    private SaResult searchArticlesWithKeyword(PagePublicArticleDTO dto,
+                                               Map<Long, String> categoryMap,
+                                               String cacheKey) {
+        String keyword = dto.getKeyword().trim();
+        List<String> searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
+        if (searchTokens.isEmpty()) {
+            searchTokens = List.of(keyword);
+        }
+
+        final int MAX_SEARCH_CANDIDATES = 500;
+
+        LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SysBlog::getHidden, false);
+
+        if (dto.getCategoryId() != null) {
+            queryWrapper.eq(SysBlog::getCategoryId, dto.getCategoryId());
+        }
+
+        boolean hasKeywordCondition = false;
+        for (String token : searchTokens) {
+            queryWrapper.and(w -> w.like(SysBlog::getTitle, token)
+                    .or().like(SysBlog::getSummary, token)
+                    .or().like(SysBlog::getTags, token));
+            hasKeywordCondition = true;
+        }
+
+        if (!hasKeywordCondition) {
+            queryWrapper.orderByDesc(SysBlog::getTop).orderByDesc(SysBlog::getCreateTime);
+        }
+
+        queryWrapper.last("LIMIT " + MAX_SEARCH_CANDIDATES);
+
+        List<SysBlog> candidateArticles = blogMapper.selectList(queryWrapper);
+
+        if (dto.getCategoryId() == null) {
+            Set<Long> matchedCategoryIds = new HashSet<>();
+            for (String token : searchTokens) {
+                List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
+                        new LambdaQueryWrapper<SysCategory>()
+                                .like(SysCategory::getName, token)
+                                .eq(SysCategory::getHidden, false));
+                tokenMatchedCategories.forEach(cat -> matchedCategoryIds.add(cat.getId()));
+            }
+
+            if (!matchedCategoryIds.isEmpty()) {
+                List<SysBlog> categoryMatchedArticles = blogMapper.selectList(
+                        new LambdaQueryWrapper<SysBlog>()
+                                .eq(SysBlog::getHidden, false)
+                                .in(SysBlog::getCategoryId, matchedCategoryIds)
+                                .last("LIMIT " + MAX_SEARCH_CANDIDATES));
+
+                Set<Long> existingIds = candidateArticles.stream()
+                        .map(SysBlog::getId)
+                        .collect(Collectors.toSet());
+
+                for (SysBlog article : categoryMatchedArticles) {
+                    if (!existingIds.contains(article.getId()) && candidateArticles.size() < MAX_SEARCH_CANDIDATES) {
+                        candidateArticles.add(article);
+                        existingIds.add(article.getId());
+                    }
+                }
+            }
+        }
+
+        final List<String> finalSearchTokens = searchTokens;
+        Map<Long, Integer> articleScoreMap = new HashMap<>();
+        List<SysBlog> matchedArticles = candidateArticles.stream().filter(article -> {
+            int score = calculateMatchScore(article, finalSearchTokens);
+            articleScoreMap.put(article.getId(), score);
+            return score > 0;
+        }).sorted((a, b) -> {
+            int scoreCompare = articleScoreMap.get(b.getId()).compareTo(articleScoreMap.get(a.getId()));
+            if (scoreCompare != 0)
+                return scoreCompare;
+            return b.getCreateTime().compareTo(a.getCreateTime());
+        }).collect(Collectors.toList());
+
+        int totalMatched = matchedArticles.size();
+        int totalPages = (int) Math.ceil((double) totalMatched / dto.getPageSize());
+        int fromIndex = (dto.getCurrentPage() - 1) * dto.getPageSize();
+        int toIndex = Math.min(fromIndex + dto.getPageSize(), totalMatched);
+
+        List<SysBlog> pagedArticles = (fromIndex < totalMatched)
+                ? matchedArticles.subList(fromIndex, toIndex)
+                : Collections.emptyList();
+
+        Map<Long, String> authorNicknameMap = getAuthorNicknameMap(pagedArticles);
+
+        List<PublicArticleResponseDTO> records = pagedArticles.stream()
+                .map(blog -> convertToResponseDTO(blog, categoryMap, authorNicknameMap))
+                .collect(Collectors.toList());
+
+        PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
+        response.setRecords(records);
+        response.setTotal((long) totalMatched);
+        response.setSize((long) dto.getPageSize());
+        response.setCurrent((long) dto.getCurrentPage());
+        response.setPages((long) totalPages);
+
+        publicArticleListCache.put(cacheKey, response);
+
+        return SaResult.data(response);
+    }
+
+    private Map<Long, String> getAuthorNicknameMap(List<SysBlog> articles) {
+        Map<Long, String> authorNicknameMap = new HashMap<>();
+        List<Long> authorIds = articles.stream()
+                .map(SysBlog::getAuthorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (!authorIds.isEmpty()) {
+            List<SysUser> users = userMapper.selectList(
+                    new LambdaQueryWrapper<SysUser>().in(SysUser::getId, authorIds));
+            for (SysUser user : users) {
+                authorNicknameMap.put(user.getId(), user.getNickname());
+            }
+        }
+        return authorNicknameMap;
     }
 
     @Override

@@ -242,6 +242,8 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         }
     }
 
+    private static final int MAX_COMMENT_RESULTS = 500;
+
     @Override
     public List<PublicCommentResponseDTO> getCommentsByBlogId(Long blogId) {
         // 1. 验证文章是否存在且未隐藏
@@ -256,12 +258,13 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             return new ArrayList<>();
         }
 
-        // 2. 查询该文章下所有 status=1 且未删除的评论
+        // 2. 查询该文章下所有 status=1 且未删除的评论（限制数量防止内存问题）
         List<SysComment> allComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
                         .eq(SysComment::getBlogId, blogId)
                         .eq(SysComment::getStatus, (byte) 1)
                         .orderByAsc(SysComment::getCreateTime)
+                        .last("LIMIT " + MAX_COMMENT_RESULTS)
         );
 
         if (allComments.isEmpty()) {
