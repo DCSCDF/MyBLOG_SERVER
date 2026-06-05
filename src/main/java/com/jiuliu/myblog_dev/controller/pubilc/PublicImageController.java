@@ -53,10 +53,10 @@ public class PublicImageController {
      * 使用动态 IP 限流和速度调整防止后端过载。</p>
      *
      * @param hash     图片哈希值（MD5）
-     * @param size     图片尺寸规格（可选，默认大图 1080px）
+     * @param size     图片尺寸规格（可选，默认 lg 大图 1080px 宽）
      *                  - sm: 小图 256px 宽
      *                  - lg: 大图 1080px 宽（默认）
-     *                  - o: 原图
+     *                  - o:  原图
      * @param request  HTTP 请求
      * @param response HTTP 响应
      */
@@ -69,8 +69,8 @@ public class PublicImageController {
         long startTime = System.currentTimeMillis();
 
         OSSConfig.ImageSize imageSize = OSSConfig.ImageSize.fromCode(size);
-        String sizeCode = (imageSize != null) ? imageSize.getCode() : "lg";
-        String sizeDesc = (imageSize != null) ? imageSize.getDescription() : "大图";
+        String sizeCode = imageSize.getCode();
+        String sizeDesc = imageSize.getDescription();
 
         log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}]",
                 hash, sizeCode, sizeDesc, clientIp);

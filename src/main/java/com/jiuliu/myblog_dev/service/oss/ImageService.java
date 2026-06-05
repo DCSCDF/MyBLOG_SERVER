@@ -165,17 +165,19 @@ public class ImageService {
                                                OSS ossClient, String objectName,
                                                String contentType, HttpServletResponse response) {
         InputStream inputStream = null;
-        String sizeCode = (size != null) ? size.getCode() : "o";
+        String sizeCode = size.getCode();
 
         try {
             GetObjectRequest getObjectRequest = new GetObjectRequest(ossConfig.getBucket(), objectName);
 
             // 如果不是原图，添加 OSS 图片处理参数
-            if (size != null && size != OSSConfig.ImageSize.ORIGINAL) {
+            if (size != OSSConfig.ImageSize.ORIGINAL) {
                 String processParam = buildOSSProcessParam(size);
-                getObjectRequest.setProcess(processParam);
-                log.debug("[ImageService] 使用 OSS 图片处理，hash=[{}], size=[{}], process=[{}]",
-                        hash, sizeCode, processParam);
+                if (processParam != null && !processParam.isEmpty()) {
+                    getObjectRequest.setProcess(processParam);
+                    log.debug("[ImageService] 使用 OSS 图片处理，hash=[{}], size=[{}], process=[{}]",
+                            hash, sizeCode, processParam);
+                }
             }
 
             OSSObject ossObject = ossClient.getObject(getObjectRequest);
@@ -229,20 +231,28 @@ public class ImageService {
     /**
      * 构建 OSS 图片处理参数
      *
-     * <p>根据 OSSConfig.ImageSize 构建 OSS 图片处理样式参数。
-     * OSS 图片处理样式需要在 OSS 控制台预先配置。</p>
+     * <p>
+     * 根据 OSSConfig.ImageSize 构建 OSS 原始图片处理参数字符串。
+     * 使用 OSS 原生的 image/resize 参数格式，无需在 OSS 控制台预先配置样式。
+     * </p>
      *
      * @param size 图片尺寸规格
-     * @return OSS 图片处理参数字符串
+     * @return OSS 图片处理参数字符串（x-oss-process 格式），原图返回空字符串
      */
     private String buildOSSProcessParam(OSSConfig.ImageSize size) {
         if (size == null || size == OSSConfig.ImageSize.ORIGINAL) {
             return "";
         }
 
-        // 使用 OSS 预定义的图片处理样式
-        // 样式名称格式：@sm, @lg 等（需要在 OSS 控制台预先配置）
-        return "@" + size.getCode();
+        String resizeParam = size.getResizeParam();
+        if (resizeParam == null || resizeParam.isBlank()) {
+            return "";
+        }
+
+        // 使用 OSS 原生图片处理参数（等比缩放到指定宽度，保持宽高比）
+        // 格式示例：image/resize,w_256,m_lfit —— 等比缩放至宽度256px
+        // 参考：https://help.aliyun.com/document_detail/44688.html
+        return "image/resize,w_" + resizeParam + ",m_lfit";
     }
 
     /**

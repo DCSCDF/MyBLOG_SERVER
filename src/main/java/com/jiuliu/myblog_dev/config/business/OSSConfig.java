@@ -320,9 +320,11 @@ public class OSSConfig {
             log.warn("OSS 图片 URL 前缀未初始化，请检查 OSS 配置");
             return new ImageUrls("", "", "");
         }
+        // 使用 OSS 原生的 x-oss-process URL 参数格式，而非 @样式名引用
+        // 参考：https://help.aliyun.com/document_detail/44688.html
         return new ImageUrls(
-                prefix + objectName + "@sm",
-                prefix + objectName + "@lg",
+                prefix + objectName + "?x-oss-process=image/resize,w_256,m_lfit",
+                prefix + objectName + "?x-oss-process=image/resize,w_1080,m_lfit",
                 prefix + objectName
         );
     }
