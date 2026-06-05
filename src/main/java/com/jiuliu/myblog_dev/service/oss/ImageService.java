@@ -69,8 +69,8 @@ public class ImageService {
     private final DynamicRateLimitService dynamicRateLimitService;
 
     public ImageService(SysOssImageMapper sysOssImageMapper,
-            OSSConfig ossConfig,
-            DynamicRateLimitService dynamicRateLimitService) {
+                        OSSConfig ossConfig,
+                        DynamicRateLimitService dynamicRateLimitService) {
         this.sysOssImageMapper = sysOssImageMapper;
         this.ossConfig = ossConfig;
         this.dynamicRateLimitService = dynamicRateLimitService;
@@ -162,8 +162,8 @@ public class ImageService {
      * @return true 传输成功，false 传输失败
      */
     private boolean streamImageWithOSSProcess(String hash, OSSConfig.ImageSize size,
-                                               OSS ossClient, String objectName,
-                                               String contentType, HttpServletResponse response) {
+                                              OSS ossClient, String objectName,
+                                              String contentType, HttpServletResponse response) {
         InputStream inputStream = null;
         String sizeCode = size.getCode();
 
@@ -173,7 +173,7 @@ public class ImageService {
             // 如果不是原图，添加 OSS 图片处理参数
             if (size != OSSConfig.ImageSize.ORIGINAL) {
                 String processParam = buildOSSProcessParam(size);
-                if (processParam != null && !processParam.isEmpty()) {
+                if (!processParam.isEmpty()) {
                     getObjectRequest.setProcess(processParam);
                     log.debug("[ImageService] 使用 OSS 图片处理，hash=[{}], size=[{}], process=[{}]",
                             hash, sizeCode, processParam);
