@@ -294,6 +294,7 @@ public class UserManageServiceImpl implements UserManageService {
         dto.setUpdateTime(user.getUpdateTime());
         List<SysRole> roles = sysRoleMapper.selectRolesByUserId(user.getId());
         dto.setRoles(roles.stream().map(this::toRoleResponseDTO).collect(Collectors.toList()));
+        dto.setIsLoggedIn(StpUtil.isLogin(user.getId()));
         return dto;
     }
 

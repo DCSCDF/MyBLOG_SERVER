@@ -48,5 +48,10 @@ public class UserAdminResponseDTO {
      * 用户当前角色（列表接口与详情均返回）
      */
     private List<RoleResponseDTO> roles;
+
+    /**
+     * 用户是否有活跃登录会话（在线状态）
+     */
+    private Boolean isLoggedIn;
 }
 
