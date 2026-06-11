@@ -51,7 +51,7 @@ public class RssFeedController {
     public ResponseEntity<String> getRssFeed() {
         try {
             RssFeedResponseDTO response = rssFeedService.generateRssFeed();
-            log.info("RSS Feed 请求成功，共 {} 篇文章", response.getArticleCount());
+            log.debug("RSS Feed 请求成功，共 {} 篇文章", response.getArticleCount());
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("application/atom+xml; charset=UTF-8"))
                     .header("Cache-Control", "public, max-age=1800")
