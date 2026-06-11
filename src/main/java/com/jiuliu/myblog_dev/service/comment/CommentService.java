@@ -44,4 +44,13 @@ public interface CommentService {
      * 当用户发布新评论时，需要清除该用户的评论列表缓存
      */
     void clearUserCommentListCache();
+
+    /**
+     * 获取当前用户收到的回复评论列表
+     *
+     * @param userId 当前用户ID
+     * @param limit  返回条数，最大100条
+     * @return 回复评论列表
+     */
+    SaResult getReplyComments(Long userId, Integer limit);
 }

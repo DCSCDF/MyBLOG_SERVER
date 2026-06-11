@@ -20,10 +20,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.jiuliu.myblog_dev.dto.comment.CommentResponseDTO;
-import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageCommentDTO;
-import com.jiuliu.myblog_dev.dto.comment.PageCommentResponseDTO;
+import com.jiuliu.myblog_dev.dto.comment.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
@@ -84,7 +81,8 @@ public class CommentServiceImpl implements CommentService {
     public SaResult getPageUserComments(PageCommentDTO dto, Long userId) {
         try {
             // 构建缓存键
-            String cacheKey = CacheUtil.CACHE_KEY_USER_COMMENT_LIST + userId + "-" + dto.getCurrentPage() + "-" + dto.getPageSize() + "-" + dto.getStatus();
+            String cacheKey = CacheUtil.CACHE_KEY_USER_COMMENT_LIST + userId + "-" + dto.getCurrentPage() + "-"
+                    + dto.getPageSize() + "-" + dto.getStatus();
 
             // 尝试从缓存获取
             PageCommentResponseDTO cached = userCommentListCache.getIfPresent(cacheKey);
@@ -214,8 +212,7 @@ public class CommentServiceImpl implements CommentService {
             blogMapper.update(null,
                     new LambdaUpdateWrapper<SysBlog>()
                             .eq(SysBlog::getId, blogId)
-                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
-            );
+                            .setSql("comment_count = GREATEST(comment_count - 1, 0)"));
             log.info("文章评论数已减少（用户删除评论），blogId={}", blogId);
         }
 
@@ -235,8 +232,7 @@ public class CommentServiceImpl implements CommentService {
         // 查询所有直接子评论
         List<SysComment> childComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
-                        .eq(SysComment::getParentId, parentId)
-        );
+                        .eq(SysComment::getParentId, parentId));
 
         for (SysComment child : childComments) {
             // 递归删除子评论的子评论
@@ -254,8 +250,7 @@ public class CommentServiceImpl implements CommentService {
                 blogMapper.update(null,
                         new LambdaUpdateWrapper<SysBlog>()
                                 .eq(SysBlog::getId, blogId)
-                                .setSql("comment_count = GREATEST(comment_count - 1, 0)")
-                );
+                                .setSql("comment_count = GREATEST(comment_count - 1, 0)"));
                 log.info("文章评论数已减少（级联删除子评论），blogId={}", blogId);
             }
         }
@@ -307,8 +302,7 @@ public class CommentServiceImpl implements CommentService {
         List<FilterOptionItem> statusOptions = List.of(
                 new FilterOptionItem(0, "待审核"),
                 new FilterOptionItem(1, "已通过"),
-                new FilterOptionItem(2, "垃圾评论")
-        );
+                new FilterOptionItem(2, "垃圾评论"));
         return Map.of("status", statusOptions);
     }
 
@@ -338,5 +332,77 @@ public class CommentServiceImpl implements CommentService {
     public void clearUserCommentListCache() {
         userCommentListCache.invalidateAll();
         log.debug("用户评论列表缓存已全部清除");
+    }
+
+    @Override
+    public SaResult getReplyComments(Long userId, Integer limit) {
+        try {
+            // 限制最大返回条数为100
+            int actualLimit = Math.min(limit != null ? limit : 10, 100);
+
+            // 第一步：获取当前用户所有的已通过审核的评论ID（作为父评论）
+            // 只查询已审核通过的评论（status=1），未通过的评论不应显示回复
+            // 注意：isDeleted 由 @TableLogic 注解自动处理，无需显式添加
+            List<Long> userCommentIds = commentMapper.selectList(
+                    new LambdaQueryWrapper<SysComment>()
+                            .eq(SysComment::getUserId, userId)
+                            .eq(SysComment::getStatus, (byte) 1))
+                    .stream()
+                    .map(SysComment::getId)
+                    .collect(Collectors.toList());
+
+            if (userCommentIds.isEmpty()) {
+                log.debug("用户暂无评论，无回复评论可返回，userId={}", userId);
+                return SaResult.data(List.of());
+            }
+
+            // 第二步：查询所有以用户评论为父评论的回复评论（parentId in userCommentIds）
+            // 这些回复评论的发布者不是当前用户（排除自己回复自己的情况）
+            // 只查询已审核通过的评论（status=1）
+            // 注意：isDeleted 由 @TableLogic 注解自动处理，无需显式添加
+            LambdaQueryWrapper<SysComment> queryWrapper = new LambdaQueryWrapper<SysComment>()
+                    .in(SysComment::getParentId, userCommentIds)
+                    .eq(SysComment::getStatus, (byte) 1)
+                    .orderByDesc(SysComment::getCreateTime)
+                    .last("LIMIT " + actualLimit);
+
+            // 如果回复者的userId不为空且等于当前用户，才排除（处理匿名评论情况）
+            queryWrapper.and(w -> w.isNull(SysComment::getUserId).or().ne(SysComment::getUserId, userId));
+
+            List<SysComment> replyComments = commentMapper.selectList(queryWrapper);
+
+            // 第三步：转换为响应DTO列表
+            List<PublicCommentResponseDTO> responseList = replyComments.stream()
+                    .map(this::toReplyResponseDTO)
+                    .collect(Collectors.toList());
+
+            log.info("获取用户回复评论成功，userId={}，count={}", userId, responseList.size());
+            return SaResult.data(responseList);
+
+        } catch (Exception e) {
+            log.error("获取用户回复评论异常", e);
+            return SaResult.error("获取回复评论失败").setCode(500);
+        }
+    }
+
+    /**
+     * 将评论实体转换为回复评论响应DTO
+     * 返回格式参考用户提供的API字段
+     */
+    private PublicCommentResponseDTO toReplyResponseDTO(SysComment comment) {
+        PublicCommentResponseDTO dto = new PublicCommentResponseDTO();
+        dto.setId(comment.getId());
+        dto.setParentId(comment.getParentId());
+        dto.setUsername(comment.getUsername());
+        dto.setEmail(comment.getEmail());
+        dto.setAvatarUrl(comment.getAvatarUrl());
+        dto.setWebsite(comment.getWebsite());
+        dto.setContent(comment.getContent());
+        dto.setIsAdmin(comment.getAdmin());
+        dto.setDeviceInfo(comment.getDeviceInfo());
+        dto.setCreateTime(comment.getCreateTime());
+        dto.setUpdateTime(comment.getUpdateTime());
+        dto.setChildren(null); // 回复评论不需要返回子评论
+        return dto;
     }
 }

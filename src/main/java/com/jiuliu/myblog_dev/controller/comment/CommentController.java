@@ -21,10 +21,13 @@ import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentResponseDTO;
+import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 import com.jiuliu.myblog_dev.service.comment.CommentService;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/comment")
@@ -87,6 +90,22 @@ public class CommentController {
     public Response<Object> deleteComment(@PathVariable Long id) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         SaResult saResult = commentService.deleteComment(id, currentUserId);
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 获取当前用户收到的回复评论列表
+     * GET /api/comment/replies?limit=N
+     * 权限：comment:list
+     * 
+     * @param limit 返回条数，最大100条，默认10条
+     */
+    @GetMapping("/replies")
+    @SaCheckPermission("comment:list")
+    public Response<List<PublicCommentResponseDTO>> getReplyComments(
+            @RequestParam(value = "limit", defaultValue = "10") Integer limit) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        SaResult saResult = commentService.getReplyComments(currentUserId, limit);
         return handleSaResult(saResult);
     }
 }

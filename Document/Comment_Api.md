@@ -260,6 +260,71 @@
 
 ---
 
+### 4. 获取当前用户收到的回复评论列表
+
+获取当前登录用户收到的回复评论列表（即其他用户在当前用户的评论下进行的回复）。
+
+- **请求方法**: `GET`
+- **请求路径**: `/api/comment/replies`
+- **需要权限**: `comment:list`
+
+#### 请求参数
+
+| 参数  | 类型      | 必填 | 说明                  |
+|-----|---------|----|---------------------|
+| limit | Integer | 否  | 返回条数，最大100条，默认10条 |
+
+#### 请求示例
+
+```
+GET /api/comment/replies?limit=20
+```
+
+#### 响应示例
+
+```json
+{
+  "data": [
+    {
+      "id": 4,
+      "parentId": 2,
+      "username": "久流",
+      "email": "",
+      "avatarUrl": "https://api.myblog.icu/api/images/66d8abaee825b7d74238c6bc8a58f4a5",
+      "website": null,
+      "content": "项目仓库：https://github.com/DCSCDF。目前阶段主要还是打磨优化",
+      "isAdmin": true,
+      "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "createTime": "2026-03-27T17:17:41",
+      "updateTime": "2026-03-27T17:17:41",
+      "children": null
+    }
+  ],
+  "success": true,
+  "errorMsg": null,
+  "code": 200
+}
+```
+
+#### 响应字段说明
+
+| 字段         | 类型       | 说明                     |
+|------------|----------|------------------------|
+| id         | Long     | 回复评论ID                 |
+| parentId   | Long     | 父评论ID（即当前用户的评论ID）    |
+| username   | String   | 回复者名称                  |
+| email      | String   | 回复者邮箱                  |
+| avatarUrl  | String   | 回复者头像URL               |
+| website    | String   | 回复者个人网站               |
+| content    | String   | 回复内容                   |
+| isAdmin    | Boolean  | 是否管理员回复               |
+| deviceInfo | String   | 设备信息                   |
+| createTime | DateTime | 创建时间                   |
+| updateTime | DateTime | 更新时间                   |
+| children   | null     | 子评论（返回null，不包含子评论列表） |
+
+---
+
 ## 全局评论管理接口
 
 基础路径：`/api/system/comment`
@@ -268,7 +333,7 @@
 
 ---
 
-### 4. 分页获取所有评论列表
+### 5. 分页获取所有评论列表
 
 获取所有评论列表，支持分页、关键词搜索与状态筛选。响应中附带可用的状态筛选项（`filterOptions.status`）。
 
@@ -339,7 +404,7 @@
 
 ---
 
-### 5. 修改任意评论
+### 6. 修改任意评论
 
 根据 ID 修改指定评论，管理员可以修改任意评论。可修改评论内容和网站。
 
@@ -410,7 +475,7 @@
 
 ---
 
-### 6. 删除任意评论
+### 7. 删除任意评论
 
 删除指定 ID 的评论，管理员可以删除任意评论。**级联删除**：删除父评论时，所有子评论也会被一并删除。
 
@@ -448,7 +513,7 @@
 
 ---
 
-### 7. 审核评论（修改状态）
+### 8. 审核评论（修改状态）
 
 将指定评论的审核状态改为「待审核」「已通过」或「垃圾评论」。
 

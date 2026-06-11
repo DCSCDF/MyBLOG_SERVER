@@ -20,6 +20,7 @@ import cn.dev33.satoken.exception.NotRoleException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.disabled.DisabledException;
+import com.jiuliu.myblog_dev.utils.monitor.MemoryCriticalException;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimitException;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -165,6 +166,18 @@ public class GlobalExceptionHandler {
     public Response<Void> handleDisabledException(DisabledException e) {
         log.warn("接口被禁用: {}", e.getMessage());
         return ResponseUtil.fail(e.getMessage(), e.getCode());
+    }
+
+    /**
+     * 处理内存严重不足异常（返回 503）
+     * 当系统内存低于阈值时，拒绝请求以防止 OOM 崩溃
+     */
+    @ExceptionHandler(MemoryCriticalException.class)
+    @SuppressWarnings("unused")
+    public Response<Void> handleMemoryCriticalException(MemoryCriticalException e, HttpServletResponse response) {
+        log.error("内存严重不足，拒绝请求: {}", e.getMessage());
+        response.setHeader("Retry-After", "30"); // 建议 30 秒后重试
+        return ResponseUtil.fail(e.getMessage(), 503);
     }
 
     /**
