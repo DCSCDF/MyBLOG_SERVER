@@ -292,7 +292,7 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 - **URL**: `GET /api/images/{hash}`
 - **权限**: 无（公开接口）
-- **限流**: 30 次/分钟
+- **缓存**: 内存缓存 30 分钟，最大 1000 条
 
 #### 路径参数
 
@@ -304,21 +304,19 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 | 参数名 | 类型   | 必填 | 默认值 | 说明                      |
 |------|------|----|-----|-------------------------|
-| size | String | 否   | o   | 图片尺寸规格，可选值见下方尺寸说明     |
+| size | String | 否   | lg   | 图片尺寸规格，可选值见下方尺寸说明     |
 
 #### 图片尺寸规格说明
 
 | 尺寸编码 | 尺寸      | 用途         |
 |------|---------|------------|
-| t    | 200x200 | 极小缩略图      |
-| s    | 400x400 | 小图展示（列表默认） |
-| m    | 800x800 | 中等尺寸       |
-| l    | 1200x1200 | 大图展示（默认）   |
-| o    | 原图     | 原图下载/预览    |
+| sm   | 256px宽  | 头像/小图展示   |
+| lg   | 1080px宽 | 大图展示（默认） |
+| o    | 原图     | 原图下载/预览   |
 
 > **注意**:
-> - 图片获取接口默认返回大图 (l)
-> - 尺寸缩放通过阿里云 OSS 图片处理功能实现，会按比例缩放并填充
+> - 图片获取接口默认返回大图 (lg)
+> - 尺寸缩放通过阿里云 OSS 图片处理功能实现
 
 #### 成功响应
 
@@ -508,36 +506,29 @@ OSS 配置从数据库动态加载，修改配置后系统会自动刷新，无�
 
 图片访问支持动态尺寸缩放，通过阿里云 OSS 图片处理参数实现：
 
-- **缩略图 (t)**: 200x200，等比填充，适用于列表展示
-- **小图 (s)**: 400x400，等比填充，适用于小图展示
-- **中图 (m)**: 800x800，等比填充，适用于中等尺寸
-- **大图 (l)**: 1200x1200，等比填充，适用于大图展示
+- **小图 (sm)**: 256px宽，适用于头像/小图展示
+- **大图 (lg)**: 1080px宽，适用于大图展示（默认）
 - **原图 (o)**: 不做任何处理，适用于下载/预览
 
 **URL 格式**:
 
 ```
-原图: https://bucket.endpoint/{objectName}
-缩略图: https://bucket.endpoint/{objectName}@t
-小图: https://bucket.endpoint/{objectName}@s
-中图: https://bucket.endpoint/{objectName}@m
-大图: https://bucket.endpoint/{objectName}@l
+大图: https://bucket.endpoint/{objectName}@lg
+小图: https://bucket.endpoint/{objectName}@sm
+原图: https://bucket.endpoint/{objectName}@o
 ```
 
 **API 调用示例**:
 
 ```bash
-# 获取缩略图 (200x200)
-curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=t" -o thumbnail.jpg
+# 获取大图 (1080px宽，默认)
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592" -o large.jpg
 
-# 获取小图 (400x400)
-curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=s" -o small.jpg
+# 获取小图 (256px宽)
+curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=sm" -o small.jpg
 
 # 获取原图
 curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592?size=o" -o original.jpg
-
-# 获取图片 URL
-curl "http://localhost:8080/api/images/5d41402abc4b2a76b9719d911017c592/url?size=t"
 ```
 
 ### 图片存储结构

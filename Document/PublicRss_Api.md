@@ -12,11 +12,12 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 
 ### 功能特性
 
-1. **Atom 1.0 标准**: 遵循 Atom 1.0  syndication format
+1. **Atom 1.0 标准**: 遵循 Atom 1.0 syndication format
 2. **最新文章**: 自动返回最近发布的 10 篇文章
 3. **时间排序**: 按发布时间倒序排列（最新的在前）
 4. **完整元数据**: 包含标题、链接、摘要、作者、标签等信息
-5. **缓存优化**: HTTP 缓存头设置为 30 分钟
+5. **Guava 缓存**: 使用 Guava Cache 缓存 Feed，缓存时间 10 分钟
+6. **HTTP 缓存**: HTTP 响应头设置 30 分钟缓存
 
 ---
 
@@ -50,7 +51,7 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
     <title>Spring Boot 最佳实践</title>
     <link href="https://example.com/article/1" rel="alternate" type="text/html"/>
     <id>urn:uuid:xxxxx</id>
-    <updated>2026-03-29T10:00:00+08:00</updated>
+    <published>2026-03-29T10:00:00+08:00</published>
     <summary type="html">本文介绍了Spring Boot的开发最佳实践，包括项目结构、配置管理...</summary>
     <content type="html"><div style='margin-bottom: 20px; color: #666;'>
 <span>作者：张三</span> &nbsp;|&nbsp; <span>发布时间：2026-03-29T10:00</span> &nbsp;|&nbsp; <span>标签：Java,Spring</span>
@@ -72,7 +73,7 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
     <title>Docker 容器化部署指南</title>
     <link href="https://example.com/article/2" rel="alternate" type="text/html"/>
     <id>urn:uuid:xxxxx</id>
-    <updated>2026-03-28T15:30:00+08:00</updated>
+    <published>2026-03-28T15:30:00+08:00</published>
     <summary type="html">本文详细介绍了如何使用Docker进行应用容器化部署...</summary>
     <category term="DevOps"/>
     <category term="Docker"/>
@@ -98,9 +99,9 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 | entry.title     | Element | 文章标题                                   |
 | entry.link      | Element | 文章详情页链接                              |
 | entry.id        | Element | 文章唯一标识符（UUID 格式）                    |
-| entry.updated    | Element | 文章发布时间                                |
-| entry.summary   | Element | 文章摘要（HTML 格式，最多 200 字符，用于 Feed 阅读器预览） |
-| entry.content   | Element | 文章完整内容（HTML 格式，已将 Markdown 转换为 HTML）      |
+| entry.published | Element | 文章发布时间（RFC 3339 格式）                   |
+| entry.summary   | Element | 文章摘要（HTML 格式，已转义 HTML 特殊字符，用于 Feed 阅读器预览） |
+| entry.content   | Element | 文章完整内容（HTML 格式，包含文章元信息、Markdown 转换后的正文、原文链接）      |
 | entry.category  | Element | 文章标签，可包含多个                                    |
 | entry.author    | Element | 作者信息                                               |
 | entry.author.name | Element | 作者昵称                                             |
@@ -152,7 +153,7 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 #### 数据来源
 
 1. **文章查询条件**:
-   - `is_hidden = false`（只返回公开文章）
+   - `hidden = false`（只返回公开文章）
    - 按 `create_time` 降序排序
    - 限制返回 10 条记录
 
@@ -167,7 +168,7 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 1. **摘要 (summary)**:
    - 优先使用文章的 `summary` 字段
    - 如果为空，从 Markdown 内容提取纯文本
-   - 最多 200 字符，用于阅读器列表预览
+   - HTML 特殊字符已转义，用于阅读器列表预览
 
 2. **完整内容 (content)**:
    - 文章元信息：作者、发布时间、标签
@@ -181,16 +182,17 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 | entry.title | 文章标题，原文输出                                  |
 | entry.link | 格式为 `{site.domain}/article/{articleId}`         |
 | entry.id  | UUID 格式: `urn:uuid:{hash}`                      |
-| entry.updated | 文章创建时间，RFC 3339 格式                          |
-| entry.summary | 优先使用文章摘要字段，其次从 Markdown 内容提取纯文本，最多 200 字符 |
+| entry.published | 文章创建时间，RFC 3339 格式                          |
+| entry.summary | 优先使用文章摘要字段，其次从 Markdown 内容提取纯文本，HTML 特殊字符已转义 |
 | entry.content | 文章完整 HTML 内容，包括作者、发布时间、标签、Markdown 转换后的正文、原文链接 |
 | entry.category | 按逗号分隔的标签，每个标签生成一个 `<category term="...">` |
 | entry.author | 文章作者昵称                                      |
 
 #### 缓存策略
 
-- HTTP 响应头: `Cache-Control: public, max-age=1800`
-- 浏览器/CDN 缓存时间: 30 分钟
+- **Guava Cache**: Feed 结果缓存 10 分钟，防止高并发下重复生成
+- **HTTP 响应头**: `Cache-Control: public, max-age=1800`
+- **浏览器/CDN 缓存时间**: 30 分钟
 
 ---
 
@@ -217,10 +219,11 @@ https://your-domain.com/api/public/rss
 ### 注意事项
 
 1. **无需鉴权**: 该接口为公开接口，前端无需携带 token 即可访问
-2. **仅公开文章**: 只有 `is_hidden = false` 的文章会出现在 Feed 中
+2. **仅公开文章**: 只有 `hidden = false` 的文章会出现在 Feed 中
 3. **时间排序**: 文章按创建时间倒序，最新的 10 篇
 4. **完整内容**: 每篇文章包含完整 HTML 内容，可在 Feed 阅读器中直接阅读
-5. **摘要预览**: summary 字段用于阅读器列表预览，最多 200 字符
+5. **摘要预览**: summary 字段用于阅读器列表预览，HTML 特殊字符已转义
 6. **字符编码**: 返回内容使用 UTF-8 编码，确保特殊字符正确显示
 7. **HTML 安全**: 文章内容经过 XSS 净化处理
+8. **缓存保护**: Guava Cache 10 分钟缓存，防止高并发下重复生成 Feed
 

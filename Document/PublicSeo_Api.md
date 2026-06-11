@@ -17,6 +17,7 @@
 3. **默认回退**: 如果没有精确匹配到pageId，会回退匹配该页面类型的通用配置
 4. **缓存机制**: 使用Guava Cache缓存查询结果，缓存时间30分钟
 5. **Open Graph支持**: 返回完整的Open Graph标签信息，用于社交媒体分享
+6. **接口状态**: 该接口目前被 @Disabled 注解禁用，返回 503 Service Unavailable
 
 ---
 
