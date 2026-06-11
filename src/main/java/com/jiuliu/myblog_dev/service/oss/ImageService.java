@@ -211,8 +211,8 @@ public class ImageService {
                 outputStream.flush();
             }
 
-            log.info("[ImageService] 图片传输完成 - hash=[{}], size=[{}], 大小={} bytes",
-                    hash, sizeCode, contentLength);
+            log.debug("[ImageService] 图片传输完成 - hash=[{}], size=[{}], 大小={} bytes",
+                            hash, sizeCode, contentLength);
             return true;
 
         } catch (IOException e) {

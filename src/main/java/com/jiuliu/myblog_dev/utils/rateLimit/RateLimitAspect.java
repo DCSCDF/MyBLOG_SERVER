@@ -50,6 +50,9 @@ public class RateLimitAspect {
     // 每个 key 的锁（避免全局锁）
     private final ConcurrentHashMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
+    // 限流状态跟踪：记录某个key是否已经在限流状态，用于避免重复输出限流日志
+    private final ConcurrentHashMap<String, Boolean> limitedStateMap = new ConcurrentHashMap<>();
+
     // 定时清理任务
     @SuppressWarnings("FieldCanBeLocal")
     private ScheduledExecutorService cleanupScheduler;
@@ -86,7 +89,12 @@ public class RateLimitAspect {
         AtomicInteger count = getOrCreateCounter(limitKey, now, periodMs);
 
         if (count.incrementAndGet() > maxCount) {
-            log.warn("请求被限流: [ip={}, key={}, method={}]", ip, limitKey, getMethodSignature(joinPoint));
+            // 检查是否是第一次进入限流状态
+            Boolean alreadyLimited = limitedStateMap.putIfAbsent(limitKey, true);
+            if (alreadyLimited == null) {
+                // 第一次进入限流状态，输出日志
+                log.warn("请求被限流: [ip={}, key={}, method={}]", ip, limitKey, getMethodSignature(joinPoint));
+            }
             throw new RateLimitException("请求过于频繁，请稍后再试");
         }
 
@@ -111,6 +119,8 @@ public class RateLimitAspect {
                 AtomicInteger newCounter = new AtomicInteger(0);
                 counterMap.put(key, newCounter);
                 expireTimeMap.put(key, now + periodMs);
+                // 清除限流状态标记，允许下次进入限流状态时再次输出日志
+                limitedStateMap.remove(key);
                 return newCounter;
             }
 
@@ -128,12 +138,13 @@ public class RateLimitAspect {
         long gracePeriod = 5 * 60 * 1000;
         // 清理 expireTimeMap 中已过期且超过宽限期的 key
         expireTimeMap.entrySet().removeIf(entry -> now > entry.getValue() + gracePeriod);
-        // 同步清理 counterMap 和 lockMap（避免内存泄漏）
+        // 同步清理 counterMap、lockMap 和 limitedStateMap（避免内存泄漏）
         counterMap.keySet().removeIf(key -> !expireTimeMap.containsKey(key));
         lockMap.keySet().removeIf(key -> !expireTimeMap.containsKey(key));
+        limitedStateMap.keySet().removeIf(key -> !expireTimeMap.containsKey(key));
         if (log.isDebugEnabled()) {
-            log.debug("限流缓存清理完成，当前活跃 key 数: {}, counterMap: {}, lockMap: {}",
-                    expireTimeMap.size(), counterMap.size(), lockMap.size());
+            log.debug("限流缓存清理完成，当前活跃 key 数: {}, counterMap: {}, lockMap: {}, limitedStateMap: {}",
+                    expireTimeMap.size(), counterMap.size(), lockMap.size(), limitedStateMap.size());
         }
     }
 

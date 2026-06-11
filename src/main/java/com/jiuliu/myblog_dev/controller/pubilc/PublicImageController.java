@@ -72,7 +72,7 @@ public class PublicImageController {
         String sizeCode = imageSize.getCode();
         String sizeDesc = imageSize.getDescription();
 
-        log.info("[图片请求] hash=[{}], size=[{}][{}], IP=[{}]",
+        log.debug("[图片请求] hash=[{}], size=[{}][{}], IP=[{}]",
                 hash, sizeCode, sizeDesc, clientIp);
 
         try {
@@ -97,8 +97,8 @@ public class PublicImageController {
                 log.warn("[传输失败但已提交] hash=[{}], 可能是客户端断开连接", hash);
             } else {
                 long duration = System.currentTimeMillis() - startTime;
-                log.info("[传输成功] hash=[{}], size=[{}], 耗时=[{}ms], 大小=[{} bytes]",
-                        hash, sizeCode, duration, meta.contentLength());
+                log.debug("[传输成功] hash=[{}], size=[{}], 耗时=[{}ms], 大小=[{} bytes]",
+                                hash, sizeCode, duration, meta.contentLength());
             }
         } catch (Exception e) {
             log.error("[图片获取异常] hash=[{}]：{}", hash, e.getMessage(), e);
