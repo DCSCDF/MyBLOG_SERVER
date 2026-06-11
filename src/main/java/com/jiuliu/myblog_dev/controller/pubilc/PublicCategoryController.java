@@ -58,7 +58,7 @@ public class PublicCategoryController {
      * 无需登录，所有用户均可访问
      * 返回所有未隐藏的分类，包含ID、名称、描述、排序
      */
-    @RateLimit(count = 60, period = 1, prefix = "public_category_list")
+    @RateLimit(count = 500, period = 1, prefix = "public_category_list", ipBased = false)
     @GetMapping("/list")
     public Response<List<PublicCategoryResponseDTO>> getVisibleCategories() {
         SaResult saResult = publicCategoryService.getVisibleCategories();
@@ -71,7 +71,7 @@ public class PublicCategoryController {
      * 无需登录，所有用户均可访问
      * 仅返回未隐藏的分类
      */
-    @RateLimit(count = 60, period = 1, prefix = "public_category_detail")
+    @RateLimit(count = 500, period = 1, prefix = "public_category_detail", ipBased = false)
     @GetMapping("/{id}")
     public Response<PublicCategoryResponseDTO> getCategoryById(@PathVariable("id") Long id) {
         SaResult saResult = publicCategoryService.getCategoryById(id);

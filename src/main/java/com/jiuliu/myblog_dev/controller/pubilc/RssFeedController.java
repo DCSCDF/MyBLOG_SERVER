@@ -46,7 +46,7 @@ public class RssFeedController {
      * 无需登录，所有用户均可访问
      * 返回最新10篇文章的Atom格式RSS Feed
      */
-    @RateLimit(count = 30, period = 1, prefix = "public_rss_feed")
+    @RateLimit(count = 500, period = 1, prefix = "public_rss_feed", ipBased = false)
     @GetMapping(produces = MediaType.APPLICATION_ATOM_XML_VALUE)
     public ResponseEntity<String> getRssFeed() {
         try {

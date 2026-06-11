@@ -60,7 +60,7 @@ public class PublicArticleController {
      * POST /api/public/article/list
      * 无需登录，所有用户均可访问
      */
-    @RateLimit(count = 60, period = 1, prefix = "public_article_list")
+    @RateLimit(count = 500, period = 1, prefix = "public_article_list", ipBased = false)
     @PostMapping("/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticles(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticles(dto);
@@ -73,7 +73,7 @@ public class PublicArticleController {
      * 无需登录，所有用户均可访问
      * 隐藏或已删除的文章无法访问
      */
-    @RateLimit(count = 60, period = 1, prefix = "public_article_detail")
+    @RateLimit(count = 500, period = 1, prefix = "public_article_detail", ipBased = false)
     @GetMapping("/{id}")
     public Response<PublicArticleDetailResponseDTO> getPublicArticleDetail(@PathVariable Long id) {
         SaResult saResult = publicArticleService.getPublicArticleDetail(id);

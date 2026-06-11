@@ -24,9 +24,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RateLimit {
     /**
-     * 时间窗口内允许的请求次数（默认 120 次）
+     * 时间窗口内允许的请求次数（默认 500 次）
      */
-    int count() default 120;
+    int count() default 500;
 
     /**
      * 时间窗口长度，单位：分钟（默认 1 分钟）
@@ -42,4 +42,9 @@ public @interface RateLimit {
      * 是否启用动态限流（根据系统负载自动调整）
      */
     boolean dynamic() default true;
+
+    /**
+     * 是否基于 IP 限流（默认 true），设为 false 则仅基于方法签名限流
+     */
+    boolean ipBased() default true;
 }

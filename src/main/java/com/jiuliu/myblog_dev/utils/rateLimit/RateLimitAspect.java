@@ -75,7 +75,7 @@ public class RateLimitAspect {
         }
         HttpServletRequest request = attributes.getRequest();
 
-        String ip = getClientIpAddress(request);
+        String ip = rateLimit.ipBased() ? getClientIpAddress(request) : "global";
         String limitKey = buildLimitKey(joinPoint, rateLimit, ip);
         long now = System.currentTimeMillis();
         int periodMinutes = rateLimit.period() <= 0 ? 1 : rateLimit.period();
@@ -91,17 +91,21 @@ public class RateLimitAspect {
         AtomicInteger count = getOrCreateCounter(limitKey, now, periodMs);
 
         if (count.incrementAndGet() > maxCount) {
-            logRateLimit(ip, limitKey, getMethodSignature(joinPoint), maxCount);
+            logRateLimit(ip, limitKey, getMethodSignature(joinPoint), maxCount, rateLimit.ipBased());
             throw new RateLimitException("请求过于频繁，请稍后再试");
         }
 
         return joinPoint.proceed();
     }
 
-    private void logRateLimit(String ip, String key, String method, int limit) {
+    private void logRateLimit(String ip, String key, String method, int limit, boolean ipBased) {
         Boolean alreadyLimited = limitedStateMap.putIfAbsent(key, true);
         if (alreadyLimited == null) {
-            log.warn("请求被限流: [ip={}, key={}, method={}, limit={}/min]", ip, key, method, limit);
+            if (ipBased) {
+                log.warn("请求被限流: [ip={}, key={}, method={}, limit={}/min]", ip, key, method, limit);
+            } else {
+                log.warn("请求被限流: [key={}, method={}, limit={}/min (全局)]", key, method, limit);
+            }
         }
     }
 

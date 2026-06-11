@@ -42,12 +42,12 @@ public class DynamicRateLimitService {
     /**
      * 默认每分钟允许请求数（低负载）
      */
-    private static final int DEFAULT_REQUESTS_PER_MINUTE = 60;
+    private static final int DEFAULT_REQUESTS_PER_MINUTE = 500;
 
     /**
      * 高负载时的最小限流数
      */
-    private static final int MIN_REQUESTS_PER_MINUTE = 10;
+    private static final int MIN_REQUESTS_PER_MINUTE = 100;
 
     /**
      * 当前活跃请求计数器
@@ -108,13 +108,18 @@ public class DynamicRateLimitService {
         int active = activeRequests.get();
         int baseLimit = DEFAULT_REQUESTS_PER_MINUTE;
 
-        if (active > 50) {
-            baseLimit = Math.max(MIN_REQUESTS_PER_MINUTE, 60 - (active - 50));
+        if (active > 100) {
+            double factor = Math.max(0.2, 1.0 - (active - 100) / 100.0);
+            baseLimit = (int) (DEFAULT_REQUESTS_PER_MINUTE * factor);
+        } else if (active > 50) {
+            double factor = Math.max(0.4, 1.0 - (active - 50) / 50.0);
+            baseLimit = (int) (DEFAULT_REQUESTS_PER_MINUTE * factor);
         } else if (active > 30) {
-            baseLimit = 60 - ((active - 30) * 2);
+            double factor = Math.max(0.6, 1.0 - (active - 30) / 20.0);
+            baseLimit = (int) (DEFAULT_REQUESTS_PER_MINUTE * factor);
         }
 
-        return baseLimit;
+        return Math.max(baseLimit, MIN_REQUESTS_PER_MINUTE);
     }
 
     /**
