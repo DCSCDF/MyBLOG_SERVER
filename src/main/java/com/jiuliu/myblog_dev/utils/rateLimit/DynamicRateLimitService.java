@@ -104,7 +104,7 @@ public class DynamicRateLimitService {
     /**
      * 获取有效限流阈值（考虑当前活跃请求数）
      */
-    private int getEffectiveRateLimit() {
+    public int getEffectiveRateLimit() {
         int active = activeRequests.get();
         int baseLimit = DEFAULT_REQUESTS_PER_MINUTE;
 
