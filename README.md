@@ -349,7 +349,7 @@ erDiagram
 | | 角色权限组关联 | sys_role_permission_group | 角色-权限组关系 |
 | | 权限组项关联 | sys_permission_group_item | 权限-权限组关系 |
 | **配置管理** | 系统配置 | sys_config | 系统参数配置 |
-| | SEO配置 | sys_seo | 页面SEO设置 |
+| | SEO配置(已禁用) | sys_seo | 页面SEO设置 |
 | **其他** | 友情链接 | sys_friend_link | 友情链接管理 |
 | | OSS图片 | sys_oss_image | 图片存储记录 |
 
