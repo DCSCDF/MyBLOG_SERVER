@@ -216,8 +216,14 @@ public class ImageService {
             return true;
 
         } catch (IOException e) {
-            log.error("[ImageService] 图片传输 IO 异常，hash=[{}], size=[{}]：{}",
-                    hash, sizeCode, e.getMessage(), e);
+            // 检查是否为客户端主动断开连接（Broken pipe / Connection reset）
+            // 这是正常现象，用户可能在图片加载完成前关闭了浏览器或切换了页面
+            if (isClientDisconnect(e)) {
+                log.debug("[ImageService] 客户端已断开连接，hash=[{}], size=[{}]", hash, sizeCode);
+            } else {
+                log.error("[ImageService] 图片传输 IO 异常，hash=[{}], size=[{}]：{}",
+                        hash, sizeCode, e.getMessage(), e);
+            }
             return false;
         } catch (Exception e) {
             log.error("[ImageService] 图片传输异常，hash=[{}], size=[{}]：{}",
@@ -305,5 +311,33 @@ public class ImageService {
             case "ico" -> "image/x-icon";
             default -> "application/octet-stream";
         };
+    }
+
+    /**
+     * 判断 IOException 是否为客户端主动断开连接
+     *
+     * <p>
+     * 当客户端在图片传输过程中断开连接时，服务器会收到：
+     * <ul>
+     * <li>"Broken pipe" - 管道破裂，客户端已关闭连接</li>
+     * <li>"Connection reset by peer" - 连接被重置</li>
+     * <li>"Connection abort" - 连接被中止</li>
+     * </ul>
+     * 这些都是正常现象，不应视为错误。
+     * </p>
+     */
+    private boolean isClientDisconnect(IOException e) {
+        if (e == null) {
+            return false;
+        }
+        String message = e.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String lowerMessage = message.toLowerCase();
+        return lowerMessage.contains("broken pipe")
+                || lowerMessage.contains("connection reset")
+                || lowerMessage.contains("connection abort")
+                || lowerMessage.contains("connection closed");
     }
 }
