@@ -18,6 +18,7 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 4. **完整元数据**: 包含标题、链接、摘要、作者、标签等信息
 5. **Guava 缓存**: 使用 Guava Cache 缓存 Feed，缓存时间 10 分钟
 6. **HTTP 缓存**: HTTP 响应头设置 30 分钟缓存
+7. **用户筛选**: 支持通过 `username` 参数筛选特定用户的文章
 
 ---
 
@@ -34,9 +35,13 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 
 #### 请求参数
 
-无请求参数。
+| 参数名     | 类型      | 必填   | 默认值 | 说明                                         |
+|---------|---------|------|-----|--------------------------------------------|
+| username | String  | 否    | 空   | 指定用户名，只检索该用户发布的公开文章。不传则返回所有用户的最新文章。 |
 
 #### 响应示例
+
+##### 示例1: 获取所有用户的文章（不传 username）
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -84,6 +89,42 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 </feed>
 ```
 
+##### 示例2: 获取指定用户的文章（传入 username）
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>张三 的文章 - 我的博客</title>
+  <subtitle>张三 在 我的博客 上发布的文章</subtitle>
+  <link href="https://example.com" rel="alternate" type="text/html"/>
+  <link href="https://example.com/rss?username=zhangsan" rel="self" type="application/atom+xml"/>
+  <id>urn:uuid:xxxxx</id>
+  <updated>2026-03-29T10:30:00+08:00</updated>
+  <entry>
+    <title>Spring Boot 最佳实践</title>
+    <link href="https://example.com/article/1" rel="alternate" type="text/html"/>
+    <id>urn:uuid:xxxxx</id>
+    <published>2026-03-29T10:00:00+08:00</published>
+    <summary type="html">本文介绍了Spring Boot的开发最佳实践，包括项目结构、配置管理...</summary>
+    <content type="html"><div style='margin-bottom: 20px; color: #666;'>
+<span>作者：张三</span> &nbsp;|&nbsp; <span>发布时间：2026-03-29T10:00</span> &nbsp;|&nbsp; <span>标签：Java,Spring</span>
+</div>
+<h1>Spring Boot 最佳实践</h1>
+<h2>项目结构</h2>
+<p>合理的项目结构可以提高代码的可维护性...</p>
+<hr/>
+<p style='color: #888; font-size: 12px;'>
+原文链接：<a href='https://example.com/article/1'>https://example.com/article/1</a>
+</p></content>
+    <category term="Java"/>
+    <category term="Spring"/>
+    <author>
+      <name>张三</name>
+    </author>
+  </entry>
+</feed>
+```
+
 #### 响应字段说明
 
 | 字段              | 类型      | 说明                                       |
@@ -110,25 +151,43 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
 
 ### 使用示例
 
-#### 示例1: 在浏览器中查看 RSS Feed
+#### 示例1: 在浏览器中查看 RSS Feed（所有用户）
 
 ```
 http://localhost:8080/api/public/rss
 ```
 
-#### 示例2: 使用 curl 获取 RSS Feed
+#### 示例2: 获取指定用户的 RSS Feed
+
+```
+http://localhost:8080/api/public/rss?username=zhangsan
+```
+
+#### 示例3: 使用 curl 获取 RSS Feed
 
 ```bash
 curl -X GET "http://localhost:8080/api/public/rss"
 ```
 
-#### 示例3: 保存 RSS Feed 到文件
+#### 示例4: 使用 curl 获取指定用户的 RSS Feed
+
+```bash
+curl -X GET "http://localhost:8080/api/public/rss?username=zhangsan"
+```
+
+#### 示例5: 保存 RSS Feed 到文件
 
 ```bash
 curl -X GET "http://localhost:8080/api/public/rss" -o feed.xml
 ```
 
-#### 示例4: 添加 HTTP 头获取
+#### 示例6: 保存指定用户的 RSS Feed 到文件
+
+```bash
+curl -X GET "http://localhost:8080/api/public/rss?username=zhangsan" -o zhangsan_feed.xml
+```
+
+#### 示例7: 添加 HTTP 头获取
 
 ```bash
 curl -X GET "http://localhost:8080/api/public/rss" \
@@ -156,10 +215,12 @@ curl -X GET "http://localhost:8080/api/public/rss" \
    - `hidden = false`（只返回公开文章）
    - 按 `create_time` 降序排序
    - 限制返回 10 条记录
+   - 如果传入 `username` 参数，则额外添加 `author_id = {userId}` 条件
 
 2. **元数据获取**:
    - 网站名称、域名、描述：从 `sys_config` 表获取
    - 作者昵称：从 `sys_user` 表批量查询
+   - 指定用户查询：通过 `username` 在 `sys_user` 表中查找用户 ID
 
 #### 内容生成规则
 
@@ -177,7 +238,7 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 
 | 字段        | 规则                                              |
 |-----------|-------------------------------------------------|
-| title     | 使用 `site.name` 配置，如无则使用 "My Blog"             |
+| title     | 不传 `username`：使用 `site.name` 配置，如无则使用 "My Blog"<br>传入 `username`：格式为 `{用户昵称} 的文章 - {site.name}` |
 | link      | 使用 `site.domain` 配置                              |
 | entry.title | 文章标题，原文输出                                  |
 | entry.link | 格式为 `{site.domain}/article/{articleId}`         |
@@ -191,6 +252,8 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 #### 缓存策略
 
 - **Guava Cache**: Feed 结果缓存 10 分钟，防止高并发下重复生成
+  - 全局 Feed 缓存键：`rss_feed`
+  - 指定用户 Feed 缓存键：`rss_feed:user:{username}`
 - **HTTP 响应头**: `Cache-Control: public, max-age=1800`
 - **浏览器/CDN 缓存时间**: 30 分钟
 
@@ -226,4 +289,6 @@ https://your-domain.com/api/public/rss
 6. **字符编码**: 返回内容使用 UTF-8 编码，确保特殊字符正确显示
 7. **HTML 安全**: 文章内容经过 XSS 净化处理
 8. **缓存保护**: Guava Cache 10 分钟缓存，防止高并发下重复生成 Feed
+9. **用户筛选**: 传入 `username` 参数时，只返回该用户发布的公开文章；用户不存在时返回空 Feed
+10. **动态标题**: 指定用户时，Feed 标题会动态显示为 `{用户昵称} 的文章 - {站点名称}`
 

@@ -25,7 +25,8 @@ public interface RssFeedService {
      * 生成最新文章的RSS Feed
      * 按时间倒序排列，返回最新的10篇文章
      *
+     * @param username 可选参数，指定用户名，只检索该用户的文章
      * @return RSS Feed XML 和文章信息
      */
-    RssFeedResponseDTO generateRssFeed();
+    RssFeedResponseDTO generateRssFeed(String username);
 }

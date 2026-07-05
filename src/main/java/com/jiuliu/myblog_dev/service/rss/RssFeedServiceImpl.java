@@ -50,7 +50,7 @@ public class RssFeedServiceImpl implements RssFeedService {
     private static final int DEFAULT_ARTICLE_LIMIT = 10;
     private static final String FEED_TYPE = "atom_1.0";
     private static final int CACHE_EXPIRE_MINUTES = 10;
-    private static final String CACHE_KEY = "rss_feed";
+    private static final String CACHE_KEY_PREFIX = "rss_feed";
 
     private final SysBlogMapper blogMapper;
     private final SysUserMapper userMapper;
@@ -68,7 +68,7 @@ public class RssFeedServiceImpl implements RssFeedService {
         
         this.rssCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES)
-                .maximumSize(1)
+                .maximumSize(10)
                 .softValues()
                 .recordStats()
                 .build();
@@ -78,48 +78,62 @@ public class RssFeedServiceImpl implements RssFeedService {
     }
 
     @Override
-    public RssFeedResponseDTO generateRssFeed() {
-        // 首先尝试从缓存获取
-        RssFeedResponseDTO cachedResponse = rssCache.getIfPresent(CACHE_KEY);
+    public RssFeedResponseDTO generateRssFeed(String username) {
+        String cacheKey = buildCacheKey(username);
+
+        RssFeedResponseDTO cachedResponse = rssCache.getIfPresent(cacheKey);
         if (cachedResponse != null) {
-            log.debug("RSS Feed缓存命中，共 {} 篇文章", cachedResponse.getArticleCount());
+            log.debug("RSS Feed缓存命中，username={}，共 {} 篇文章", username, cachedResponse.getArticleCount());
             return cachedResponse;
         }
 
-        // 缓存未命中，使用并发锁防止重复生成
-        Object lock = generationLocks.computeIfAbsent(CACHE_KEY, k -> new Object());
+        Object lock = generationLocks.computeIfAbsent(cacheKey, k -> new Object());
         synchronized (lock) {
-            // 再次检查缓存，防止在等待锁期间其他线程已经完成生成
-            cachedResponse = rssCache.getIfPresent(CACHE_KEY);
+            cachedResponse = rssCache.getIfPresent(cacheKey);
             if (cachedResponse != null) {
-                log.debug("RSS Feed二次缓存命中，共 {} 篇文章", cachedResponse.getArticleCount());
-                generationLocks.remove(CACHE_KEY);
+                log.debug("RSS Feed二次缓存命中，username={}，共 {} 篇文章", username, cachedResponse.getArticleCount());
+                generationLocks.remove(cacheKey);
                 return cachedResponse;
             }
 
-            // 实际生成 RSS Feed
-            RssFeedResponseDTO response = generateRssFeedInternal();
+            RssFeedResponseDTO response = generateRssFeedInternal(username);
             
-            // 存入缓存
-            rssCache.put(CACHE_KEY, response);
-            generationLocks.remove(CACHE_KEY);
+            rssCache.put(cacheKey, response);
+            generationLocks.remove(cacheKey);
             
-            log.info("RSS Feed生成成功并缓存，共 {} 篇文章", response.getArticleCount());
+            log.info("RSS Feed生成成功并缓存，username={}，共 {} 篇文章", username, response.getArticleCount());
             return response;
         }
     }
     
+    private String buildCacheKey(String username) {
+        if (username == null || username.isBlank()) {
+            return CACHE_KEY_PREFIX;
+        }
+        return CACHE_KEY_PREFIX + ":user:" + username;
+    }
+
     /**
      * 内部方法：实际生成 RSS Feed
      */
-    private RssFeedResponseDTO generateRssFeedInternal() {
+    private RssFeedResponseDTO generateRssFeedInternal(String username) {
         RssFeedResponseDTO response = new RssFeedResponseDTO();
 
-        // 获取网站配置
         Map<String, String> siteConfig = getSiteConfig();
 
-        // 查询最新10篇公开文章（按创建时间倒序）
-        List<SysBlog> articles = getLatestArticles();
+        Long authorId = null;
+        SysUser targetUser = null;
+        boolean userSpecified = username != null && !username.isBlank();
+
+        if (userSpecified) {
+            targetUser = userMapper.selectOne(
+                    new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
+            if (targetUser != null) {
+                authorId = targetUser.getId();
+            }
+        }
+
+        List<SysBlog> articles = getLatestArticles(authorId, userSpecified);
 
         // 收集作者ID并批量查询
         Set<Long> authorIds = articles.stream()
@@ -146,8 +160,7 @@ public class RssFeedServiceImpl implements RssFeedService {
             siteUrl = siteUrl.substring(0, siteUrl.length() - 1);
         }
 
-        // 生成 Atom Feed
-        String feedXml = generateAtomFeed(siteConfig, articles, authorMap, siteUrl);
+        String feedXml = generateAtomFeed(siteConfig, articles, authorMap, siteUrl, targetUser);
 
         // 构建响应
         response.setFeedXml(feedXml);
@@ -165,19 +178,31 @@ public class RssFeedServiceImpl implements RssFeedService {
     private String generateAtomFeed(Map<String, String> siteConfig,
                                     List<SysBlog> articles,
                                     Map<Long, String> authorMap,
-                                    String siteUrl) {
-        // 使用 SyndFeed 创建 Atom 1.0 Feed
+            String siteUrl,
+            SysUser targetUser) {
         SyndFeed feed = new SyndFeedImpl();
         feed.setFeedType(FEED_TYPE);
 
-        // 设置 Feed 元数据
-        feed.setTitle(siteConfig.getOrDefault("site.name", "My Blog"));
-        feed.setDescription(siteConfig.getOrDefault("site.description", "RSS Feed"));
-        feed.setAuthor(siteConfig.getOrDefault("site.name", "My Blog"));
+        String siteName = siteConfig.getOrDefault("site.name", "My Blog");
+        String siteDescription = siteConfig.getOrDefault("site.description", "RSS Feed");
 
-        // Feed 链接
+        if (targetUser != null) {
+            String authorName = targetUser.getNickname() != null ? targetUser.getNickname() : targetUser.getUsername();
+            feed.setTitle(authorName + " 的文章 - " + siteName);
+            feed.setDescription(authorName + " 在 " + siteName + " 上发布的文章");
+            feed.setAuthor(authorName);
+        } else {
+            feed.setTitle(siteName);
+            feed.setDescription(siteDescription);
+            feed.setAuthor(siteName);
+        }
+
         feed.setLink(siteUrl);
-        feed.setUri(siteUrl + "/rss");
+        if (targetUser != null) {
+            feed.setUri(siteUrl + "/rss?username=" + targetUser.getUsername());
+        } else {
+            feed.setUri(siteUrl + "/rss");
+        }
 
         // 生成时间
         feed.setPublishedDate(new Date());
@@ -338,11 +363,23 @@ public class RssFeedServiceImpl implements RssFeedService {
 
     /**
      * 获取最新公开文章列表
+     * 
+     * @param authorId 可选参数，指定作者ID，只查询该作者的文章
+     * @param userSpecified 是否指定了用户名参数（用于区分"未指定用户"和"指定了不存在的用户"）
      */
-    private List<SysBlog> getLatestArticles() {
+    private List<SysBlog> getLatestArticles(Long authorId, boolean userSpecified) {
+        if (userSpecified && authorId == null) {
+            return Collections.emptyList();
+        }
+        
         LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(SysBlog::getHidden, false)
-                .orderByDesc(SysBlog::getCreateTime)
+        queryWrapper.eq(SysBlog::getHidden, false);
+
+        if (authorId != null) {
+            queryWrapper.eq(SysBlog::getAuthorId, authorId);
+        }
+
+        queryWrapper.orderByDesc(SysBlog::getCreateTime)
                 .last("LIMIT " + RssFeedServiceImpl.DEFAULT_ARTICLE_LIMIT);
 
         return blogMapper.selectList(queryWrapper);

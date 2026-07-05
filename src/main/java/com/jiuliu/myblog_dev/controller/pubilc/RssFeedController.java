@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -42,16 +43,18 @@ public class RssFeedController {
 
     /**
      * 获取 RSS Feed (Atom 格式)
-     * GET /api/public/rss
+     * GET /api/public/rss?username=xxx
      * 无需登录，所有用户均可访问
      * 返回最新10篇文章的Atom格式RSS Feed
+     * 
+     * @param username 可选参数，指定用户名，只检索该用户的文章
      */
     @RateLimit(count = 500, period = 1, prefix = "public_rss_feed", ipBased = false)
     @GetMapping(produces = MediaType.APPLICATION_ATOM_XML_VALUE)
-    public ResponseEntity<String> getRssFeed() {
+    public ResponseEntity<String> getRssFeed(@RequestParam(required = false) String username) {
         try {
-            RssFeedResponseDTO response = rssFeedService.generateRssFeed();
-            log.debug("RSS Feed 请求成功，共 {} 篇文章", response.getArticleCount());
+            RssFeedResponseDTO response = rssFeedService.generateRssFeed(username);
+            log.debug("RSS Feed 请求成功，username={}，共 {} 篇文章", username, response.getArticleCount());
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType("application/atom+xml; charset=UTF-8"))
                     .header("Cache-Control", "public, max-age=1800")
