@@ -24,6 +24,7 @@ import com.jiuliu.myblog_dev.dto.user.auth.ChangeEmailConfirmDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.ChangeEmailDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.RegisterConfirmDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateAvatarUrlDTO;
+import com.jiuliu.myblog_dev.dto.user.auth.UpdateBioDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateEmailDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.UpdateNicknameDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.FindPasswordCodeRequestDTO;
@@ -68,6 +69,8 @@ public interface AuthService {
     SaResult confirmRegister(RegisterConfirmDTO dto);
 
     SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId);
+
+    SaResult updateBio(UpdateBioDTO dto, Long currentUserId);
 
     SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId);
 

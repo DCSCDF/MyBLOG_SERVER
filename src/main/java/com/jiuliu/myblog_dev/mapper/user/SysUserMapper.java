@@ -17,9 +17,13 @@ package com.jiuliu.myblog_dev.mapper.user;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUser> {
+
+    @Select("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'sys_user' AND COLUMN_NAME = 'bio'")
+    int checkBioColumnExists();
 
 }

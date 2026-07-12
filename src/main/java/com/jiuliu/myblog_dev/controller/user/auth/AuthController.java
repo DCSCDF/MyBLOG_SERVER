@@ -165,6 +165,13 @@ public class AuthController {
         return handleSaResult(authService.updateNickname(dto, currentUserId));
     }
 
+    @PostMapping("/update-bio")
+    @RateLimit(count = 10, period = 60)
+    public Response<Map<String, Object>> updateBio(@Valid @RequestBody UpdateBioDTO dto) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        return handleSaResult(authService.updateBio(dto, currentUserId));
+    }
+
     @PostMapping("/update-avatar-url")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateAvatarUrl(@Valid @RequestBody UpdateAvatarUrlDTO dto) {

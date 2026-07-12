@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     password VARCHAR(255) NOT NULL,
     email VARCHAR(100) UNIQUE,
     avatar VARCHAR(500),
+    bio VARCHAR(500) DEFAULT '还没有填写简介~',
     role VARCHAR(20) DEFAULT 'user',
     is_deleted INT DEFAULT 0,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -43,4 +43,10 @@ public class PagePublicArticleDTO {
      * 同时关键词搜索也只在该分类内搜索
      */
     private Long categoryId;
+
+    /**
+     * 用户名：用于筛选特定用户的文章
+     * 如果传入username，则只返回该用户发布的文章
+     */
+    private String username;
 }

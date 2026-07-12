@@ -93,8 +93,28 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 queryWrapper.eq(SysBlog::getCategoryId, categoryId);
             }
 
+            Long authorId = null;
+            if (StringUtils.hasText(dto.getUsername())) {
+                SysUser user = userMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>()
+                                .eq(SysUser::getUsername, dto.getUsername())
+                                .eq(SysUser::getIsDeleted, 0));
+                if (user != null) {
+                    authorId = user.getId();
+                    queryWrapper.eq(SysBlog::getAuthorId, authorId);
+                } else {
+                    PagePublicArticleResponseDTO emptyResponse = new PagePublicArticleResponseDTO();
+                    emptyResponse.setRecords(Collections.emptyList());
+                    emptyResponse.setTotal(0L);
+                    emptyResponse.setSize((long) dto.getPageSize());
+                    emptyResponse.setCurrent((long) dto.getCurrentPage());
+                    emptyResponse.setPages(0L);
+                    return SaResult.data(emptyResponse);
+                }
+            }
+
             if (StringUtils.hasText(dto.getKeyword())) {
-                return searchArticlesWithKeyword(dto, categoryMap, cacheKey);
+                return searchArticlesWithKeyword(dto, categoryMap, authorId, cacheKey);
             }
 
             return queryArticlesWithoutKeyword(dto, categoryMap, queryWrapper, cacheKey);
@@ -136,6 +156,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
     private SaResult searchArticlesWithKeyword(PagePublicArticleDTO dto,
                                                Map<Long, String> categoryMap,
+            Long authorId,
                                                String cacheKey) {
         String keyword = dto.getKeyword().trim();
         List<String> searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
@@ -150,6 +171,10 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         if (dto.getCategoryId() != null) {
             queryWrapper.eq(SysBlog::getCategoryId, dto.getCategoryId());
+        }
+
+        if (authorId != null) {
+            queryWrapper.eq(SysBlog::getAuthorId, authorId);
         }
 
         boolean hasKeywordCondition = false;
@@ -168,7 +193,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         List<SysBlog> candidateArticles = blogMapper.selectList(queryWrapper);
 
-        if (dto.getCategoryId() == null) {
+        if (dto.getCategoryId() == null && authorId == null) {
             Set<Long> matchedCategoryIds = new HashSet<>();
             for (String token : searchTokens) {
                 List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
@@ -380,7 +405,8 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 dto.getCurrentPage() + "-" +
                 dto.getPageSize() + "-" +
                 (dto.getCategoryId() != null ? dto.getCategoryId() : "") + "-" +
-                (dto.getKeyword() != null ? dto.getKeyword() : "");
+                (dto.getKeyword() != null ? dto.getKeyword() : "") + "-" +
+                (dto.getUsername() != null ? dto.getUsername() : "");
     }
 
     /**

@@ -24,6 +24,7 @@ import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.entity.user.role.SysRolePermissionGroup;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.seo.SysSeoMapper;
+import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupItemMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
@@ -33,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,8 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final SysConfigMapper sysConfigMapper;
     private final SysSeoMapper sysSeoMapper;
     private final SysRolePermissionGroupMapper sysRolePermissionGroupMapper;
+    private final SysUserMapper sysUserMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     public DatabaseInitializer(SysRoleMapper sysRoleMapper,
                                SysPermissionMapper sysPermissionMapper,
@@ -66,7 +70,9 @@ public class DatabaseInitializer implements CommandLineRunner {
                                SysPermissionGroupItemMapper sysPermissionGroupItemMapper,
                                SysConfigMapper sysConfigMapper,
                                SysSeoMapper sysSeoMapper,
-                               SysRolePermissionGroupMapper sysRolePermissionGroupMapper) {
+                               SysRolePermissionGroupMapper sysRolePermissionGroupMapper,
+                               SysUserMapper sysUserMapper,
+                               JdbcTemplate jdbcTemplate) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
@@ -74,6 +80,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         this.sysConfigMapper = sysConfigMapper;
         this.sysSeoMapper = sysSeoMapper;
         this.sysRolePermissionGroupMapper = sysRolePermissionGroupMapper;
+        this.sysUserMapper = sysUserMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -92,6 +100,8 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
 
             log.info("数据库连接正常，开始初始化默认数据...");
+
+            migrateSysUserTable();
 
             // 初始化默认角色
             initDefaultRoles();
@@ -134,6 +144,21 @@ public class DatabaseInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("数据库表尚未初始化: {}", e.getMessage());
             return false;
+        }
+    }
+
+    private void migrateSysUserTable() {
+        log.info("迁移 sys_user 表，添加 bio 字段...");
+        try {
+            int count = sysUserMapper.checkBioColumnExists();
+            if (count == 0) {
+                jdbcTemplate.execute("ALTER TABLE sys_user ADD COLUMN bio VARCHAR(500) DEFAULT '还没有填写简介~' COMMENT '用户简介'");
+                log.info("sys_user 表迁移完成，已添加 bio 字段");
+            } else {
+                log.info("sys_user 表已存在 bio 字段，无需迁移");
+            }
+        } catch (Exception e) {
+            log.warn("sys_user 表迁移失败: {}", e.getMessage());
         }
     }
 
@@ -518,7 +543,7 @@ public class DatabaseInitializer implements CommandLineRunner {
 
             Long groupId = groupNameToId.get(groupName);
             if (groupId == null) {
-                log.warn("  权限组不存在: {}", groupName);
+                log.warn(" 权限组不存在: {}", groupName);
                 continue;
             }
 

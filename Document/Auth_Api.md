@@ -207,7 +207,8 @@
         "email": "user@example.com",
         "createTime": "2023-01-01T00:00:00",
         "updateTime": "2023-01-01T00:00:00",
-        "avatarUrl": "https://example.com/avatar.jpg or null"
+        "avatarUrl": "https://example.com/avatar.jpg or null",
+        "bio": "还没有填写简介~"
     },
     "success": true,
     "errorMsg": null,
@@ -490,6 +491,47 @@
 
 - 昵称为空：`code: 400`
 - 昵称长度超过限制：`code: 400`
+- 用户不存在：`code: 400`
+
+---
+
+## 修改简介
+用于修改用户简介。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/auth/update-bio`
+- **需要登录**: 是
+- **限流**: 60 秒内最多 10 次
+
+#### 请求参数
+
+```json
+{
+  "bio": "新的用户简介"
+}
+```
+
+| 字段   | 类型     | 必填 | 说明            |
+|------|--------|----|---------------|
+| bio  | String | 是  | 用户简介，长度1-500字符 |
+
+#### 响应示例
+
+```json
+{
+    "data": {
+        "message": "简介修改成功"
+    },
+    "success": true,
+    "errorMsg": null,
+    "code": 200
+}
+```
+
+#### 错误响应
+
+- 简介为空：`code: 400`
+- 简介长度超过限制：`code: 400`
 - 用户不存在：`code: 400`
 
 ---

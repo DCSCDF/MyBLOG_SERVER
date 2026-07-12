@@ -52,8 +52,13 @@ public class SysUser {
     /**
      * 头像URL（对应数据库字段 avatar_url）
      */
-    @TableField("avatar_url") // 显式指定列名，避免驼峰转下划线不一致风险
+    @TableField("avatar_url")
     private String avatarUrl;
+
+    /**
+     * 用户简介（对应数据库字段 bio）
+     */
+    private String bio;
 
     /**
      * 状态：0=禁用，1=启用，默认1

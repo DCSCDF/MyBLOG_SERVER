@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sys_user
     password    VARCHAR(100) NOT NULL COMMENT '密码（加密后）',
     email       VARCHAR(50) UNIQUE COMMENT '邮箱（唯一）',
     avatar_url  VARCHAR(200) COMMENT '头像URL',
+    bio         VARCHAR(500) DEFAULT '还没有填写简介~' COMMENT '用户简介',
     status      INT        DEFAULT 1 COMMENT '状态：0=禁用，1=启用',
     is_deleted  TINYINT(1) DEFAULT 0 COMMENT '逻辑删除：0=未删除，1=已删除',
     create_time DATETIME   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

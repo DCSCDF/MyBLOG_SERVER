@@ -1,5 +1,5 @@
 /*
- * [UserResponseDTO.java]
+ * [PublicAdminResponseDTO.java]
  * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -9,37 +9,36 @@
  * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/2/18 11:52
  */
 
 package com.jiuliu.myblog_dev.dto.user;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 /**
- * 用户信息响应DTO
- * 用于对外暴露用户基本信息，隐藏敏感字段如密码
+ * 公共管理员信息响应DTO
+ * 用于对外暴露超级管理员的基本公开信息，隐藏敏感字段如密码、ID等
  */
 @Data
-public class UserResponseDTO {
+public class PublicAdminResponseDTO {
 
-    private Long id;
-
-    private String username;
-
+    /**
+     * 昵称
+     */
     private String nickname;
 
+    /**
+     * 邮箱
+     */
     private String email;
 
+    /**
+     * 头像URL
+     */
     private String avatarUrl;
 
+    /**
+     * 用户简介
+     */
     private String bio;
-
-    private Integer status;
-
-    private LocalDateTime createTime;
-
-    private LocalDateTime updateTime;
 }

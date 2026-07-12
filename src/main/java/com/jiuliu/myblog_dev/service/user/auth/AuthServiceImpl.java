@@ -243,6 +243,7 @@ public class AuthServiceImpl implements AuthService {
         dto.setNickname(user.getNickname());
         dto.setEmail(user.getEmail());
         dto.setAvatarUrl(user.getAvatarUrl());
+        dto.setBio(user.getBio());
         dto.setStatus(user.getStatus());
         dto.setCreateTime(user.getCreateTime());
         dto.setUpdateTime(user.getUpdateTime());
@@ -740,6 +741,44 @@ public class AuthServiceImpl implements AuthService {
         log.info("昵称修改成功，userId={}", currentUserId);
         Map<String, Object> data = new HashMap<>();
         data.put("message", "昵称修改成功");
+        return SaResult.data(data);
+    }
+
+    @Override
+    public SaResult updateBio(UpdateBioDTO dto, Long currentUserId) {
+        String bio = dto.getBio().trim();
+        if (!StringUtils.hasText(bio)) {
+            log.warn("简介修改失败：简介为空，userId={}", currentUserId);
+            return SaResult.error("简介不能为空").setCode(400);
+        }
+
+        if (bio.length() > 500) {
+            log.warn("简介修改失败：简介长度超过限制，userId={}", currentUserId);
+            return SaResult.error("简介长度不能超过500字符").setCode(400);
+        }
+
+        SysUser user = sysUserMapper.selectById(currentUserId);
+        if (user == null) {
+            log.warn("简介修改失败：用户不存在，userId={}", currentUserId);
+            return SaResult.error("用户不存在").setCode(400);
+        }
+
+        user.setBio(bio);
+        long timestamp = System.currentTimeMillis();
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestamp),
+                ZoneId.systemDefault());
+        user.setUpdateTime(localDateTime);
+
+        int rows = sysUserMapper.updateById(user);
+        if (rows != 1) {
+            log.error("简介修改失败：数据库更新失败，userId={}", currentUserId);
+            return SaResult.error("简介修改失败，请重试").setCode(400);
+        }
+
+        log.info("简介修改成功，userId={}", currentUserId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("message", "简介修改成功");
         return SaResult.data(data);
     }
 
