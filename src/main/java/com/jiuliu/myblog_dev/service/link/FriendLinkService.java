@@ -34,5 +34,10 @@ public interface FriendLinkService {
     SaResult updateFriendLinkStatus(Long id, FriendLinkStatusUpdateDTO dto);
 
     SaResult deleteFriendLink(Long id);
+
+    /**
+     * 清除友链缓存（包括后台管理和前台展示的缓存）
+     */
+    void clearFriendLinkCache();
 }
 

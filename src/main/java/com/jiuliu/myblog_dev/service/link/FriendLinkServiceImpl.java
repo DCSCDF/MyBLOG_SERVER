@@ -18,8 +18,6 @@ import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.dto.link.*;
 import com.jiuliu.myblog_dev.entity.link.SysFriendLink;
@@ -36,7 +34,6 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,31 +41,13 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
     private static final Logger log = LoggerFactory.getLogger(FriendLinkServiceImpl.class);
 
-    /**
-     * 友链缓存 - 缓存单个友链，key为友链ID，value为SysFriendLink对象
-     * 缓存时间：30分钟
-     */
-    private final Cache<Long, SysFriendLink> friendLinkCache = CacheBuilder.newBuilder()
-            .maximumSize(500)
-            .expireAfterWrite(30, TimeUnit.MINUTES)
-            .build();
-
-    /**
-     * 友链列表缓存 - 缓存通过审核的友链列表（前台展示用）
-     * 缓存时间：30分钟
-     */
-    private final Cache<String, PageFriendLinkResponseDTO> friendLinkListCache = CacheBuilder.newBuilder()
-            .maximumSize(50)
-            .expireAfterWrite(30, TimeUnit.MINUTES)
-            .build();
-
     private final SysFriendLinkMapper friendLinkMapper;
-    private final PublicFriendLinkService publicFriendLinkService;
+    private final FriendLinkCacheManager cacheManager;
 
     public FriendLinkServiceImpl(SysFriendLinkMapper friendLinkMapper,
-                                PublicFriendLinkService publicFriendLinkService) {
+                                FriendLinkCacheManager cacheManager) {
         this.friendLinkMapper = friendLinkMapper;
-        this.publicFriendLinkService = publicFriendLinkService;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -78,8 +57,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             String cacheKey = CacheUtil.CACHE_KEY_FRIEND_LINK_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
                     pageDto.getStatus() + "-" + pageDto.getKeyword();
 
-            // 尝试从缓存获取
-            PageFriendLinkResponseDTO cached = friendLinkListCache.getIfPresent(cacheKey);
+            PageFriendLinkResponseDTO cached = cacheManager.getFriendLinkListCache().getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取友链列表，key={}", cacheKey);
                 return SaResult.data(cached);
@@ -117,8 +95,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             response.setPages(pageResult.getPages());
             response.setFilterOptions(buildStatusFilterOptions());
 
-            // 存入缓存
-            friendLinkListCache.put(cacheKey, response);
+            cacheManager.getFriendLinkListCache().put(cacheKey, response);
 
             return SaResult.data(response);
         } catch (Exception e) {
@@ -264,10 +241,9 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     /**
      * 清除友链缓存（包括后台管理和前台展示的缓存）
      */
-    private void clearFriendLinkCache() {
-        friendLinkCache.invalidateAll();
-        friendLinkListCache.invalidateAll();
-        publicFriendLinkService.clearPublicFriendLinkCache();
+    @Override
+    public void clearFriendLinkCache() {
+        cacheManager.clearAllCache();
         log.debug("友链缓存已清除（包括后台和前台）");
     }
 

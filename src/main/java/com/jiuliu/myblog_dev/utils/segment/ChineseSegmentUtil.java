@@ -109,7 +109,7 @@ public class ChineseSegmentUtil {
             return Collections.emptyList();
         }
 
-        List<String> tokens = segment(keyword, SegmentMode.MAX_WORD);
+        List<String> tokens = segment(keyword, SegmentMode.SMART);
 
         tokens = tokens.stream()
                 .filter(t -> t.length() >= 2 || t.matches("[\\u4e00-\\u9fa5]"))

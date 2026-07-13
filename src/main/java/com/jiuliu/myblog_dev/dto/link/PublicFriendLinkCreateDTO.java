@@ -14,6 +14,7 @@
 
 package com.jiuliu.myblog_dev.dto.link;
 
+import com.jiuliu.myblog_dev.utils.validation.ValidUrl;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -36,6 +37,7 @@ public class PublicFriendLinkCreateDTO {
      */
     @NotBlank(message = "URL地址不能为空")
     @Size(max = 500, message = "URL地址不能超过500个字符")
+    @ValidUrl(message = "URL地址格式无效，请输入有效的网址")
     private String url;
 
     /**
@@ -48,5 +50,6 @@ public class PublicFriendLinkCreateDTO {
      * 站点图片URL
      */
     @Size(max = 500, message = "站点图片URL不能超过500个字符")
+    @ValidUrl(message = "站点图片URL格式无效，请输入有效的网址")
     private String imageUrl;
 }
