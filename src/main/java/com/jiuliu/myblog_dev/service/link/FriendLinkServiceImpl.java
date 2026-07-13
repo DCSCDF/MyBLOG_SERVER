@@ -29,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -61,10 +63,10 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             .build();
 
     private final SysFriendLinkMapper friendLinkMapper;
-    private final PublicFriendLinkServiceImpl publicFriendLinkService;
+    private final PublicFriendLinkService publicFriendLinkService;
 
     public FriendLinkServiceImpl(SysFriendLinkMapper friendLinkMapper,
-                                PublicFriendLinkServiceImpl publicFriendLinkService) {
+                                PublicFriendLinkService publicFriendLinkService) {
         this.friendLinkMapper = friendLinkMapper;
         this.publicFriendLinkService = publicFriendLinkService;
     }
@@ -145,14 +147,20 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         link.setRemark(dto.getRemark());
         link.setImageUrl(dto.getImageUrl());
         link.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
-        // 默认审核通过
         link.setStatus(1);
         link.setIsDeleted(0);
 
         friendLinkMapper.insert(link);
         log.info("外链创建成功，id={}, name={}", link.getId(), link.getName());
-        // 清除友链缓存
-        clearFriendLinkCache();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                clearFriendLinkCache();
+                log.debug("事务提交后清除友链缓存");
+            }
+        });
+
         return SaResult.data(toResponseDTO(friendLinkMapper.selectById(link.getId())));
     }
 
@@ -177,8 +185,15 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
         friendLinkMapper.update(null, updateWrapper);
         log.info("外链更新成功，id={}", dto.getId());
-        // 清除友链缓存
-        clearFriendLinkCache();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                clearFriendLinkCache();
+                log.debug("事务提交后清除友链缓存");
+            }
+        });
+
         SysFriendLink updated = friendLinkMapper.selectById(dto.getId());
         return SaResult.data(toResponseDTO(updated));
     }
@@ -201,8 +216,15 @@ public class FriendLinkServiceImpl implements FriendLinkService {
                 .set(SysFriendLink::getStatus, newStatus)
                 .set(SysFriendLink::getUpdateTime, LocalDateTime.now()));
         log.info("友链审核状态变更成功，id={}, 新状态={}", id, newStatus);
-        // 清除友链缓存
-        clearFriendLinkCache();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                clearFriendLinkCache();
+                log.debug("事务提交后清除友链缓存");
+            }
+        });
+
         SysFriendLink updated = friendLinkMapper.selectById(id);
         return SaResult.data(toResponseDTO(updated));
     }
@@ -223,12 +245,19 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         friendLinkMapper.update(null, new LambdaUpdateWrapper<SysFriendLink>()
                 .eq(SysFriendLink::getId, id)
                 .set(SysFriendLink::getIsDeleted, 1)
-                .set(SysFriendLink::getStatus, 3) // 标记为已删除
+                .set(SysFriendLink::getStatus, 3)
                 .set(SysFriendLink::getUpdateTime, LocalDateTime.now()));
 
         log.info("外链删除成功，id={}", id);
-        // 清除友链缓存
-        clearFriendLinkCache();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                clearFriendLinkCache();
+                log.debug("事务提交后清除友链缓存");
+            }
+        });
+
         return SaResult.data("删除成功");
     }
 

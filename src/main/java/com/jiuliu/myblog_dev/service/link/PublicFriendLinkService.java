@@ -40,4 +40,9 @@ public interface PublicFriendLinkService {
      * @return 分页结果
      */
     SaResult getPagePublicFriendLinks(PagePublicFriendLinkDTO dto);
+
+    /**
+     * 清除公共外链列表缓存
+     */
+    void clearPublicFriendLinkCache();
 }
