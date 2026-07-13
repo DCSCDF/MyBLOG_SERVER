@@ -27,6 +27,7 @@ import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
+import com.jiuliu.myblog_dev.utils.segment.ChineseSegmentUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -155,9 +156,15 @@ public class BlogServiceImpl implements BlogService {
         LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(SysBlog::getAuthorId, userId);
 
-        // 关键词搜索（标题）
         if (StringUtils.hasText(dto.getKeyword())) {
-            queryWrapper.like(SysBlog::getTitle, dto.getKeyword());
+            String keyword = dto.getKeyword().trim();
+            List<String> searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
+            if (searchTokens.isEmpty()) {
+                searchTokens = List.of(keyword);
+            }
+            for (String token : searchTokens) {
+                queryWrapper.and(w -> w.like(SysBlog::getTitle, token));
+            }
         }
 
         // 状态筛选

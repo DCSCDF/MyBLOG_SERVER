@@ -111,11 +111,9 @@ public class ChineseSegmentUtil {
 
         List<String> tokens = segment(keyword, SegmentMode.MAX_WORD);
 
-        // 过滤掉无效词：纯数字、纯符号、过短的词
         tokens = tokens.stream()
-                .filter(t -> t.length() >= 2) // 过滤掉单字符
+                .filter(t -> t.length() >= 2 || t.matches("[\\u4e00-\\u9fa5]"))
                 .filter(t -> {
-                    // 判断是否为有效词：包含中文或英文字母
                     boolean hasChinese = t.matches(".*[\\u4e00-\\u9fa5].*");
                     boolean hasEnglish = t.matches(".*[a-zA-Z].*");
                     return hasChinese || hasEnglish;
