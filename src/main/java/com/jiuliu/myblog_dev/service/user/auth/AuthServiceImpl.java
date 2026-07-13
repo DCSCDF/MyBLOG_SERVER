@@ -507,6 +507,20 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("系统配置异常，暂无法注册").setCode(500);
         }
 
+        // 4.5 再次检查用户名和邮箱唯一性（防止竞态条件）
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("username", pendingUser.getUsername())
+                .eq("is_deleted", 0)) != null) {
+            log.warn("注册确认失败：用户名已被占用，username={}", pendingUser.getUsername());
+            return SaResult.error("用户名已被注册").setCode(400);
+        }
+        if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", pendingUser.getEmail())
+                .eq("is_deleted", 0)) != null) {
+            log.warn("注册确认失败：邮箱已被注册，email={}", pendingUser.getEmail());
+            return SaResult.error("邮箱已被注册").setCode(400);
+        }
+
         // 5. 创建正式用户
         SysUser user = new SysUser();
         user.setUsername(pendingUser.getUsername());
@@ -516,11 +530,11 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus(1);
         sysUserMapper.insert(user);
 
-        // 6. 分配默认角色
+        // 6. 分配默认角色（使用INSERT IGNORE避免唯一约束冲突）
         SysUserRole userRole = new SysUserRole();
         userRole.setUserId(user.getId());
         userRole.setRoleId(defaultRole.getId());
-        sysUserRoleMapper.insert(userRole);
+        sysUserRoleMapper.insertIgnore(userRole);
 
         // 7. 删除待注册记录
         registerPendingUserService.deletePendingUser(email);
@@ -630,11 +644,11 @@ public class AuthServiceImpl implements AuthService {
         user.setStatus(1);
         sysUserMapper.insert(user);
 
-        // 7. 分配默认角色
+        // 7. 分配默认角色（使用INSERT IGNORE避免唯一约束冲突）
         SysUserRole userRole = new SysUserRole();
         userRole.setUserId(user.getId());
         userRole.setRoleId(defaultRole.getId());
-        sysUserRoleMapper.insert(userRole);
+        sysUserRoleMapper.insertIgnore(userRole);
 
         log.info("用户注册成功，userId={}, roleId={}", user.getId(), defaultRole.getId());
 
@@ -1069,41 +1083,47 @@ public class AuthServiceImpl implements AuthService {
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
-        // 只有在用户确实存在且有邮箱时才继续处理
-        if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
-            email = user.getEmail();
-
-            // 生成6位验证码
-            String code = generateRegisterCode();
-
-            try {
-                pendingPasswordResetService.savePendingPasswordReset(user.getId(), user.getUsername(), email, code,
-                        REGISTER_CODE_EXPIRE_MINUTES);
-                log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
-            } catch (Exception e) {
-                log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
-                // 即使这里失败，也不返回错误，继续返回成功响应
-            }
-
-            // 发送验证码邮件
-            SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
-            if (mailResult.getCode() != 200) {
-                pendingPasswordResetService.deletePendingPasswordReset(email);
-                // 即使发送失败，也不返回错误
-            } else {
-                log.info("找回密码验证码发送成功，userId={}, email={}", user.getId(), email);
-            }
-        } else {
-            log.warn("找回密码请求：未找到用户或用户未绑定邮箱，input={}", usernameOrEmail);
+        // 用户不存在，返回错误
+        if (user == null) {
+            log.warn("找回密码请求：未找到用户，input={}", usernameOrEmail);
+            return SaResult.error("未找到该用户").setCode(400);
         }
 
-        // 无论用户是否存在，都设置频率限制，防止用户枚举攻击
-        pendingPasswordResetService.setRateLimit(usernameOrEmail, REGISTER_CODE_EXPIRE_MINUTES);
+        // 用户存在但未绑定邮箱，返回错误
+        if (user.getEmail() == null || user.getEmail().isEmpty()) {
+            log.warn("找回密码请求：用户未绑定邮箱，username={}", user.getUsername());
+            return SaResult.error("该用户未绑定邮箱").setCode(400);
+        }
 
-        // 无论用户是否存在，都返回相同的成功响应，防止用户枚举攻击
+        email = user.getEmail();
+
+        // 生成6位验证码
+        String code = generateRegisterCode();
+
+        try {
+            pendingPasswordResetService.savePendingPasswordReset(user.getId(), user.getUsername(), email, code,
+                    REGISTER_CODE_EXPIRE_MINUTES);
+            log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
+        } catch (Exception e) {
+            log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
+            return SaResult.error("系统异常，请重试").setCode(500);
+        }
+
+        // 发送验证码邮件
+        SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
+        if (mailResult.getCode() != 200) {
+            pendingPasswordResetService.deletePendingPasswordReset(email);
+            return mailResult;
+        }
+
+        log.info("找回密码验证码发送成功，userId={}, email={}", user.getId(), email);
+
+        // 设置频率限制
+        pendingPasswordResetService.setRateLimit(email, REGISTER_CODE_EXPIRE_MINUTES);
+
         Map<String, Object> data = new HashMap<>();
         data.put("message", "验证码已发送到您的邮箱，请查收");
-        data.put("email", maskEmail((user != null && user.getEmail() != null) ? user.getEmail() : usernameOrEmail));
+        data.put("email", maskEmail(email));
         data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
         return SaResult.data(data);
     }

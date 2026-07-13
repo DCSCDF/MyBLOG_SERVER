@@ -23,4 +23,7 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
+
+    @org.apache.ibatis.annotations.Insert("INSERT IGNORE INTO sys_user_role (user_id, role_id, create_time) VALUES (#{userId}, #{roleId}, NOW())")
+    int insertIgnore(SysUserRole userRole);
 }
