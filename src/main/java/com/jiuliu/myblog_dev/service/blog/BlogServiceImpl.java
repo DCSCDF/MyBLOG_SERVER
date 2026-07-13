@@ -72,6 +72,11 @@ public class BlogServiceImpl implements BlogService {
             return SaResult.error("文章标题不能为空").setCode(400);
         }
 
+        if (dto.getTitle().length() > 30) {
+            log.warn("文章创建失败：标题长度超过30字符");
+            return SaResult.error("文章标题不能超过30字符").setCode(400);
+        }
+
         if (dto.getSummary() != null && dto.getSummary().length() > 200) {
             log.warn("文章创建失败：摘要长度超过200字符");
             return SaResult.error("文章摘要不能超过200字符").setCode(400);
@@ -286,9 +291,9 @@ public class BlogServiceImpl implements BlogService {
                 .eq(SysBlog::getId, blogId);
 
         if (dto.getTitle() != null && StringUtils.hasText(dto.getTitle())) {
-            if (dto.getTitle().length() > 200) {
-                log.warn("文章更新失败：标题长度超过200字符");
-                return SaResult.error("文章标题不能超过200字符").setCode(400);
+            if (dto.getTitle().length() > 30) {
+                log.warn("文章更新失败：标题长度超过30字符");
+                return SaResult.error("文章标题不能超过30字符").setCode(400);
             }
             updateWrapper.set(SysBlog::getTitle, dto.getTitle().trim());
         }

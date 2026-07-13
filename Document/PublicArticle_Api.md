@@ -109,7 +109,43 @@
 
 ---
 
-### 2. 获取公共文章详情
+### 2. 分页获取超级管理员文章列表
+
+仅返回超级管理员发布的公开文章，其他行为与 `/api/public/article/list` 一致。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/public/article/admin/list`
+- **是否需要登录**: 否
+
+#### 请求参数
+
+与 `/api/public/article/list` 相同，参见上文。
+
+#### 响应格式
+
+与 `/api/public/article/list` 相同，参见上文。
+
+---
+
+### 3. 分页获取普通用户文章列表
+
+仅返回非超级管理员用户发布的公开文章，其他行为与 `/api/public/article/list` 一致。
+
+- **请求方法**: `POST`
+- **请求路径**: `/api/public/article/user/list`
+- **是否需要登录**: 否
+
+#### 请求参数
+
+与 `/api/public/article/list` 相同，参见上文。
+
+#### 响应格式
+
+与 `/api/public/article/list` 相同，参见上文。
+
+---
+
+### 4. 获取公共文章详情
 
 根据文章ID获取文章的完整详情信息，包括文章全文内容。
 
@@ -163,67 +199,6 @@
 #### 错误响应
 
 **文章不存在或已下架**
-
-```json
-{
-   "data": null,
-   "success": false,
-   "errorMsg": "文章不存在或已下架",
-   "code": 404
-}
-```
-
----
-
-### 使用示例
-
-#### 示例1: 获取文章详情
-
-```bash
-curl -X GET "http://localhost:8080/api/public/article/1"
-```
-
-#### 示例2: 获取全部文章（默认第一页）
-
-```bash
-curl -X POST http://localhost:8080/api/public/article/list \
-  -H "Content-Type: application/json" \
-  -d '{"currentPage": 1, "pageSize": 10}'
-```
-
-#### 示例3: 搜索包含"Java"的文章
-
-```bash
-curl -X POST http://localhost:8080/api/public/article/list \
-  -H "Content-Type: application/json" \
-  -d '{"currentPage": 1, "pageSize": 10, "keyword": "Java"}'
-```
-
-#### 示例4: 获取指定分类下的文章
-
-```bash
-curl -X POST http://localhost:8080/api/public/article/list \
-  -H "Content-Type: application/json" \
-  -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5}'
-```
-
-#### 示例5: 在指定分类内搜索文章
-
-```bash
-curl -X POST http://localhost:8080/api/public/article/list \
-  -H "Content-Type: application/json" \
-  -d '{"currentPage": 1, "pageSize": 10, "categoryId": 5, "keyword": "Spring"}'
-```
-
----
-
-### 错误响应
-
-#### 示例6: 获取不存在的文章
-
-```bash
-curl -X GET "http://localhost:8080/api/public/article/999"
-```
 
 ```json
 {

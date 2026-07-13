@@ -32,6 +32,22 @@ public interface PublicArticleService {
     SaResult getPagePublicArticles(PagePublicArticleDTO dto);
 
     /**
+     * 分页获取超级管理员的文章列表
+     *
+     * @param dto 分页查询参数
+     * @return 分页结果
+     */
+    SaResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto);
+
+    /**
+     * 分页获取超级管理员以外的文章列表
+     *
+     * @param dto 分页查询参数
+     * @return 分页结果
+     */
+    SaResult getPagePublicArticlesByUser(PagePublicArticleDTO dto);
+
+    /**
      * 根据文章ID获取文章详情
      * 只能获取公开的文章，隐藏或删除的文章无法访问
      *

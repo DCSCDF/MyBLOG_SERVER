@@ -25,7 +25,7 @@ public class BlogCreateDTO {
      * 文章标题（必填）
      */
     @NotBlank(message = "文章标题不能为空")
-    @Size(max = 200, message = "文章标题不能超过200字符")
+    @Size(max = 30, message = "文章标题不能超过30字符")
     private String title;
 
     /**

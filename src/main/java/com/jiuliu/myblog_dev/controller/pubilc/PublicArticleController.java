@@ -68,6 +68,32 @@ public class PublicArticleController {
     }
 
     /**
+     * 分页获取超级管理员的文章列表
+     * POST /api/public/article/admin/list
+     * 无需登录，所有用户均可访问
+     * 仅返回超级管理员发布的公开文章
+     */
+    @RateLimit(count = 500, period = 1, prefix = "public_article_admin_list", ipBased = false)
+    @PostMapping("/admin/list")
+    public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByAdmin(@Valid @RequestBody PagePublicArticleDTO dto) {
+        SaResult saResult = publicArticleService.getPagePublicArticlesByAdmin(dto);
+        return handleSaResult(saResult);
+    }
+
+    /**
+     * 分页获取超级管理员以外的文章列表
+     * POST /api/public/article/user/list
+     * 无需登录，所有用户均可访问
+     * 仅返回非超级管理员用户发布的公开文章
+     */
+    @RateLimit(count = 500, period = 1, prefix = "public_article_user_list", ipBased = false)
+    @PostMapping("/user/list")
+    public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByUser(@Valid @RequestBody PagePublicArticleDTO dto) {
+        SaResult saResult = publicArticleService.getPagePublicArticlesByUser(dto);
+        return handleSaResult(saResult);
+    }
+
+    /**
      * 获取公共文章详情
      * GET /api/public/article/{id}
      * 无需登录，所有用户均可访问

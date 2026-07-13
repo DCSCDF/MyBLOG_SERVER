@@ -25,10 +25,14 @@ import com.jiuliu.myblog_dev.dto.blog.publicity.PublicArticleResponseDTO;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
 import com.jiuliu.myblog_dev.entity.blog.category.SysCategory;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
+import com.jiuliu.myblog_dev.entity.user.SysUserRole;
+import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.category.SysCategoryMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import com.jiuliu.myblog_dev.utils.markdown.MarkdownUtil;
 import com.jiuliu.myblog_dev.utils.segment.ChineseSegmentUtil;
@@ -62,25 +66,95 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     private final SysCategoryMapper categoryMapper;
     private final SysUserMapper userMapper;
     private final SysCommentMapper commentMapper;
+    private final SysRoleMapper roleMapper;
+    private final SysUserRoleMapper userRoleMapper;
 
     public PublicArticleServiceImpl(SysBlogMapper blogMapper,
                                     SysCategoryMapper categoryMapper,
                                     SysUserMapper userMapper,
-                                    SysCommentMapper commentMapper) {
+            SysCommentMapper commentMapper,
+            SysRoleMapper roleMapper,
+            SysUserRoleMapper userRoleMapper) {
         this.blogMapper = blogMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
         this.commentMapper = commentMapper;
+        this.roleMapper = roleMapper;
+        this.userRoleMapper = userRoleMapper;
+    }
+
+    private final Cache<String, List<Long>> superAdminUserIdCache = CacheBuilder.newBuilder()
+            .maximumSize(1)
+            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .build();
+
+    private List<Long> getSuperAdminUserIds() {
+        String cacheKey = "super_admin_user_ids";
+        List<Long> cached = superAdminUserIdCache.getIfPresent(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        SysRole superAdminRole = roleMapper.selectOne(
+                new LambdaQueryWrapper<SysRole>()
+                        .eq(SysRole::getSuperAdmin, true)
+                        .eq(SysRole::getIsDeleted, 0));
+
+        if (superAdminRole == null) {
+            superAdminUserIdCache.put(cacheKey, Collections.emptyList());
+            return Collections.emptyList();
+        }
+
+        List<SysUserRole> userRoles = userRoleMapper.selectList(
+                new LambdaQueryWrapper<SysUserRole>()
+                        .eq(SysUserRole::getRoleId, superAdminRole.getId()));
+
+        List<Long> userIds = userRoles.stream()
+                .map(SysUserRole::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        superAdminUserIdCache.put(cacheKey, userIds);
+        return userIds;
     }
 
     @Override
     public SaResult getPagePublicArticles(PagePublicArticleDTO dto) {
+        return getPagePublicArticlesWithFilter(dto, null, null);
+    }
+
+    @Override
+    public SaResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto) {
+        List<Long> superAdminIds = getSuperAdminUserIds();
+        return getPagePublicArticlesWithFilter(dto, superAdminIds, true);
+    }
+
+    @Override
+    public SaResult getPagePublicArticlesByUser(PagePublicArticleDTO dto) {
+        List<Long> superAdminIds = getSuperAdminUserIds();
+        return getPagePublicArticlesWithFilter(dto, superAdminIds, false);
+    }
+
+    private SaResult getPagePublicArticlesWithFilter(PagePublicArticleDTO dto, List<Long> authorIds,
+            Boolean includeOnly) {
         try {
-            String cacheKey = buildCacheKey(dto);
+            String filterType = includeOnly != null ? (includeOnly ? "admin" : "user") : null;
+            String cacheKey = buildCacheKey(dto, filterType);
 
             PagePublicArticleResponseDTO cached = publicArticleListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 return SaResult.data(cached);
+            }
+
+            if (Boolean.TRUE.equals(includeOnly) && (authorIds == null || authorIds.isEmpty())) {
+                PagePublicArticleResponseDTO emptyResponse = new PagePublicArticleResponseDTO();
+                emptyResponse.setRecords(Collections.emptyList());
+                emptyResponse.setTotal(0L);
+                emptyResponse.setSize((long) dto.getPageSize());
+                emptyResponse.setCurrent((long) dto.getCurrentPage());
+                emptyResponse.setPages(0L);
+                publicArticleListCache.put(cacheKey, emptyResponse);
+                return SaResult.data(emptyResponse);
             }
 
             Map<Long, String> categoryMap = getCategoryMap();
@@ -91,6 +165,14 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             Long categoryId = dto.getCategoryId();
             if (categoryId != null) {
                 queryWrapper.eq(SysBlog::getCategoryId, categoryId);
+            }
+
+            if (authorIds != null && !authorIds.isEmpty()) {
+                if (Boolean.TRUE.equals(includeOnly)) {
+                    queryWrapper.in(SysBlog::getAuthorId, authorIds);
+                } else {
+                    queryWrapper.notIn(SysBlog::getAuthorId, authorIds);
+                }
             }
 
             Long authorId = null;
@@ -114,7 +196,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             }
 
             if (StringUtils.hasText(dto.getKeyword())) {
-                return searchArticlesWithKeyword(dto, categoryMap, authorId, cacheKey);
+                return searchArticlesWithKeyword(dto, categoryMap, authorId, cacheKey, authorIds, includeOnly);
             }
 
             return queryArticlesWithoutKeyword(dto, categoryMap, queryWrapper, cacheKey);
@@ -157,7 +239,9 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     private SaResult searchArticlesWithKeyword(PagePublicArticleDTO dto,
                                                Map<Long, String> categoryMap,
             Long authorId,
-                                               String cacheKey) {
+            String cacheKey,
+            List<Long> filterAuthorIds,
+            Boolean filterIncludeOnly) {
         String keyword = dto.getKeyword().trim();
         List<String> searchTokens = ChineseSegmentUtil.segmentKeyword(keyword);
         if (searchTokens.isEmpty()) {
@@ -171,6 +255,14 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         if (dto.getCategoryId() != null) {
             queryWrapper.eq(SysBlog::getCategoryId, dto.getCategoryId());
+        }
+
+        if (filterAuthorIds != null && !filterAuthorIds.isEmpty()) {
+            if (Boolean.TRUE.equals(filterIncludeOnly)) {
+                queryWrapper.in(SysBlog::getAuthorId, filterAuthorIds);
+            } else {
+                queryWrapper.notIn(SysBlog::getAuthorId, filterAuthorIds);
+            }
         }
 
         if (authorId != null) {
@@ -193,7 +285,8 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         List<SysBlog> candidateArticles = blogMapper.selectList(queryWrapper);
 
-        if (dto.getCategoryId() == null && authorId == null) {
+        boolean canSearchCategory = dto.getCategoryId() == null && authorId == null;
+        if (canSearchCategory) {
             Set<Long> matchedCategoryIds = new HashSet<>();
             for (String token : searchTokens) {
                 List<SysCategory> tokenMatchedCategories = categoryMapper.selectList(
@@ -204,11 +297,20 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             }
 
             if (!matchedCategoryIds.isEmpty()) {
-                List<SysBlog> categoryMatchedArticles = blogMapper.selectList(
-                        new LambdaQueryWrapper<SysBlog>()
-                                .eq(SysBlog::getHidden, false)
-                                .in(SysBlog::getCategoryId, matchedCategoryIds)
-                                .last("LIMIT " + MAX_SEARCH_CANDIDATES));
+                LambdaQueryWrapper<SysBlog> categoryQuery = new LambdaQueryWrapper<>();
+                categoryQuery.eq(SysBlog::getHidden, false)
+                        .in(SysBlog::getCategoryId, matchedCategoryIds);
+
+                if (filterAuthorIds != null && !filterAuthorIds.isEmpty()) {
+                    if (Boolean.TRUE.equals(filterIncludeOnly)) {
+                        categoryQuery.in(SysBlog::getAuthorId, filterAuthorIds);
+                    } else {
+                        categoryQuery.notIn(SysBlog::getAuthorId, filterAuthorIds);
+                    }
+                }
+
+                categoryQuery.last("LIMIT " + MAX_SEARCH_CANDIDATES);
+                List<SysBlog> categoryMatchedArticles = blogMapper.selectList(categoryQuery);
 
                 Set<Long> existingIds = candidateArticles.stream()
                         .map(SysBlog::getId)
@@ -399,14 +501,18 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
     /**
      * 构建缓存键
+     *
+     * @param dto        查询参数
+     * @param filterType 过滤类型：null-全部, admin-只超级管理员, user-排除超级管理员
      */
-    private String buildCacheKey(PagePublicArticleDTO dto) {
+    private String buildCacheKey(PagePublicArticleDTO dto, String filterType) {
         return CacheUtil.CACHE_KEY_PUBLIC_ARTICLE_LIST +
                 dto.getCurrentPage() + "-" +
                 dto.getPageSize() + "-" +
                 (dto.getCategoryId() != null ? dto.getCategoryId() : "") + "-" +
                 (dto.getKeyword() != null ? dto.getKeyword() : "") + "-" +
-                (dto.getUsername() != null ? dto.getUsername() : "");
+                (dto.getUsername() != null ? dto.getUsername() : "") + "-" +
+                (filterType != null ? filterType : "");
     }
 
     /**
@@ -415,6 +521,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
      */
     public void clearPublicArticleCache() {
         publicArticleListCache.invalidateAll();
+        superAdminUserIdCache.invalidateAll();
         log.debug("公共文章列表缓存已清除");
     }
 
