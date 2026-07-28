@@ -173,6 +173,8 @@
       "commentCount": 56,
       "isTop": true,
       "authorNickname": "张三",
+      "authorAvatar": "https://example.com/avatars/zhangsan.jpg",
+      "authorBio": "全栈开发者，热爱技术分享",
       "createTime": "2026-03-14T10:00:00"
    },
    "success": true,
@@ -194,6 +196,8 @@
 | commentCount   | Integer  | 评论数（仅统计已通过的评论，包括子评论）              |
 | isTop          | Boolean  | 是否置顶                              |
 | authorNickname | String   | 作者昵称                              |
+| authorAvatar   | String   | 作者头像URL（可为null）                    |
+| authorBio      | String   | 作者简介（可为null）                      |
 | createTime     | DateTime | 创建时间                              |
 
 #### 错误响应

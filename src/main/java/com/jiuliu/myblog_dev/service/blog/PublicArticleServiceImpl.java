@@ -412,12 +412,16 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 }
             }
 
-            // 获取作者昵称
+            // 获取作者信息
             String authorNickname = "未知作者";
+            String authorAvatar = null;
+            String authorBio = null;
             if (blog.getAuthorId() != null) {
                 SysUser user = userMapper.selectById(blog.getAuthorId());
                 if (user != null) {
                     authorNickname = user.getNickname();
+                    authorAvatar = user.getAvatarUrl();
+                    authorBio = user.getBio();
                 }
             }
 
@@ -433,6 +437,8 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             dto.setCommentCount(commentMapper.countApprovedComments(blog.getId()));
             dto.setIsTop(blog.getTop());
             dto.setAuthorNickname(authorNickname);
+            dto.setAuthorAvatar(authorAvatar);
+            dto.setAuthorBio(authorBio);
             dto.setCreateTime(blog.getCreateTime());
 
             return SaResult.data(dto);

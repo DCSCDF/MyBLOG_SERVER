@@ -70,6 +70,16 @@ public class PublicArticleDetailResponseDTO {
     private String authorNickname;
 
     /**
+     * 作者头像URL
+     */
+    private String authorAvatar;
+
+    /**
+     * 作者简介
+     */
+    private String authorBio;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;
