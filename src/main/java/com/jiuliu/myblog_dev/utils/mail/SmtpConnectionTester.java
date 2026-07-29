@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Component;
 
+import java.util.Properties;
+
 
 /**
  * SMTP 连接测试工具类
@@ -33,12 +35,9 @@ public class SmtpConnectionTester {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpConnectionTester.class);
 
-    /**
-     * 测试 SMTP 连接
-     *
-     * @param mailSender JavaMailSender 实例
-     * @return ConnectionTestResult 测试结果
-     */
+    private static final int CONNECTION_TIMEOUT_MS = 10000;
+    private static final int READ_TIMEOUT_MS = 10000;
+
     public ConnectionTestResult testConnection(JavaMailSenderImpl mailSender) {
         if (mailSender == null) {
             log.warn("SMTP 连接测试失败：JavaMailSender 为 null");
@@ -49,7 +48,6 @@ public class SmtpConnectionTester {
         int port = mailSender.getPort();
         String username = mailSender.getUsername();
 
-        // 检查是否是禁用的发送器
         if ("disabled".equals(host) || port == 0) {
             log.warn("SMTP 连接测试失败：邮件发送器处于禁用状态");
             return ConnectionTestResult.failed("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置");
@@ -59,10 +57,14 @@ public class SmtpConnectionTester {
 
         try {
             Session session = mailSender.getSession();
+            Properties props = session.getProperties();
+            props.put("mail.smtp.connectiontimeout", String.valueOf(CONNECTION_TIMEOUT_MS));
+            props.put("mail.smtp.timeout", String.valueOf(READ_TIMEOUT_MS));
+            props.put("mail.smtp.writetimeout", String.valueOf(READ_TIMEOUT_MS));
+
             Transport transport = session.getTransport("smtp");
 
             try {
-                // 连接 SMTP 服务器
                 transport.connect(host, port, username, mailSender.getPassword());
                 log.info("SMTP 连接测试成功：host={}, port={}", host, port);
                 return ConnectionTestResult.success();
@@ -70,7 +72,6 @@ public class SmtpConnectionTester {
                 log.error("SMTP 连接测试失败：无法连接到 SMTP 服务器 - {}", e.getMessage());
                 return parseConnectionError(e);
             } finally {
-                // 关闭连接
                 try {
                     if (transport != null && transport.isConnected()) {
                         transport.close();

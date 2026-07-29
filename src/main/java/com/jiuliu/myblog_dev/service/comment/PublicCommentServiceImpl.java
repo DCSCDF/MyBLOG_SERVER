@@ -106,12 +106,13 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             // 2. 如果是回复评论，验证父评论是否存在且属于同一篇文章
             Long parentId = dto.getParentId();
+            SysComment parentComment = null;
             if (parentId != null && parentId != 0) {
-                SysComment parentComment = commentMapper.selectOne(
+                parentComment = commentMapper.selectOne(
                         new LambdaQueryWrapper<SysComment>()
                                 .eq(SysComment::getId, parentId)
                                 .eq(SysComment::getBlogId, dto.getBlogId())
-                                .eq(SysComment::getStatus, 1) // 只允许回复已审核通过的评论
+                                .eq(SysComment::getStatus, 1)
                 );
 
                 if (parentComment == null) {
@@ -119,7 +120,6 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                     return SaResult.error("父评论不存在或不属于该文章").setCode(400);
                 }
 
-                // 3. 检查嵌套层级是否超过限制
                 int parentLevel = calculateCommentLevel(parentComment);
                 if (parentLevel >= maxNestLevel) {
                     log.warn("评论提交失败：嵌套层级超过限制，parentId={}, parentLevel={}, maxNestLevel={}",
@@ -222,12 +222,28 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             // 8. 发送新评论通知给管理员（排除文章作者给自己文章发评论的情况）
             boolean isOwnArticle = isCommentOnOwnArticle(comment, blog);
+            List<String> filteredAdminEmails = new ArrayList<>();
             if (!isOwnArticle) {
-                boolean adminNotified = sendNewCommentNotificationToAdmins(comment, blog, dto.getUsername());
-                log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
+                filteredAdminEmails = buildFilteredAdminEmails(blog);
+                if (!filteredAdminEmails.isEmpty()) {
+                    boolean adminNotified = sendNewCommentNotificationToAdmins(filteredAdminEmails, comment, blog, dto.getUsername());
+                    log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
+                } else {
+                    log.debug("管理员通知跳过：过滤后无管理员需要通知，commentId={}", comment.getId());
+                }
             } else {
                 log.debug("评论者为文章作者，跳过管理员通知，commentId={}, authorId={}",
                         comment.getId(), blog.getAuthorId());
+            }
+
+            // 8.1 登录用户的回复：通知父评论作者（Bug2 修复 + Bug5 去重）
+            if (isLogin && parentComment != null && parentId != null && parentId != 0) {
+                sendReplyNotificationToParent(comment, parentComment, filteredAdminEmails);
+            }
+
+            // 8.2 登录用户的顶级评论：通知文章作者（Bug4 修复）
+            if (isLogin && (parentId == null || parentId == 0) && !isOwnArticle) {
+                sendTopLevelCommentNotificationToAuthor(comment, blog);
             }
 
             // 9. 返回结果
@@ -446,34 +462,49 @@ public class PublicCommentServiceImpl implements PublicCommentService {
      * 无论审核通过还是未通过，只要是新评论都会通知
      * 如果是游客评论，会在通知中提示需要审核
      */
-    private boolean sendNewCommentNotificationToAdmins(SysComment comment, SysBlog blog, String commenterName) {
+    private List<String> buildFilteredAdminEmails(SysBlog blog) {
+        List<String> adminEmails = rolePermissionMapper.selectUserEmailsByPermissionCode(PERMISSION_COMMENT_LIST);
+        if (adminEmails == null || adminEmails.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<String> filteredEmails = new ArrayList<>();
+        for (String email : adminEmails) {
+            if (!StringUtils.hasText(email)) {
+                continue;
+            }
+            if (blog.getAuthorId() != null) {
+                SysUser author = userMapper.selectById(blog.getAuthorId());
+                if (author != null && email.equalsIgnoreCase(author.getEmail())) {
+                    log.debug("跳过文章作者的管理员通知，email={}", email);
+                    continue;
+                }
+            }
+            filteredEmails.add(email);
+        }
+        return filteredEmails;
+    }
+
+    private boolean sendNewCommentNotificationToAdmins(List<String> filteredAdminEmails,
+                                                       SysComment comment, SysBlog blog, String commenterName) {
         try {
-            // 检查评论通知是否启用
             boolean notificationEnabled = mailService.isCommentNotificationEnabled();
             if (!notificationEnabled) {
                 log.debug("新评论通知跳过：评论通知功能未启用");
                 return false;
             }
 
-            // 获取拥有 system:comment:list 权限的用户邮箱列表
-            List<String> adminEmails = rolePermissionMapper.selectUserEmailsByPermissionCode(PERMISSION_COMMENT_LIST);
-            if (adminEmails == null || adminEmails.isEmpty()) {
+            if (filteredAdminEmails == null || filteredAdminEmails.isEmpty()) {
                 log.debug("新评论通知跳过：没有管理员邮箱，commentId={}", comment.getId());
                 return false;
             }
 
-            // 获取网站域名
             String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
-
-            // 判断是否是游客评论
             boolean isGuest = (comment.getUserId() == null);
-
-            // 获取评论者名称
             String commenter = isGuest ? commenterName : getCommenterName(comment);
 
-            // 发送邮件通知
             SaResult result = mailService.sendNewCommentNotificationToAdmins(
-                    adminEmails,
+                    filteredAdminEmails,
                     siteDomain,
                     isGuest,
                     comment.getId(),
@@ -486,17 +517,119 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             boolean sent = (result.getCode() == 200);
             if (sent) {
                 log.info("新评论通知已发送给管理员，commentId={}, isGuest={}, adminCount={}",
-                        comment.getId(), isGuest, adminEmails.size());
+                        comment.getId(), isGuest, filteredAdminEmails.size());
             } else {
                 log.warn("新评论通知发送失败，commentId={}, error={}", comment.getId(), result.getMsg());
             }
             return sent;
 
         } catch (Exception e) {
-            // 邮件发送失败不影响主流程，只记录日志
             log.error("发送新评论通知邮件异常，commentId={}", comment.getId(), e);
             return false;
         }
+    }
+
+    private void sendReplyNotificationToParent(SysComment replyComment, SysComment parentComment,
+                                               List<String> filteredAdminEmails) {
+        try {
+            boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+            if (!notificationEnabled) {
+                log.debug("评论回复通知跳过：评论通知功能未启用，replyCommentId={}", replyComment.getId());
+                return;
+            }
+
+            if (replyComment.getUserId() != null && replyComment.getUserId().equals(parentComment.getUserId())) {
+                log.debug("评论回复通知跳过：回复者与被回复者为同一用户，replyCommentId={}", replyComment.getId());
+                return;
+            }
+
+            if (StringUtils.hasText(replyComment.getEmail()) &&
+                    replyComment.getEmail().equals(parentComment.getEmail())) {
+                log.debug("评论回复通知跳过：回复者与被回复者邮箱相同，replyCommentId={}", replyComment.getId());
+                return;
+            }
+
+            String toEmail = getRecipientEmail(parentComment);
+            if (!StringUtils.hasText(toEmail)) {
+                log.debug("评论回复通知跳过：无法获取父评论作者邮箱，parentId={}", parentComment.getId());
+                return;
+            }
+
+            if (filteredAdminEmails != null && filteredAdminEmails.contains(toEmail)) {
+                log.debug("评论回复通知跳过：父评论作者已在管理员通知列表中，toEmail={}", toEmail);
+                return;
+            }
+
+            String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
+
+            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
+            if (result.getCode() == 200) {
+                log.info("评论回复通知发送成功，replyCommentId={}, parentId={}, to={}",
+                        replyComment.getId(), parentComment.getId(), toEmail);
+            } else {
+                log.warn("评论回复通知发送失败，replyCommentId={}, to={}, error={}",
+                        replyComment.getId(), toEmail, result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("评论回复通知发送异常，replyCommentId={}", replyComment.getId(), e);
+        }
+    }
+
+    private void sendTopLevelCommentNotificationToAuthor(SysComment comment, SysBlog blog) {
+        try {
+            boolean notificationEnabled = mailService.isCommentNotificationEnabled();
+            if (!notificationEnabled) {
+                log.debug("顶级评论通知跳过：评论通知功能未启用，commentId={}", comment.getId());
+                return;
+            }
+
+            if (blog.getAuthorId() == null) {
+                log.debug("顶级评论通知跳过：文章没有作者，blogId={}", blog.getId());
+                return;
+            }
+
+            if (comment.getUserId() != null && comment.getUserId().equals(blog.getAuthorId())) {
+                log.debug("顶级评论通知跳过：评论者是文章作者自己，commentId={}, authorId={}",
+                        comment.getId(), blog.getAuthorId());
+                return;
+            }
+
+            SysUser author = userMapper.selectById(blog.getAuthorId());
+            if (author == null || !StringUtils.hasText(author.getEmail())) {
+                log.debug("顶级评论通知跳过：无法获取作者邮箱，authorId={}", blog.getAuthorId());
+                return;
+            }
+
+            String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
+            String commenter = getCommenterName(comment);
+
+            SaResult result = mailService.sendTopLevelCommentApprovedNotification(
+                    author.getEmail(), siteDomain, blog.getId(), blog.getTitle(),
+                    comment.getId(), comment.getContent(), commenter);
+
+            if (result.getCode() == 200) {
+                log.info("顶级评论通知发送成功，commentId={}, blogId={}, authorEmail={}",
+                        comment.getId(), blog.getId(), author.getEmail());
+            } else {
+                log.warn("顶级评论通知发送失败，commentId={}, error={}",
+                        comment.getId(), result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("顶级评论通知发送异常，commentId={}", comment.getId(), e);
+        }
+    }
+
+    private String getRecipientEmail(SysComment comment) {
+        if (comment.getUserId() != null) {
+            SysUser user = userMapper.selectById(comment.getUserId());
+            if (user != null && StringUtils.hasText(user.getEmail())) {
+                return user.getEmail();
+            }
+        }
+        if (StringUtils.hasText(comment.getEmail())) {
+            return comment.getEmail();
+        }
+        return null;
     }
 
     /**

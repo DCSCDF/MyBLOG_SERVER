@@ -14,6 +14,8 @@
 
 package com.jiuliu.myblog_dev.config.business;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 
 @Configuration
@@ -37,11 +40,18 @@ public class MailConfig {
     private static final String KEY_SMTP_PASSWORD = "smtp.password";
     private static final String KEY_SMTP_FROM = "smtp.fromName";
     private static final String KEY_SMTP_SSL_ENABLED = "smtp.ssl.enabled";
+    private static final String KEY_COMMENT_NOTIFICATION_ENABLED = "smtp.comment.enabled";
 
     private final SysConfigMapper sysConfigMapper;
 
+    private final Cache<String, String> configCache = CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .build();
 
     private JavaMailSenderImpl mailSender;
+
+    private volatile Boolean configuredCache;
 
     public MailConfig(SysConfigMapper sysConfigMapper) {
         this.sysConfigMapper = sysConfigMapper;
@@ -50,7 +60,6 @@ public class MailConfig {
     @PostConstruct
     public void init() {
         refreshMailSender();
-        // 已移除定时刷新任务，改为在配置修改时手动触发刷新
     }
 
     @Bean
@@ -62,6 +71,9 @@ public class MailConfig {
     }
 
     public synchronized void refreshMailSender() {
+        clearConfigCache();
+        this.configuredCache = null;
+
         String host = getConfigValue(KEY_SMTP_HOST);
         String portStr = getConfigValue(KEY_SMTP_PORT);
         String username = getConfigValue(KEY_SMTP_USERNAME);
@@ -70,11 +82,23 @@ public class MailConfig {
         String sslEnabled = getConfigValue(KEY_SMTP_SSL_ENABLED);
 
         log.info("SMTP 配置刷新：host=[{}], port=[{}], username=[{}], from=[{}], ssl=[{}]",
-                host, portStr, username, from, sslEnabled);
+                host, portStr, maskUsername(username), from, sslEnabled);
 
         try {
             if (host == null || host.isBlank() || "smtp.example.com".equals(host)) {
                 log.warn("SMTP 配置未完成，请先在系统配置中修改 smtp.host 为实际的 SMTP 服务器地址");
+                this.mailSender = createDisabledMailSender();
+                return;
+            }
+
+            if (username == null || username.isBlank()) {
+                log.warn("SMTP 配置无效：用户名不能为空");
+                this.mailSender = createDisabledMailSender();
+                return;
+            }
+
+            if (password == null || password.isBlank()) {
+                log.warn("SMTP 配置无效：密码不能为空");
                 this.mailSender = createDisabledMailSender();
                 return;
             }
@@ -101,13 +125,15 @@ public class MailConfig {
             properties.put("mail.smtp.auth", "true");
             properties.put("mail.smtp.starttls.enable", "true");
             properties.put("mail.smtp.starttls.required", "true");
+            properties.put("mail.smtp.connectiontimeout", "10000");
+            properties.put("mail.smtp.timeout", "10000");
             if (ssl) {
                 properties.put("mail.smtp.ssl.enable", "true");
                 properties.put("mail.smtp.ssl.trust", host);
             }
 
             this.mailSender = sender;
-            log.info("邮件发送器初始化成功，host={}, port={}, from={}", host, port, from);
+            log.info("邮件发送器初始化成功，host={}, port={}, from={}", host, port, maskUsername(from));
         } catch (Exception e) {
             log.error("邮件发送器初始化失败: {}", e.getMessage(), e);
             this.mailSender = createDisabledMailSender();
@@ -123,11 +149,37 @@ public class MailConfig {
 
     private String getConfigValue(String key) {
         try {
-            return sysConfigMapper.selectValueByKey(key);
+            String cached = configCache.getIfPresent(key);
+            if (cached != null) {
+                return cached;
+            }
+            String value = sysConfigMapper.selectValueByKey(key);
+            if (value != null) {
+                configCache.put(key, value);
+            }
+            return value;
         } catch (Exception e) {
             log.warn("获取配置失败: {}: {}", key, e.getMessage());
         }
         return null;
+    }
+
+    private void clearConfigCache() {
+        configCache.invalidateAll();
+    }
+
+    private String maskUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return "(empty)";
+        }
+        int atIndex = username.indexOf('@');
+        if (atIndex > 0) {
+            return username.charAt(0) + "***" + username.substring(atIndex);
+        }
+        if (username.length() <= 2) {
+            return username.charAt(0) + "*";
+        }
+        return username.charAt(0) + "***" + username.substring(username.length() - 1);
     }
 
     public String getFromAddress() {
@@ -135,20 +187,21 @@ public class MailConfig {
     }
 
     public boolean isConfigured() {
-        String host = getConfigValue(KEY_SMTP_HOST);
-        log.info("SMTP 配置检查：host={}", host);
-        boolean configured = host != null && !host.isBlank() && !"smtp.example.com".equals(host);
-        if (configured) {
-            refreshMailSender();
+        if (configuredCache != null) {
+            return configuredCache;
         }
+        String host = getConfigValue(KEY_SMTP_HOST);
+        boolean configured = host != null && !host.isBlank() && !"smtp.example.com".equals(host);
+        this.configuredCache = configured;
+        log.info("SMTP 配置检查：host={}, configured={}", host, configured);
         return configured;
     }
 
-    /**
-     * 获取当前的 JavaMailSenderImpl 实例
-     *
-     * @return JavaMailSenderImpl 实例，如果未初始化则返回 null
-     */
+    public boolean isCommentNotificationEnabled() {
+        String enabled = getConfigValue(KEY_COMMENT_NOTIFICATION_ENABLED);
+        return "true".equalsIgnoreCase(enabled);
+    }
+
     public JavaMailSenderImpl getMailSenderImpl() {
         if (mailSender != null) {
             return mailSender;

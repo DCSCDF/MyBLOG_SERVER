@@ -22,7 +22,10 @@ import com.jiuliu.myblog_dev.dto.link.PagePublicFriendLinkResponseDTO;
 import com.jiuliu.myblog_dev.dto.link.PublicFriendLinkCreateDTO;
 import com.jiuliu.myblog_dev.dto.link.PublicFriendLinkResponseDTO;
 import com.jiuliu.myblog_dev.entity.link.SysFriendLink;
+import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.link.SysFriendLinkMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
+import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +33,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,13 +47,25 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
 
     private static final Logger log = LoggerFactory.getLogger(PublicFriendLinkServiceImpl.class);
 
+    private static final String KEY_SITE_DOMAIN = "site.domain";
+    private static final String PERMISSION_LINK_LIST = "links:list";
+
     private final SysFriendLinkMapper friendLinkMapper;
     private final FriendLinkCacheManager cacheManager;
+    private final SysConfigMapper sysConfigMapper;
+    private final SysRolePermissionMapper rolePermissionMapper;
+    private final MailService mailService;
 
     public PublicFriendLinkServiceImpl(SysFriendLinkMapper friendLinkMapper,
-                                       FriendLinkCacheManager cacheManager) {
+                                       FriendLinkCacheManager cacheManager,
+                                       SysConfigMapper sysConfigMapper,
+                                       SysRolePermissionMapper rolePermissionMapper,
+                                       MailService mailService) {
         this.friendLinkMapper = friendLinkMapper;
         this.cacheManager = cacheManager;
+        this.sysConfigMapper = sysConfigMapper;
+        this.rolePermissionMapper = rolePermissionMapper;
+        this.mailService = mailService;
     }
 
     @Override
@@ -72,6 +89,7 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
                 public void afterCommit() {
                     cacheManager.clearAllCache();
                     log.debug("事务提交后清除友链缓存");
+                    sendNewFriendLinkNotificationToAdmins(dto);
                 }
             });
 
@@ -79,6 +97,47 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
         } catch (Exception e) {
             log.error("外链提交异常，name={}", dto.getName(), e);
             return SaResult.error("外链提交失败").setCode(500);
+        }
+    }
+
+    private void sendNewFriendLinkNotificationToAdmins(PublicFriendLinkCreateDTO dto) {
+        try {
+            if (!mailService.isCommentNotificationEnabled()) {
+                log.debug("新友链通知跳过：邮件通知功能未启用");
+                return;
+            }
+
+            List<String> adminEmails = rolePermissionMapper.selectUserEmailsByPermissionCode(PERMISSION_LINK_LIST);
+            if (adminEmails == null || adminEmails.isEmpty()) {
+                log.debug("新友链通知跳过：没有友链管理权限的管理员邮箱");
+                return;
+            }
+
+            List<String> validEmails = new ArrayList<>();
+            for (String email : adminEmails) {
+                if (StringUtils.hasText(email)) {
+                    validEmails.add(email);
+                }
+            }
+
+            if (validEmails.isEmpty()) {
+                return;
+            }
+
+            String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
+
+            SaResult result = mailService.sendNewFriendLinkNotificationToAdmins(
+                    validEmails, siteDomain,
+                    dto.getName(), dto.getUrl(),
+                    dto.getSummary(), dto.getImageUrl());
+
+            if (result.getCode() == 200) {
+                log.info("新友链通知发送成功，linkName={}, adminCount={}", dto.getName(), validEmails.size());
+            } else {
+                log.warn("新友链通知发送失败，linkName={}, error={}", dto.getName(), result.getMsg());
+            }
+        } catch (Exception e) {
+            log.error("新友链通知发送异常，linkName={}", dto.getName(), e);
         }
     }
 

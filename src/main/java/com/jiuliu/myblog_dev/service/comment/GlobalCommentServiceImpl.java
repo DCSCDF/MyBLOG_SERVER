@@ -39,8 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -292,9 +294,10 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             blogForNotification = blogMapper.selectById(existing.getBlogId());
         }
 
-        // 记录原状态，用于更新评论数
+        // 记录原状态，用于更新评论数和判断是否需要发送通知
         Byte oldStatus = existing.getStatus();
         boolean shouldUpdateCommentCount = (oldStatus != null && oldStatus == 1 && (newStatus == 0 || newStatus == 2));
+        boolean statusActuallyChanged = (oldStatus == null || oldStatus != newStatus.byteValue());
 
         // 更新评论状态
         commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
@@ -325,25 +328,38 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         // 清除缓存
         clearGlobalCommentCache(commentId);
 
-        // 发送邮件通知（仅在审核通过或垃圾评论时）
-        if (newStatus == 1) {
-            // 审核通过：发送审核通过通知给当前评论作者
-            boolean sent = sendCommentNotification(existing, true);
-            log.debug("评论审核通知发送结果，commentId={}, sent={}", existing.getId(), sent);
-            // 如果是子评论，发送回复通知给父评论作者
-            if (existing.getParentId() != null && existing.getParentId() != 0) {
-                boolean replySent = sendReplyNotificationToParent(existing);
-                log.debug("评论回复通知发送结果，parentId={}, sent={}", existing.getParentId(), replySent);
+        // 发送邮件通知（仅在状态实际变更时）
+        if (statusActuallyChanged) {
+            if (newStatus == 1) {
+                boolean sent = sendCommentNotification(existing, true);
+                log.debug("评论审核通知发送结果，commentId={}, sent={}", existing.getId(), sent);
+
+                Set<String> notifiedEmails = new HashSet<>();
+
+                if (isTopLevelAndApproving && blogForNotification != null) {
+                    boolean authorSent = sendTopLevelCommentApprovedNotificationToAuthor(existing, blogForNotification);
+                    if (authorSent) {
+                        notifiedEmails.add(getAuthorEmail(blogForNotification));
+                    }
+                    log.debug("文章作者通知发送结果，commentId={}, sent={}", existing.getId(), authorSent);
+                }
+
+                if (existing.getParentId() != null && existing.getParentId() != 0) {
+                    String parentEmail = getParentCommentEmail(existing);
+                    if (parentEmail != null && !notifiedEmails.contains(parentEmail)) {
+                        boolean replySent = sendReplyNotificationToParent(existing);
+                        log.debug("评论回复通知发送结果，parentId={}, sent={}", existing.getParentId(), replySent);
+                    } else {
+                        log.debug("评论回复通知跳过：父评论作者已收到其他通知，parentId={}", existing.getParentId());
+                    }
+                }
+            } else if (newStatus == 2) {
+                boolean sent = sendCommentNotification(existing, false);
+                log.debug("评论未通过通知发送结果，commentId={}, sent={}", existing.getId(), sent);
             }
-            // 如果是顶级评论通过审核，通知文章作者
-            if (isTopLevelAndApproving && blogForNotification != null) {
-                boolean authorSent = sendTopLevelCommentApprovedNotificationToAuthor(existing, blogForNotification);
-                log.debug("文章作者通知发送结果，commentId={}, sent={}", existing.getId(), authorSent);
-            }
-        } else if (newStatus == 2) {
-            // 设为垃圾评论：发送未通过通知给当前评论作者
-            boolean sent = sendCommentNotification(existing, false);
-            log.debug("评论未通过通知发送结果，commentId={}, sent={}", existing.getId(), sent);
+        } else {
+            log.debug("评论状态未变更，跳过邮件通知，commentId={}, oldStatus={}, newStatus={}",
+                    existing.getId(), oldStatus, newStatus);
         }
 
         SysComment updated = commentMapper.selectById(commentId);
@@ -422,6 +438,28 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             log.warn("获取网站域名配置失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    private String getAuthorEmail(SysBlog blog) {
+        if (blog.getAuthorId() == null) {
+            return null;
+        }
+        SysUser author = userMapper.selectById(blog.getAuthorId());
+        if (author != null && StringUtils.hasText(author.getEmail())) {
+            return author.getEmail();
+        }
+        return null;
+    }
+
+    private String getParentCommentEmail(SysComment comment) {
+        if (comment.getParentId() == null || comment.getParentId() == 0) {
+            return null;
+        }
+        SysComment parentComment = commentMapper.selectById(comment.getParentId());
+        if (parentComment == null) {
+            return null;
+        }
+        return getRecipientEmail(parentComment);
     }
 
     /**

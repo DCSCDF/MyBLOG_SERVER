@@ -129,4 +129,32 @@ public interface MailService {
      * @return SaResult
      */
     SaResult sendFindPasswordVerificationCode(String toEmail, String code, String username);
+
+    /**
+     * 发送新友链提交通知邮件给管理员
+     *
+     * @param toEmailList 收件人邮箱列表
+     * @param siteDomain  网站域名
+     * @param linkName    友链名称
+     * @param linkUrl     友链URL
+     * @param summary     友链简介
+     * @param imageUrl    友链图片
+     * @return SaResult
+     */
+    SaResult sendNewFriendLinkNotificationToAdmins(List<String> toEmailList, String siteDomain,
+                                                    String linkName, String linkUrl,
+                                                    String summary, String imageUrl);
+
+    /**
+     * 发送友链审核结果通知邮件
+     *
+     * @param toEmail    收件人邮箱（预留，用于通知提交者，当前未实现）
+     * @param approved   是否通过
+     * @param linkName   友链名称
+     * @param linkUrl    友链URL
+     * @param siteDomain 网站域名
+     * @return SaResult
+     */
+    SaResult sendFriendLinkReviewNotification(String toEmail, boolean approved,
+                                                String linkName, String linkUrl, String siteDomain);
 }
