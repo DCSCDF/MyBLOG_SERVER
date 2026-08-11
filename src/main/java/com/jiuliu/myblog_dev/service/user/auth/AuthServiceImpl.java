@@ -17,6 +17,7 @@ package com.jiuliu.myblog_dev.service.user.auth;
 import cloud.tianai.captcha.application.ImageCaptchaApplication;
 import cloud.tianai.captcha.spring.plugins.secondary.SecondaryVerificationApplication;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.SaLoginModel;
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -41,6 +42,7 @@ import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import com.jiuliu.myblog_dev.utils.validation.ValidationHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +64,9 @@ public class AuthServiceImpl implements AuthService {
     private static final String CONFIG_KEY_REG_USE_EMAIL = "reg.use-email";
     private static final int REGISTER_CODE_LENGTH = 6;
     private static final int REGISTER_CODE_EXPIRE_MINUTES = 5;
+
+    @Value("${app.login.active-timeout-no-remember:7200}")
+    private long activeTimeoutRemember;
 
     private final SysUserMapper sysUserMapper;
     private final SysUserRoleMapper sysUserRoleMapper;
@@ -178,10 +183,16 @@ public class AuthServiceImpl implements AuthService {
 
         // 判断是否启用外部授权模式
         boolean isOauthEnabled = dto.getOauthEnabled() != null && dto.getOauthEnabled();
+        boolean rememberMe = dto.getRememberMe() != null && dto.getRememberMe();
 
         Map<String, Object> data = new HashMap<>();
 
-        StpUtil.login(user.getId());
+        if (rememberMe) {
+            StpUtil.login(user.getId());
+        } else {
+            StpUtil.login(user.getId(), new SaLoginModel()
+                    .setActiveTimeout(activeTimeoutRemember));
+        }
         if (isOauthEnabled) {
             // 外部授权模式：生成一次性授权码，同时返回 token
             String token = StpUtil.getTokenValue();

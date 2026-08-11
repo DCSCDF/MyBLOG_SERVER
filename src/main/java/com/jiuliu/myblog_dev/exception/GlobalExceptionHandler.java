@@ -128,12 +128,17 @@ public class GlobalExceptionHandler {
     /**
      * 处理 Sa-Token 未登录异常（业务正常分支，不作为 WARN 记录）
      * 用户未登录访问受保护接口属于预期行为，降级为 DEBUG 以避免污染生产日志。
+     * 根据异常类型给出不同提示：token冻结（长时间未操作）与普通未登录。
      */
     @ExceptionHandler(NotLoginException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {
         log.debug("未登录访问: {} {}", request.getMethod(), request.getRequestURI());
-        return ResponseUtil.fail("未授权，请先登录", 401);
+        String message = switch (e.getType()) {
+            case NotLoginException.TOKEN_FREEZE, NotLoginException.TOKEN_TIMEOUT -> "登录已过期，请重新登录";
+            default -> "未授权，请先登录";
+        };
+        return ResponseUtil.fail(message, 401);
     }
 
     /**
