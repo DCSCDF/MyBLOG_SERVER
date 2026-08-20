@@ -25,6 +25,8 @@ import cloud.tianai.captcha.validator.common.model.dto.ImageCaptchaTrack;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +72,7 @@ public class CaptchaController {
      */
     @PostMapping("/check")
     @RateLimit(count = 20, period = 1)
-    public Response<ApiResponse<?>> check(@RequestBody CheckRequest body) {
+    public Response<ApiResponse<?>> check(@Valid @RequestBody CheckRequest body) {
         try {
             ApiResponse<?> apiResponse = imageCaptchaApplication.matching(body.getId(), body.getData());
             if (apiResponse.isSuccess()) {
@@ -105,6 +107,7 @@ public class CaptchaController {
      */
     @Data
     public static class CheckRequest {
+        @NotBlank(message = "验证码ID不能为空")
         private String id;
         private ImageCaptchaTrack data;
     }

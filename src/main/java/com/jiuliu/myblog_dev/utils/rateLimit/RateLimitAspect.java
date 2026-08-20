@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import com.jiuliu.myblog_dev.utils.security.ClientIpUtil;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -51,9 +52,11 @@ public class RateLimitAspect {
     private ScheduledExecutorService cleanupScheduler;
 
     private final DynamicRateLimitService dynamicRateLimitService;
+    private final ClientIpUtil clientIpUtil;
 
-    public RateLimitAspect(DynamicRateLimitService dynamicRateLimitService) {
+    public RateLimitAspect(DynamicRateLimitService dynamicRateLimitService, ClientIpUtil clientIpUtil) {
         this.dynamicRateLimitService = dynamicRateLimitService;
+        this.clientIpUtil = clientIpUtil;
     }
 
     @PostConstruct
@@ -93,6 +96,16 @@ public class RateLimitAspect {
         if (count.incrementAndGet() > maxCount) {
             logRateLimit(ip, limitKey, getMethodSignature(joinPoint), maxCount, rateLimit.ipBased());
             throw new RateLimitException("请求过于频繁，请稍后再试");
+        }
+
+        // 动态限流：真实统计活跃请求数，供 DynamicRateLimitService 按并发压力调整阈值
+        if (rateLimit.dynamic()) {
+            dynamicRateLimitService.incrementActiveRequests();
+            try {
+                return joinPoint.proceed();
+            } finally {
+                dynamicRateLimitService.decrementActiveRequests();
+            }
         }
 
         return joinPoint.proceed();
@@ -158,18 +171,8 @@ public class RateLimitAspect {
     }
 
     private String getClientIpAddress(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            ip = ip.split(",")[0].trim();
-            log.debug("通过 X-Forwarded-For 获取IP: [ip={}]", ip);
-            return ip;
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            log.debug("通过 X-Real-IP 获取IP: [ip={}]", ip);
-            return ip;
-        }
-        ip = request.getRemoteAddr();
+        // 只信任可信代理来源的转发头，防止 X-Forwarded-For/X-Real-IP 伪造绕过限流
+        String ip = clientIpUtil.getClientIp(request);
         log.debug("获取IP: [ip={}]", ip);
         return ip;
     }

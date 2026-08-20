@@ -81,17 +81,14 @@
     "pages": 2,
     "filterOptions": {
       "isHidden": [
-        { "value": null, "label": "全部" },
         { "value": false, "label": "显示" },
         { "value": true, "label": "隐藏" }
       ],
       "isTop": [
-        { "value": null, "label": "全部" },
         { "value": false, "label": "不置顶" },
         { "value": true, "label": "置顶" }
       ],
       "isRecommend": [
-        { "value": null, "label": "全部" },
         { "value": false, "label": "不推荐" },
         { "value": true, "label": "推荐" }
       ]
@@ -111,7 +108,7 @@
 | id             | Long    | 文章ID                     |
 | categoryId     | Long    | 分类ID                     |
 | title          | String  | 文章标题                     |
-| summary        | String  | 文章摘要（为空时自动从HTML内容提取前50字） |
+| summary        | String  | 文章摘要（为空时自动从MD内容提取前100字符） |
 | coverImage     | String  | 封面图片URL                  |
 | tags           | String  | 标签（逗号分隔）                 |
 | commentCount   | Integer | 评论数（仅统计已通过的评论，包括子评论）                   |
@@ -187,7 +184,7 @@
 
 ### 3. 删除文章
 
-删除指定的文章（逻辑删除）。
+删除指定的文章（逻辑删除），同时**级联逻辑删除该文章下的全部评论**。
 
 - **请求方法**: `DELETE`
 - **请求路径**: `/api/global-article/{id}`
@@ -229,6 +226,6 @@
 ## 通用说明
 
 1. **权限说明**：全局文章管理接口可以管理所有用户的文章，无需检查文章作者
-2. **逻辑删除**：所有查询接口会自动过滤 `is_deleted=1` 的文章，删除操作会将 `is_deleted` 置为1
-3. **摘要提取**：如果文章摘要为空，会自动从HTML内容中提取纯文本并截取前50个字返回
+2. **逻辑删除**：所有查询接口会自动过滤 `is_deleted=1` 的文章，删除操作会将 `is_deleted` 置为1，并级联逻辑删除该文章的全部评论
+3. **摘要提取**：如果文章摘要为空，会自动从MD内容中提取纯文本并截取前100字符返回
 4. **排序规则**：文章列表默认按置顶状态降序，再按创建时间降序排列

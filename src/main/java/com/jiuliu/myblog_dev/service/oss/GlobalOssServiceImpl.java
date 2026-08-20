@@ -32,6 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
@@ -178,26 +180,39 @@ public class GlobalOssServiceImpl implements GlobalOssService {
 
         String objectName = imageRecord.getObjectName();
 
-        // 2. 删除 OSS 中的图片
-        com.aliyun.oss.OSS ossClient = ossConfig.getOssClient();
-        if (ossClient == null) {
-            log.error("图片删除失败：无法获取 OSS 客户端");
-            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
-        }
-
-        try {
-            ossClient.deleteObject(ossConfig.getBucket(), objectName);
-        } catch (Exception e) {
-            log.error("OSS 图片删除失败：{}", e.getMessage(), e);
-            return SaResult.error("删除 OSS 图片失败：" + e.getMessage()).setCode(500);
-        }
-
-        // 3. 删除数据库记录
+        // 2. 先删除数据库记录（事务内）
         try {
             sysOssImageMapper.deleteById(imageRecord.getId());
         } catch (Exception e) {
             log.error("数据库图片记录删除失败：{}", e.getMessage(), e);
-            return SaResult.error("OSS 图片已删除，但数据库记录删除失败").setCode(500);
+            return SaResult.error("图片删除失败，请稍后重试").setCode(500);
+        }
+
+        // 3. 远程 OSS 删除移出事务（afterCommit）：DB 回滚时不会误删远程对象；提交后再删，失败仅记日志留待对账清理
+        com.aliyun.oss.OSS ossClient = ossConfig.getOssClient();
+        if (ossClient == null) {
+            log.error("图片删除失败：无法获取 OSS 客户端，hash=[{}]", hash);
+            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
+        }
+
+        Runnable deleteRemote = () -> {
+            try {
+                ossClient.deleteObject(ossConfig.getBucket(), objectName);
+                log.info("OSS 对象已删除，objectName=[{}]", objectName);
+            } catch (Exception e) {
+                log.error("OSS 对象删除失败（已提交，需对账清理），objectName={}, error={}", objectName, e.getMessage(), e);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteRemote.run();
+                }
+            });
+        } else {
+            deleteRemote.run();
         }
 
         // 4. 清除缓存

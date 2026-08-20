@@ -17,6 +17,8 @@ package com.jiuliu.myblog_dev.controller.pubilc;
 import com.jiuliu.myblog_dev.config.business.OSSConfig;
 import com.jiuliu.myblog_dev.service.oss.ImageService;
 import com.jiuliu.myblog_dev.service.oss.ImageService.ImageMeta;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
+import com.jiuliu.myblog_dev.utils.security.ClientIpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -41,9 +43,11 @@ public class PublicImageController {
     private static final Logger log = LoggerFactory.getLogger(PublicImageController.class);
 
     private final ImageService imageService;
+    private final ClientIpUtil clientIpUtil;
 
-    public PublicImageController(ImageService imageService) {
+    public PublicImageController(ImageService imageService, ClientIpUtil clientIpUtil) {
         this.imageService = imageService;
+        this.clientIpUtil = clientIpUtil;
     }
 
     /**
@@ -60,6 +64,7 @@ public class PublicImageController {
      * @param request  HTTP 请求
      * @param response HTTP 响应
      */
+    @RateLimit(count = 120, period = 1, prefix = "public_image_get")
     @GetMapping("/{hash}")
     public void getImage(@PathVariable String hash,
                          @RequestParam(required = false, defaultValue = "lg") String size,
@@ -109,17 +114,9 @@ public class PublicImageController {
     }
 
     /**
-     * 获取客户端真实 IP
+     * 获取客户端真实 IP（仅信任可信代理来源的转发头，防止伪造）
      */
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip.split(",")[0].trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip;
-        }
-        return request.getRemoteAddr();
+        return clientIpUtil.getClientIp(request);
     }
 }

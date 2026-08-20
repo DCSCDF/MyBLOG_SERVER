@@ -21,6 +21,7 @@ import com.jiuliu.myblog_dev.entity.user.role.SysRole;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
 import com.jiuliu.myblog_dev.utils.security.PermissionOverlapHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -37,13 +38,16 @@ public class AuthenticationService implements StpInterface {
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
     private final SysPermissionGroupMapper sysPermissionGroupMapper;
+    private final SysRolePermissionMapper sysRolePermissionMapper;
 
     public AuthenticationService(SysRoleMapper sysRoleMapper,
                                  SysPermissionMapper sysPermissionMapper,
-                                 SysPermissionGroupMapper sysPermissionGroupMapper) {
+                                 SysPermissionGroupMapper sysPermissionGroupMapper,
+                                 SysRolePermissionMapper sysRolePermissionMapper) {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
+        this.sysRolePermissionMapper = sysRolePermissionMapper;
     }
 
     //缓存 实现前要确保变更角色的权限后要刷新缓存
@@ -74,7 +78,13 @@ public class AuthenticationService implements StpInterface {
         Set<String> resultCodes = new LinkedHashSet<>();
 
         for (SysRole role : roleList) {
-            // 通过权限组获取权限（动态计算，不再依赖 sys_role_permission 表）
+            // 超管角色：直接返回全部权限编码，保证始终有兜底全权限
+            if (Boolean.TRUE.equals(role.getSuperAdmin())) {
+                resultCodes.addAll(allPermissionCodes);
+                break;
+            }
+
+            // 权限来源一：通过权限组获取权限（动态计算）
             List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(role.getId());
             for (SysPermissionGroup group : groups) {
                 List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByGroupId(group.getId());
@@ -90,6 +100,22 @@ public class AuthenticationService implements StpInterface {
                             if (PermissionOverlapHelper.isParentOf(code, candidate)) {
                                 resultCodes.add(candidate);
                             }
+                        }
+                    }
+                }
+            }
+
+            // 权限来源二：直接分配给角色的权限（与角色管理界面展示口径一致，使其真正生效）
+            List<SysPermission> directPermissions = sysRolePermissionMapper.selectPermissionsByRoleId(role.getId());
+            for (SysPermission permission : directPermissions) {
+                String code = permission.getCode();
+                if (!StringUtils.hasText(code)) {
+                    continue;
+                }
+                if (resultCodes.add(code)) {
+                    for (String candidate : allPermissionCodes) {
+                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
+                            resultCodes.add(candidate);
                         }
                     }
                 }

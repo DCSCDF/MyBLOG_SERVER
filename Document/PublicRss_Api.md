@@ -49,7 +49,7 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
   <title>我的博客</title>
   <subtitle>分享技术与生活的博客</subtitle>
   <link href="https://example.com" rel="alternate" type="text/html"/>
-  <link href="https://example.com/rss" rel="self" type="application/atom+xml"/>
+  <link href="https://example.com/api/public/rss" rel="self" type="application/atom+xml"/>
   <id>urn:uuid:xxxxx</id>
   <updated>2026-03-29T10:30:00+08:00</updated>
   <entry>
@@ -97,7 +97,7 @@ RSS Feed 接口用于获取博客的最新文章列表，采用 Atom 1.0 标准�
   <title>张三 的文章 - 我的博客</title>
   <subtitle>张三 在 我的博客 上发布的文章</subtitle>
   <link href="https://example.com" rel="alternate" type="text/html"/>
-  <link href="https://example.com/rss?username=zhangsan" rel="self" type="application/atom+xml"/>
+  <link href="https://example.com/api/public/rss?username=zhangsan" rel="self" type="application/atom+xml"/>
   <id>urn:uuid:xxxxx</id>
   <updated>2026-03-29T10:30:00+08:00</updated>
   <entry>
@@ -205,6 +205,10 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 <error>RSS Feed 生成失败</error>
 ```
 
+#### 限流
+
+- `GET /api/public/rss` 按 IP 限流：500次/分钟
+
 ---
 
 ### 实现细节
@@ -240,6 +244,7 @@ curl -X GET "http://localhost:8080/api/public/rss" \
 |-----------|-------------------------------------------------|
 | title     | 不传 `username`：使用 `site.name` 配置，如无则使用 "My Blog"<br>传入 `username`：格式为 `{用户昵称} 的文章 - {site.name}` |
 | link      | 使用 `site.domain` 配置                              |
+| feed自引用(rel=self) | 格式为 `{site.domain}/api/public/rss`（传入 username 时带 `?username=` 参数） |
 | entry.title | 文章标题，原文输出                                  |
 | entry.link | 格式为 `{site.domain}/article/{articleId}`         |
 | entry.id  | UUID 格式: `urn:uuid:{hash}`                      |

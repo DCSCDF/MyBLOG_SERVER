@@ -4,6 +4,8 @@
 
 OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图片删除和图片获取功能。
 
+> **统一响应格式说明**：以下示例中出现的 `code/msg/data` 为简化写法，实际响应体为项目统一格式：`{ "data": ..., "success": true, "errorMsg": null, "code": 200 }`（错误时 `success=false`，`errorMsg` 为错误信息）。
+
 ---
 
 ## API 接口
@@ -52,7 +54,7 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 ```json
 {
   "code": 400,
-  "msg": "OSS 配置已完成，但无法连接到服务器：<具体错误信息>",
+  "msg": "OSS 配置已完成，但无法连接到服务器，请检查网络与配置",
   "data": null
 }
 ```
@@ -71,17 +73,18 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 ### 2. 上传图片
 
-上传图片到阿里云 OSS，支持格式校验和无损压缩。
+上传图片到阿里云 OSS，支持格式校验、像素上限校验和无损压缩。
 
 - **URL**: `POST /api/oss/upload`
 - **权限**: `oss:create`
+- **限流**: 每个IP每分钟最多20次
 - **Content-Type**: `multipart/form-data`
 
 #### 请求参数
 
 | 参数名 | 类型   | 必填 | 说明             |
 |------|------|----|----------------|
-| file | File | 是  | 图片文件（不超过 10MB） |
+| file | File | 是  | 图片文件（不超过 10MB，像素总量不超过 2500 万） |
 
 #### 支持的图片格式
 
@@ -137,7 +140,17 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 }
 ```
 
-**4. 权限不足**
+**4. 分辨率过高**
+
+```json
+{
+  "code": 400,
+  "msg": "图片分辨率过高，像素总量不能超过 2500 万",
+  "data": null
+}
+```
+
+**5. 权限不足**
 
 ```json
 {
@@ -189,10 +202,8 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
         "objectName": "images/2026/03/26/avatar_123_456_xxx.jpg",
         "fileSize": 102400,
         "createTime": "2026-03-26T10:30:00",
-        "thumbnailUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@t",
-        "smallUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@s",
-        "mediumUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@m",
-        "largeUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg@l",
+        "smallUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg?x-oss-process=image/resize,w_256,m_lfit",
+        "largeUrl": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg?x-oss-process=image/resize,w_1080,m_lfit",
         "url": "https://bucket.endpoint/images/2026/03/26/avatar_123_456_xxx.jpg"
       }
     ],
@@ -215,10 +226,8 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 | records[].objectName | String  | OSS对象名称（文件路径） |
 | records[].fileSize | Long    | 文件大小（字节）      |
 | records[].createTime | String  | 创建时间          |
-| records[].thumbnailUrl | String  | 缩略图 URL (200x200) |
-| records[].smallUrl | String  | 小图 URL (400x400) |
-| records[].mediumUrl | String  | 中图 URL (800x800) |
-| records[].largeUrl | String  | 大图 URL (1200x1200) |
+| records[].smallUrl | String  | 小图 URL（256px 宽，x-oss-process 实时缩放） |
+| records[].largeUrl | String  | 大图 URL（1080px 宽，x-oss-process 实时缩放） |
 | records[].url | String  | 原图 URL |
 | total           | Long    | 总记录数          |
 | size            | Long    | 每页数量          |
@@ -292,7 +301,8 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 
 - **URL**: `GET /api/images/{hash}`
 - **权限**: 无（公开接口）
-- **缓存**: 内存缓存 30 分钟，最大 1000 条
+- **限流**: 每个IP每分钟最多120次
+- **缓存**: 无服务端内存缓存（每次请求实时从 OSS 拉取），响应头设置 `Cache-Control: private, max-age=3600` 供浏览器缓存
 
 #### 路径参数
 
@@ -323,7 +333,7 @@ OSS 模块提供阿里云对象存储（OSS）连接测试、图片上传、图�
 返回图片二进制数据，响应头包含：
 - `Content-Type`: 图片 MIME 类型
 - `Content-Length`: 图片大小
-- `Cache-Control`: `no-cache, no-store, must-revalidate`
+- `Cache-Control`: `private, max-age=3600`（浏览器缓存1小时）
 
 #### 错误响应
 
@@ -495,6 +505,7 @@ OSS 配置从数据库动态加载，修改配置后系统会自动刷新，无�
 1. 文件扩展名是否在允许列表中
 2. 文件大小是否超过 10MB
 3. 文件头魔数是否匹配对应格式（防止伪装的恶意文件）
+4. **像素总量是否超过 2500 万**（解码前只读图片头部校验，防止"解压炸弹"OOM；无法解码的格式如 WebP 原样存储，不做服务端解码）
 
 ### 无损压缩
 
@@ -510,12 +521,12 @@ OSS 配置从数据库动态加载，修改配置后系统会自动刷新，无�
 - **大图 (lg)**: 1080px宽，适用于大图展示（默认）
 - **原图 (o)**: 不做任何处理，适用于下载/预览
 
-**URL 格式**:
+**URL 格式**（由 OSS 图片处理参数 x-oss-process 实现实时缩放）：
 
 ```
-大图: https://bucket.endpoint/{objectName}@lg
-小图: https://bucket.endpoint/{objectName}@sm
-原图: https://bucket.endpoint/{objectName}@o
+大图: https://bucket.endpoint/{objectName}?x-oss-process=image/resize,w_1080,m_lfit
+小图: https://bucket.endpoint/{objectName}?x-oss-process=image/resize,w_256,m_lfit
+原图: https://bucket.endpoint/{objectName}
 ```
 
 **API 调用示例**:
@@ -544,6 +555,8 @@ images/yyyy/MM/dd/新文件名.扩展名
 
 上传前会计算图片的 MD5 哈希值：
 - 如果哈希值已存在于数据库，说明图片已上传过，直接返回已有记录，不重复上传
+- 并发上传同一内容时（唯一索引冲突），会清理本次上传的临时对象并幂等返回已存在记录
+- 像素校验、格式校验不通过时直接拒绝，不上传
 
 ---
 
@@ -551,14 +564,9 @@ images/yyyy/MM/dd/新文件名.扩展名
 
 ### 公开图片获取缓存
 
-公开图片获取接口 (`/api/images/{hash}`) 使用本地内存缓存：
+公开图片获取接口 (`/api/images/{hash}`) **不做服务端内存缓存**：每次请求实时从 OSS 拉取并流式转发。
 
-- **缓存时间**: 30 分钟
-- **最大缓存数量**: 1000 条
-- **缓存命中**: 直接返回缓存数据，减少 OSS 请求
-- **缓存未命中**: 从 OSS 下载后存入缓存再返回
-
-浏览器也会对图片进行 30 分钟缓存（`Cache-Control: public, max-age=1800`）。
+浏览器缓存由响应头控制：`Cache-Control: private, max-age=3600`（1小时）。生产环境建议配合 CDN 或 Nginx 缓存降低 OSS 流量。
 
 ### 用户OSS列表缓存
 

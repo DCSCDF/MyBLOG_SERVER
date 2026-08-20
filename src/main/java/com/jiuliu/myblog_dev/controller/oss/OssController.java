@@ -22,14 +22,19 @@ import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
 import com.jiuliu.myblog_dev.dto.oss.PageUserOssResponseDTO;
 import com.jiuliu.myblog_dev.service.oss.OssService;
 import com.jiuliu.myblog_dev.service.oss.OssServiceImpl;
+import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/oss")
 public class OssController {
+
+    private static final Logger log = LoggerFactory.getLogger(OssController.class);
 
     private final OssService ossService;
 
@@ -57,6 +62,7 @@ public class OssController {
      * 响应中返回图片的 MD5 哈希值，前端可用于访问图片。</p>
      */
     @SaCheckPermission("oss:create")
+    @RateLimit(count = 20, period = 1, prefix = "oss_upload")
     @PostMapping("/upload")
     public Response<OssServiceImpl.ImageUploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file) {
@@ -73,7 +79,9 @@ public class OssController {
             SaResult result = ossService.uploadImage(fileName, bytes, contentType, userId);
             return handleSaResultWithData(result);
         } catch (Exception e) {
-            return ResponseUtil.fail("图片上传失败：" + e.getMessage(), 500);
+            // 内部异常细节只进日志，避免泄露 OSS/SMTP 等内部信息
+            log.error("图片上传异常：{}", e.getMessage(), e);
+            return ResponseUtil.fail("图片上传失败，请稍后重试", 500);
         }
     }
 

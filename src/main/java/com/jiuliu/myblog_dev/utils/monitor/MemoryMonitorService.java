@@ -167,7 +167,7 @@ public class MemoryMonitorService {
      */
     private void suggestGarbageCollection() {
         log.info("建议 JVM 进行垃圾回收...");
-        System.gc();
+        // explicit System.gc() removed: STW pause risk; rely on JVM args
     }
 
     /**

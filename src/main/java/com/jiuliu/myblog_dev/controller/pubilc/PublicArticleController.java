@@ -60,7 +60,7 @@ public class PublicArticleController {
      * POST /api/public/article/list
      * 无需登录，所有用户均可访问
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_article_list", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_article_list", ipBased = true)
     @PostMapping("/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticles(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticles(dto);
@@ -73,7 +73,7 @@ public class PublicArticleController {
      * 无需登录，所有用户均可访问
      * 仅返回超级管理员发布的公开文章
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_article_admin_list", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_article_admin_list", ipBased = true)
     @PostMapping("/admin/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByAdmin(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticlesByAdmin(dto);
@@ -86,7 +86,7 @@ public class PublicArticleController {
      * 无需登录，所有用户均可访问
      * 仅返回非超级管理员用户发布的公开文章
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_article_user_list", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_article_user_list", ipBased = true)
     @PostMapping("/user/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByUser(@Valid @RequestBody PagePublicArticleDTO dto) {
         SaResult saResult = publicArticleService.getPagePublicArticlesByUser(dto);
@@ -99,7 +99,7 @@ public class PublicArticleController {
      * 无需登录，所有用户均可访问
      * 隐藏或已删除的文章无法访问
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_article_detail", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_article_detail", ipBased = true)
     @GetMapping("/{id}")
     public Response<PublicArticleDetailResponseDTO> getPublicArticleDetail(@PathVariable Long id) {
         SaResult saResult = publicArticleService.getPublicArticleDetail(id);

@@ -16,7 +16,10 @@ package com.jiuliu.myblog_dev;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
+// 使用 test profile（H2 内存库），避免测试直接连接本机 MySQL
+@ActiveProfiles("test")
 @SpringBootTest
 class MyblogDevApplicationTests {
 

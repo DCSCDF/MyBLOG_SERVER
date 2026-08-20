@@ -52,6 +52,10 @@ public class PendingPasswordResetService {
         private String email;
         private String code;
         private LocalDateTime codeExpireTime;
+        /**
+         * 错误尝试次数（超过上限后验证码作废，防在线爆破）
+         */
+        private int attemptCount;
 
         public PendingPasswordReset() {
         }
@@ -146,9 +150,31 @@ public class PendingPasswordResetService {
         log.info("设置频率限制，identifier={}, expireTime={}", identifier, expireTime);
     }
 
+    /**
+     * 记录一次验证码错误尝试
+     *
+     * @param email 邮箱
+     * @return 累计错误次数；记录不存在或已过期时返回 -1
+     */
+    public int recordFailedAttempt(String email) {
+        String key = PENDING_RESET_PREFIX + email;
+        PendingPasswordReset reset = getPendingPasswordReset(email);
+        if (reset == null) {
+            return -1;
+        }
+        reset.setAttemptCount(reset.getAttemptCount() + 1);
+        long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), reset.getCodeExpireTime()).getSeconds();
+        if (ttlSeconds <= 0) {
+            saTokenDao.delete(key);
+            return -1;
+        }
+        saTokenDao.set(key, serialize(reset), ttlSeconds);
+        return reset.getAttemptCount();
+    }
+
     private String serialize(PendingPasswordReset reset) {
         return reset.getUserId() + "|" + reset.getUsername() + "|" + reset.getEmail() + "|" +
-                reset.getCode() + "|" + reset.getCodeExpireTime().toString();
+                reset.getCode() + "|" + reset.getCodeExpireTime().toString() + "|" + reset.getAttemptCount();
     }
 
     private PendingPasswordReset deserialize(String data) {
@@ -161,6 +187,9 @@ public class PendingPasswordResetService {
                 reset.setEmail(parts[2]);
                 reset.setCode(parts[3]);
                 reset.setCodeExpireTime(LocalDateTime.parse(parts[4]));
+                if (parts.length >= 6) {
+                    reset.setAttemptCount(Integer.parseInt(parts[5]));
+                }
                 return reset;
             }
         } catch (Exception e) {

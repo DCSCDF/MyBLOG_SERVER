@@ -26,7 +26,7 @@
 - **请求方法**: `GET`
 - **请求路径**: `/api/public/admin/info`
 - **是否需要登录**: 否
-- **限流**: 500次/分钟
+- **限流**: 500次/分钟（按 IP 计数）
 
 #### 请求参数
 
@@ -38,7 +38,7 @@
 {
   "data": {
     "nickname": "管理员",
-    "email": "admin@example.com",
+    "email": "a***@example.com",
     "avatarUrl": "https://example.com/avatar.png",
     "bio": "热爱技术，分享生活"
   },
@@ -53,7 +53,7 @@
 | 字段        | 类型     | 说明     |
 |-----------|--------|------|
 | nickname  | String | 昵称    |
-| email     | String | 邮箱    |
+| email     | String | 邮箱（已脱敏，如 `a***@example.com`，不会返回完整邮箱） |
 | avatarUrl | String | 头像URL |
 | bio       | String | 用户简介  |
 
@@ -87,5 +87,5 @@ curl -X GET "http://localhost:8080/api/public/admin/info"
 ## 注意事项
 
 1. **无需鉴权**: 该接口为公开接口，前端无需携带 token 即可访问
-2. **返回信息**: 返回的是超级管理员（admin）的公开信息，不包含敏感字段如密码、ID等
+2. **返回信息**: 返回的是超级管理员（admin）的公开信息，不包含敏感字段如密码、ID等；邮箱已脱敏（仅保留首尾字符）
 3. **限流保护**: 接口有频率限制，高并发场景下建议配合 CDN 使用

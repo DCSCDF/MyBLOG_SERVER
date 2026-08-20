@@ -26,6 +26,7 @@ import com.jiuliu.myblog_dev.dto.config.*;
 import com.jiuliu.myblog_dev.entity.config.SysConfig;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -33,6 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -43,6 +46,8 @@ import java.util.stream.Collectors;
 public class SysConfigServiceImpl implements SysConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(SysConfigServiceImpl.class);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * 系统配置缓存 - 缓存系统配置项，key为configKey，value为SysConfig对象
@@ -149,10 +154,16 @@ public class SysConfigServiceImpl implements SysConfigService {
             log.warn("创建自定义配置失败：配置键已存在，configKey={}", dto.getConfigKey());
             return SaResult.error("配置键已存在").setCode(400);
         }
+        String dataType = StringUtils.hasText(dto.getDataType()) ? dto.getDataType() : "string";
+        String validationError = validateConfigValue(dto.getConfigValue(), dataType, dto.getValidationRule());
+        if (validationError != null) {
+            log.warn("创建自定义配置失败：值校验不通过，configKey={}, error={}", dto.getConfigKey(), validationError);
+            return SaResult.error(validationError).setCode(400);
+        }
         SysConfig config = new SysConfig();
         config.setConfigKey(dto.getConfigKey());
         config.setConfigValue(dto.getConfigValue());
-        config.setDataType(StringUtils.hasText(dto.getDataType()) ? dto.getDataType() : "string");
+        config.setDataType(dataType);
         config.setValidationRule(dto.getValidationRule());
         config.setDescription(dto.getDescription());
         config.setIsSystem(0);
@@ -175,6 +186,14 @@ public class SysConfigServiceImpl implements SysConfigService {
             log.warn("修改配置失败：配置项不存在，configKey={}", dto.getConfigKey());
             return SaResult.error("配置项不存在").setCode(404);
         }
+
+        // 按 dataType/validationRule 校验配置值，非法值直接拒绝（不再静默入库后使用时才报错）
+        String validationError = validateConfigValue(dto.getConfigValue(), config.getDataType(), config.getValidationRule());
+        if (validationError != null) {
+            log.warn("修改配置失败：值校验不通过，configKey={}, error={}", dto.getConfigKey(), validationError);
+            return SaResult.error(validationError).setCode(400);
+        }
+
         LambdaUpdateWrapper<SysConfig> updateWrapper = new LambdaUpdateWrapper<SysConfig>()
                 .eq(SysConfig::getConfigKey, dto.getConfigKey())
                 .set(SysConfig::getConfigValue, dto.getConfigValue())
@@ -231,6 +250,90 @@ public class SysConfigServiceImpl implements SysConfigService {
 
         log.info("自定义配置项删除成功，id={}, configKey={}", id, config.getConfigKey());
         return SaResult.data("删除成功");
+    }
+
+    /**
+     * 按 dataType 与 validationRule 校验配置值
+     *
+     * @return 校验失败返回错误信息；通过返回 null（空值视为合法，允许清空）
+     */
+    private String validateConfigValue(String value, String dataType, String validationRule) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        String type = dataType != null ? dataType.toLowerCase() : "string";
+
+        switch (type) {
+            case "integer" -> {
+                try {
+                    Integer.parseInt(trimmed);
+                } catch (NumberFormatException e) {
+                    return "配置值必须是整数";
+                }
+            }
+            case "boolean" -> {
+                if (!"true".equalsIgnoreCase(trimmed) && !"false".equalsIgnoreCase(trimmed)
+                        && !"1".equals(trimmed) && !"0".equals(trimmed)) {
+                    return "配置值必须是 true 或 false";
+                }
+            }
+            case "email" -> {
+                if (!trimmed.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+                    return "配置值必须是有效的邮箱地址";
+                }
+            }
+            case "url" -> {
+                try {
+                    URL url = new URL(trimmed);
+                    String protocol = url.getProtocol();
+                    if (!"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol)) {
+                        return "配置值必须是有效的 http/https URL";
+                    }
+                } catch (MalformedURLException e) {
+                    return "配置值必须是有效的 URL";
+                }
+            }
+            case "json" -> {
+                try {
+                    OBJECT_MAPPER.readTree(trimmed);
+                } catch (Exception e) {
+                    return "配置值必须是合法的 JSON";
+                }
+            }
+            default -> {
+                // string / text：无内置类型校验
+            }
+        }
+
+        if (validationRule != null && !validationRule.isBlank()) {
+            String rule = validationRule.trim();
+            if (rule.startsWith("range=")) {
+                String[] parts = rule.substring("range=".length()).trim().split("-");
+                if (parts.length == 2) {
+                    try {
+                        long v = Long.parseLong(trimmed);
+                        long min = Long.parseLong(parts[0].trim());
+                        long max = Long.parseLong(parts[1].trim());
+                        if (v < min || v > max) {
+                            return "配置值必须在 " + min + " 到 " + max + " 之间";
+                        }
+                    } catch (NumberFormatException e) {
+                        return "配置值必须是整数";
+                    }
+                }
+            } else if (rule.startsWith("max_length=")) {
+                try {
+                    int maxLen = Integer.parseInt(rule.substring("max_length=".length()).trim());
+                    if (value.length() > maxLen) {
+                        return "配置值长度不能超过 " + maxLen + " 字符";
+                    }
+                } catch (NumberFormatException ignored) {
+                    // 规则格式非法时忽略该规则
+                }
+            }
+        }
+        return null;
     }
 
     /**

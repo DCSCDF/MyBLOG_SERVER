@@ -49,7 +49,7 @@ public class RssFeedController {
      * 
      * @param username 可选参数，指定用户名，只检索该用户的文章
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_rss_feed", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_rss_feed", ipBased = true)
     @GetMapping(produces = MediaType.APPLICATION_ATOM_XML_VALUE)
     public ResponseEntity<String> getRssFeed(@RequestParam(required = false) String username) {
         try {

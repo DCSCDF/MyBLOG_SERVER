@@ -67,10 +67,14 @@ public interface SysRolePermissionMapper extends BaseMapper<SysRolePermission> {
             // 方式2: 通过权限组获得的权限
             "  EXISTS (SELECT 1 FROM sys_role_permission_group rpg WHERE rpg.role_id = ur.role_id " +
             "          AND EXISTS (SELECT 1 FROM sys_permission_group_item pgi WHERE pgi.group_id = rpg.group_id " +
-            "                     AND EXISTS (SELECT 1 FROM sys_permission p WHERE p.id = pgi.permission_id AND p.code = #{permissionCode})))" +
+            "                     AND EXISTS (SELECT 1 FROM sys_permission p WHERE p.id = pgi.permission_id AND p.code = #{permissionCode}))" +
+            "          AND EXISTS (SELECT 1 FROM sys_permission_group g WHERE g.id = rpg.group_id AND g.status = 1 AND g.is_deleted = 0))" +
             ") " +
             "AND u.email IS NOT NULL " +
             "AND u.email != '' " +
-            "AND u.status = 1")
+            "AND u.status = 1 " +
+            // 仅统计未删除用户，且角色必须启用且未删除（与运行时鉴权口径一致）
+            "AND u.is_deleted = 0 " +
+            "AND EXISTS (SELECT 1 FROM sys_role r WHERE r.id = ur.role_id AND r.status = 1 AND r.is_deleted = 0)")
     List<String> selectUserEmailsByPermissionCode(String permissionCode);
 }

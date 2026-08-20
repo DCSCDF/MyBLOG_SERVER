@@ -14,6 +14,7 @@
 
 package com.jiuliu.myblog_dev.utils.monitor;
 
+import com.jiuliu.myblog_dev.utils.security.ClientIpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -44,6 +45,19 @@ public class MemoryMonitorAspect {
      * 内存紧急阈值：当可用内存低于总内存的 10% 时拒绝请求
      */
     private static final double CRITICAL_THRESHOLD = 0.10;
+
+    /**
+     * 连续采样次数要求：连续 N 次达到紧急阈值才拒绝，避免 GC 波动误杀正常请求
+     */
+    private static final int CRITICAL_STREAK_REQUIRED = 2;
+
+    private final ClientIpUtil clientIpUtil;
+
+    private volatile int criticalStreak = 0;
+
+    public MemoryMonitorAspect(ClientIpUtil clientIpUtil) {
+        this.clientIpUtil = clientIpUtil;
+    }
 
     /**
      * 监控验证码生成接口 - 内存密集型操作
@@ -83,13 +97,20 @@ public class MemoryMonitorAspect {
             log.debug("[{}] 内存状态: {} - 方法: {}", operationName, status, methodSignature);
         }
 
-        // 检查是否处于紧急状态
+        // 检查是否处于紧急状态（连续采样达到阈值才拒绝，带滞回避免误杀）
         if (status.availableRatio() < CRITICAL_THRESHOLD) {
-            log.error("[{}] 内存严重不足，拒绝请求! 状态: {} - 方法: {} - IP: {}",
-                    operationName, status, methodSignature, getClientIp());
-            throw new MemoryCriticalException(
-                    "系统内存不足，暂时无法处理请求，请稍后重试。当前可用内存: " +
-                            formatMemory(status.freeMemoryMB()) + "MB");
+            criticalStreak++;
+            if (criticalStreak >= CRITICAL_STREAK_REQUIRED) {
+                log.error("[{}] 内存严重不足，拒绝请求! 状态: {} - 方法: {} - IP: {}",
+                        operationName, status, methodSignature, getClientIp());
+                throw new MemoryCriticalException(
+                        "系统内存不足，暂时无法处理请求，请稍后重试。当前可用内存: " +
+                                formatMemory(status.freeMemoryMB()) + "MB");
+            }
+            log.warn("[{}] 内存紧张(第{}次采样)，状态: {} - 方法: {} - IP: {}",
+                    operationName, criticalStreak, status, methodSignature, getClientIp());
+        } else {
+            criticalStreak = 0;
         }
 
         // 检查是否需要警告
@@ -152,23 +173,13 @@ public class MemoryMonitorAspect {
     }
 
     /**
-     * 获取客户端 IP
+     * 获取客户端 IP（仅信任可信代理来源的转发头，防止伪造）
      */
     private String getClientIp() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes == null) {
             return "unknown";
         }
-        HttpServletRequest request = attributes.getRequest();
-
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip.split(",")[0].trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip;
-        }
-        return request.getRemoteAddr();
+        return clientIpUtil.getClientIp(attributes.getRequest());
     }
 }

@@ -50,6 +50,10 @@ public class ChangeEmailPendingService {
         private String newEmail;
         private String code;
         private LocalDateTime codeExpireTime;
+        /**
+         * 错误尝试次数（超过上限后验证码作废，防在线爆破）
+         */
+        private int attemptCount;
 
         public PendingEmailChange() {
         }
@@ -104,9 +108,31 @@ public class ChangeEmailPendingService {
         log.info("删除待变更邮箱信息，userId={}", userId);
     }
 
+    /**
+     * 记录一次验证码错误尝试
+     *
+     * @param userId 用户ID
+     * @return 累计错误次数；记录不存在或已过期时返回 -1
+     */
+    public int recordFailedAttempt(Long userId) {
+        String key = PENDING_KEY_PREFIX + userId;
+        PendingEmailChange pending = getPendingEmailChange(userId);
+        if (pending == null) {
+            return -1;
+        }
+        pending.setAttemptCount(pending.getAttemptCount() + 1);
+        long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), pending.getCodeExpireTime()).getSeconds();
+        if (ttlSeconds <= 0) {
+            saTokenDao.delete(key);
+            return -1;
+        }
+        saTokenDao.set(key, serialize(pending), ttlSeconds);
+        return pending.getAttemptCount();
+    }
+
     private String serialize(PendingEmailChange pending) {
         return pending.getUserId() + "|" + pending.getNewEmail() + "|" + pending.getCode() + "|" +
-                pending.getCodeExpireTime().toString();
+                pending.getCodeExpireTime().toString() + "|" + pending.getAttemptCount();
     }
 
     private PendingEmailChange deserialize(String data) {
@@ -118,6 +144,9 @@ public class ChangeEmailPendingService {
                 pending.setNewEmail(parts[1]);
                 pending.setCode(parts[2]);
                 pending.setCodeExpireTime(LocalDateTime.parse(parts[3]));
+                if (parts.length >= 5) {
+                    pending.setAttemptCount(Integer.parseInt(parts[4]));
+                }
                 return pending;
             }
         } catch (Exception e) {

@@ -98,10 +98,11 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleValidationException(MethodArgumentNotValidException e) {
+    public Response<Void> handleValidationException(MethodArgumentNotValidException e, HttpServletResponse response) {
         FieldError firstError = e.getBindingResult().getFieldError();
         String message = (firstError != null) ? firstError.getDefaultMessage() : "请求参数格式错误";
         log.warn("参数校验失败: {}", message);
+        response.setStatus(400);
         return ResponseUtil.fail(message, 400);
     }
 
@@ -110,8 +111,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleBusinessException(BusinessException e) {
+    public Response<Void> handleBusinessException(BusinessException e, HttpServletResponse response) {
         log.warn("业务异常: {} (code: {})", e.getMessage(), e.getCode());
+        int status = (e.getCode() >= 400 && e.getCode() < 600) ? e.getCode() : 400;
+        response.setStatus(status);
         return ResponseUtil.fail(e.getMessage(), e.getCode());
     }
 
@@ -120,8 +123,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleIllegalArgumentException(IllegalArgumentException e) {
+    public Response<Void> handleIllegalArgumentException(IllegalArgumentException e, HttpServletResponse response) {
         log.warn("业务参数错误: {}", e.getMessage());
+        response.setStatus(400);
         return ResponseUtil.fail(e.getMessage(), 400);
     }
 
@@ -132,12 +136,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NotLoginException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {
+    public Response<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request, HttpServletResponse response) {
         log.debug("未登录访问: {} {}", request.getMethod(), request.getRequestURI());
         String message = switch (e.getType()) {
             case NotLoginException.TOKEN_FREEZE, NotLoginException.TOKEN_TIMEOUT -> "登录已过期，请重新登录";
             default -> "未授权，请先登录";
         };
+        response.setStatus(401);
         return ResponseUtil.fail(message, 401);
     }
 
@@ -146,9 +151,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({NotRoleException.class, NotPermissionException.class})
     @SuppressWarnings("unused")
-    public Response<Void> handlePermissionDeniedException(Exception e, HttpServletRequest request) {
+    public Response<Void> handlePermissionDeniedException(Exception e, HttpServletRequest request, HttpServletResponse response) {
         log.warn("鉴权失败: {} {} {}", e.getClass().getSimpleName(),
                 request.getMethod(), request.getRequestURI());
+        response.setStatus(403);
         return ResponseUtil.fail("没有权限", 403);
     }
 
@@ -159,6 +165,7 @@ public class GlobalExceptionHandler {
     @SuppressWarnings("unused")
     public Response<Void> handleRateLimitException(RateLimitException e, HttpServletResponse response) {
         log.warn("触发限流: {}", e.getMessage());
+        response.setStatus(429);
         response.setHeader("Retry-After", "60"); // 建议 60 秒后重试
         return ResponseUtil.fail(e.getMessage(), 429); // HTTP 429 Too Many Requests
     }
@@ -168,8 +175,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DisabledException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleDisabledException(DisabledException e) {
+    public Response<Void> handleDisabledException(DisabledException e, HttpServletResponse response) {
         log.warn("接口被禁用: {}", e.getMessage());
+        int status = (e.getCode() >= 400 && e.getCode() < 600) ? e.getCode() : 503;
+        response.setStatus(status);
         return ResponseUtil.fail(e.getMessage(), e.getCode());
     }
 
@@ -181,6 +190,7 @@ public class GlobalExceptionHandler {
     @SuppressWarnings("unused")
     public Response<Void> handleMemoryCriticalException(MemoryCriticalException e, HttpServletResponse response) {
         log.error("内存严重不足，拒绝请求: {}", e.getMessage());
+        response.setStatus(503);
         response.setHeader("Retry-After", "30"); // 建议 30 秒后重试
         return ResponseUtil.fail(e.getMessage(), 503);
     }
@@ -190,8 +200,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleIllegalStateException(IllegalStateException e) {
+    public Response<Void> handleIllegalStateException(IllegalStateException e, HttpServletResponse response) {
         log.warn("非法状态: {}", e.getMessage());
+        response.setStatus(500);
         return ResponseUtil.fail("服务暂时不可用，请稍后再试", 500);
     }
 
@@ -200,22 +211,23 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DuplicateKeyException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleDuplicateKeyException(DuplicateKeyException e) {
+    public Response<Void> handleDuplicateKeyException(DuplicateKeyException e, HttpServletResponse response) {
         String msg = e.getMessage() != null ? e.getMessage() : "";
+        String clientMessage = "数据已存在，请勿重复提交";
         if (msg.contains("sys_role.code")) {
             log.warn("角色编码重复: {}", msg);
-            return ResponseUtil.fail("角色编码已存在", 400);
-        }
-        if (msg.contains("sys_permission.code")) {
+            clientMessage = "角色编码已存在";
+        } else if (msg.contains("sys_permission.code")) {
             log.warn("权限编码重复: {}", msg);
-            return ResponseUtil.fail("权限编码已存在", 400);
-        }
-        if (msg.contains("sys_permission_group") && msg.contains("name")) {
+            clientMessage = "权限编码已存在";
+        } else if (msg.contains("sys_permission_group") && msg.contains("name")) {
             log.warn("权限组名称重复: {}", msg);
-            return ResponseUtil.fail("权限组名称已存在", 400);
+            clientMessage = "权限组名称已存在";
+        } else {
+            log.warn("唯一约束冲突: {}", msg);
         }
-        log.warn("唯一约束冲突: {}", msg);
-        return ResponseUtil.fail("数据已存在，请勿重复提交", 400);
+        response.setStatus(400);
+        return ResponseUtil.fail(clientMessage, 400);
     }
 
     /**
@@ -223,10 +235,11 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+    public Response<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletResponse response) {
         Throwable cause = e.getMostSpecificCause();
         String message = cause.getMessage() != null ? cause.getMessage() : "请求数据格式错误";
         log.warn("JSON解析失败: {}", message);
+        response.setStatus(400);
         return ResponseUtil.fail("请求数据格式错误，请检查JSON格式", 400);
     }
 
@@ -235,13 +248,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({BadSqlGrammarException.class, DataAccessException.class})
     @SuppressWarnings("unused")
-    public Response<Void> handleDataAccessException(Exception e) {
+    public Response<Void> handleDataAccessException(Exception e, HttpServletResponse response) {
         Throwable root = getRootCause(e);
         String rootMsg = root != null && root.getMessage() != null ? root.getMessage() : "";
 
         // 常见：数据库不存在（Unknown database 'xxx'）
         if (root instanceof SQLSyntaxErrorException && rootMsg.contains("Unknown database")) {
             log.error("数据库不存在或无权限创建: {}", rootMsg);
+            response.setStatus(503);
             return ResponseUtil.fail("数据库未初始化：目标数据库不存在。请确认已创建数据库，或修改 spring.datasource.url 指向已存在的库", 503);
         }
 
@@ -249,6 +263,7 @@ public class GlobalExceptionHandler {
         if (root != null) {
             log.error("数据库访问异常: {}", root.getClass().getSimpleName());
         }
+        response.setStatus(503);
         return ResponseUtil.fail("数据库异常，请检查数据库连接与初始化状态", 503);
     }
 
@@ -261,9 +276,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @SuppressWarnings("unused")
     public void handleGeneralException(Exception e, HttpServletResponse response) {
-        // 记录异常类型和消息（不记录堆栈，除非调试）
-        log.error("系统异常: {}", e.getClass().getSimpleName());
-        log.error("异常消息: {}", e.getMessage());
+        // 记录完整堆栈，便于生产环境定位问题根因
+        log.error("系统异常: {}", e.getClass().getName(), e);
 
         // 直接写响应，绕过内容协商
         writeJsonResponse(response, 500, ResponseUtil.fail("当前服务暂时不可用，请稍后再试", 500));
@@ -274,8 +288,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
+    public Response<Void> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e, HttpServletResponse response) {
         log.warn("不支持的媒体类型: {}", e.getContentType());
+        response.setStatus(415);
         return ResponseUtil.fail("不支持的请求格式，请使用 application/json 格式", 400);
     }
 
@@ -285,7 +300,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleTypeMismatchException(MethodArgumentTypeMismatchException e,
-                                                      HttpServletRequest request) {
+                                                      HttpServletRequest request,
+                                                      HttpServletResponse response) {
         String paramName = e.getName();
         Object value = e.getValue();
         String invalidValue = value != null ? value.toString() : "null";
@@ -303,6 +319,7 @@ public class GlobalExceptionHandler {
         log.warn("无效值: '{}'", invalidValue);
         log.warn("期望类型: {}", targetType);
 
+        response.setStatus(400);
         return ResponseUtil.fail("参数格式错误，请检查请求参数", 400);
     }
 
@@ -371,16 +388,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleNoResourceFoundException(NoResourceFoundException ex,
-                                                         HttpServletRequest request) {
+                                                         HttpServletRequest request,
+                                                         HttpServletResponse response) {
         String resourcePath = ex.getResourcePath();
         if (isScannerOrNoiseRequest(resourcePath, request)) {
             log.debug("静态资源未命中(忽略): {} {}",
                     request != null ? request.getMethod() : "-",
                     resourcePath);
-            return ResponseUtil.fail("请求的资源不存在", 404);
+        } else {
+            log.warn("请求的资源不存在: {} {}",
+                    request != null ? request.getMethod() : "-", resourcePath);
         }
-        log.warn("请求的资源不存在: {} {}",
-                request != null ? request.getMethod() : "-", resourcePath);
+        response.setStatus(404);
         return ResponseUtil.fail("请求的资源不存在", 404);
     }
 
@@ -391,7 +410,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoHandlerFoundException.class)
     @SuppressWarnings("unused")
     public Response<Void> handleNoHandlerFoundException(NoHandlerFoundException ex,
-                                                        HttpServletRequest request) {
+                                                        HttpServletRequest request,
+                                                        HttpServletResponse response) {
         String path = ex.getRequestURL();
         try {
             int queryIdx = path.indexOf('?');
@@ -403,9 +423,10 @@ public class GlobalExceptionHandler {
         }
         if (isScannerOrNoiseRequest(path, request)) {
             log.debug("无处理器匹配(忽略): {} {}", ex.getHttpMethod(), path);
-            return ResponseUtil.fail("请求的资源不存在", 404);
+        } else {
+            log.warn("无处理器匹配: {} {}", ex.getHttpMethod(), path);
         }
-        log.warn("无处理器匹配: {} {}", ex.getHttpMethod(), path);
+        response.setStatus(404);
         return ResponseUtil.fail("请求的资源不存在", 404);
     }
 

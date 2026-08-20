@@ -105,6 +105,12 @@ public class PublicSeoServiceImpl implements PublicSeoService {
         }
     }
 
+    @Override
+    public void clearPublicSeoCache() {
+        seoCache.invalidateAll();
+        log.debug("公共SEO缓存已清除");
+    }
+
     /**
      * 构建缓存键
      */

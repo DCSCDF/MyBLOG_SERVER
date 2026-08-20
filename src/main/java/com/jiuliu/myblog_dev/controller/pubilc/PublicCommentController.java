@@ -22,6 +22,7 @@ import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 import com.jiuliu.myblog_dev.service.comment.PublicCommentService;
 import com.jiuliu.myblog_dev.utils.rateLimit.RateLimit;
 import com.jiuliu.myblog_dev.utils.response.ResponseUtil;
+import com.jiuliu.myblog_dev.utils.security.ClientIpUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -45,9 +46,11 @@ public class PublicCommentController {
     private static final Logger log = LoggerFactory.getLogger(PublicCommentController.class);
 
     private final PublicCommentService publicCommentService;
+    private final ClientIpUtil clientIpUtil;
 
-    public PublicCommentController(PublicCommentService publicCommentService) {
+    public PublicCommentController(PublicCommentService publicCommentService, ClientIpUtil clientIpUtil) {
         this.publicCommentService = publicCommentService;
+        this.clientIpUtil = clientIpUtil;
     }
 
     /**
@@ -63,19 +66,10 @@ public class PublicCommentController {
     }
 
     /**
-     * 获取客户端IP地址
+     * 获取客户端IP地址（仅信任可信代理来源的转发头，防止伪造）
      */
     private String getClientIpAddress(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            ip = ip.split(",")[0].trim();
-            return ip;
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-            return ip;
-        }
-        return request.getRemoteAddr();
+        return clientIpUtil.getClientIp(request);
     }
 
     /**

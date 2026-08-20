@@ -46,7 +46,7 @@ public class GlobalConfigController {
      * POST /api/public/config
      * 请求体示例：{ "keys": ["site.name", "site.logo"] }
      */
-    @RateLimit(count = 520, period = 1, prefix = "public_config_keys", ipBased = false)
+    @RateLimit(count = 520, period = 1, prefix = "public_config_keys", ipBased = true)
     @PostMapping
     public Response<List<ConfigItemResponseDTO>> getConfigByKeys(@Valid @RequestBody ConfigKeysDTO dto) {
         SaResult saResult = sysConfigService.getPublicConfigByKeys(dto.getKeys());
@@ -63,7 +63,7 @@ public class GlobalConfigController {
      * - siteDescription: 网站描述
      * - recordNumber: 备案号
      */
-    @RateLimit(count = 500, period = 1, prefix = "public_config_site_info", ipBased = false)
+    @RateLimit(count = 500, period = 1, prefix = "public_config_site_info", ipBased = true)
     @GetMapping("/site-info")
     public Response<SiteInfoDTO> getSiteInfo() {
         SaResult saResult = sysConfigService.getSiteInfo();

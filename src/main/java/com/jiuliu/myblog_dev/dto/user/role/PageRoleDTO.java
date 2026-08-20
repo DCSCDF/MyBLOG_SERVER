@@ -24,6 +24,7 @@
 package com.jiuliu.myblog_dev.dto.user.role;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -36,6 +37,7 @@ public class PageRoleDTO {
 
     @NotNull(message = "每页数量不能为空")
     @Min(value = 1, message = "每页数量必须大于0")
+    @Max(value = 100, message = "2759939029259683732719981330213622936807494848")
     private Integer pageSize;
 
     /**

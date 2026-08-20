@@ -93,10 +93,22 @@
             <artifactId>flexmark-ext-tables</artifactId>
             <version>0.64.8</version>
         </dependency>
+        <!-- IKAnalyzer + Lucene 3.6.2：被 utils/segment/ChineseSegmentUtil（中文分词）实际引用，暂保留 -->
         <dependency>
             <groupId>org.wltea</groupId>
             <artifactId>ik-analyzer</artifactId>
             <version>2012_u6</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>3.6.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analyzers</artifactId>
+            <version>3.6.2</version>
         </dependency>
 
         <dependency>
@@ -131,6 +143,7 @@
             <version>3.5.15</version>
         </dependency>
 
+        <!-- mybatis-plus-jsqlparser: 支撑 MyBatis-Plus 分页插件的 count 优化（JsqlParserCountOptimize），请勿删除 -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
@@ -203,7 +216,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
-            <version>3.1.5</version>
         </dependency>
 
         <dependency>
@@ -216,18 +228,6 @@
             <artifactId>annotations</artifactId>
             <version>26.0.2</version>
             <scope>compile</scope>
-        </dependency>
-
-        <!-- IKAnalyzer: 中文分词器 -->
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-core</artifactId>
-            <version>3.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers</artifactId>
-            <version>3.6.2</version>
         </dependency>
 
         <!-- OSS依赖-->
@@ -272,25 +272,8 @@
             <version>3.13.1</version>
         </dependency>
 
-        <!--
-        Optional dependency. Needed only if you deploy ImageIO plugins as part of a web app.
-        Make sure you add the IIOProviderContextListener to your web.xml, see above.
-        -->
-        <dependency>
-            <groupId>com.twelvemonkeys.servlet</groupId>
-            <artifactId>servlet</artifactId>
-            <version>3.13.1</version>
-        </dependency>
-
-        <!--
-        Or Jakarta version, for Servlet API 5.0
-        -->
-        <dependency>
-            <groupId>com.twelvemonkeys.servlet</groupId>
-            <artifactId>servlet</artifactId>
-            <version>3.13.1</version>
-            <classifier>jakarta</classifier>
-        </dependency>
+        <!-- 已移除 com.twelvemonkeys.servlet:servlet（普通 + jakarta 两行声明）：
+             项目为 Spring Boot 3（jakarta.servlet）且未注册 IIOProviderContextListener，两行均为冗余依赖 -->
 
     </dependencies>
 
@@ -304,13 +287,21 @@
                     <includeSystemScope>true</includeSystemScope>
                 </configuration>
             </plugin>
-            <!-- OWASP Dependency Check Plugin -->
+            <!-- OWASP Dependency Check Plugin（绑定 verify 阶段，CVSS>=7 才阻断；failOnError=false 保证离线/网络异常时不阻断构建） -->
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
                 <version>12.0.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
                 <configuration>
-                    <failBuildOnCVSS>0</failBuildOnCVSS>
+                    <failBuildOnCVSS>7</failBuildOnCVSS>
                     <failOnError>false</failOnError>
                 </configuration>
             </plugin>

@@ -36,6 +36,9 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+        // 强制覆盖 updateTime（不用 strictUpdateFill）
+        // 原因：strictUpdateFill 只在字段为 null 时填充；而 updateById 携带旧值显式写回时
+        // 会抑制 MySQL 的 ON UPDATE CURRENT_TIMESTAMP，导致 update_time 长期不刷新。
+        this.setFieldValByName("updateTime", LocalDateTime.now(), metaObject);
     }
 }

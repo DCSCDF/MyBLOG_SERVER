@@ -29,13 +29,17 @@ import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.mapper.config.SysConfigMapper;
 import com.jiuliu.myblog_dev.mapper.user.SysUserMapper;
+import com.jiuliu.myblog_dev.service.blog.GlobalArticleService;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -78,19 +82,22 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     private final MailService mailService;
     private final SysConfigMapper sysConfigMapper;
     private final PublicArticleService publicArticleService;
+    private final GlobalArticleService globalArticleService;
 
     private static final String KEY_SITE_DOMAIN = "site.domain";
 
     public GlobalCommentServiceImpl(SysCommentMapper commentMapper, SysBlogMapper blogMapper,
                                     SysUserMapper userMapper, MailService mailService,
                                     SysConfigMapper sysConfigMapper,
-                                    PublicArticleService publicArticleService) {
+                                    PublicArticleService publicArticleService,
+                                    GlobalArticleService globalArticleService) {
         this.commentMapper = commentMapper;
         this.blogMapper = blogMapper;
         this.userMapper = userMapper;
         this.mailService = mailService;
         this.sysConfigMapper = sysConfigMapper;
         this.publicArticleService = publicArticleService;
+        this.globalArticleService = globalArticleService;
     }
 
     @Override
@@ -160,7 +167,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 如果是子评论，检查父评论链是否都通过审核
         if (existing.getParentId() != null && existing.getParentId() != 0) {
-            if (areAllParentCommentsApproved(existing)) {
+            if (hasUnapprovedParentComment(existing)) {
                 // 父评论链中有未通过的评论，子评论只能是待审核状态且无法修改内容
                 log.warn("全局更新评论失败：父评论链中存在未通过的评论，commentId={}", dto.getId());
                 return SaResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
@@ -172,12 +179,17 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
                 .eq(SysComment::getId, dto.getId());
 
         if (dto.getContent() != null && StringUtils.hasText(dto.getContent())) {
-            updateWrapper.set(SysComment::getContent, dto.getContent().trim());
+            // 编辑路径同样走 HTML 白名单净化，防止存储型 XSS
+            updateWrapper.set(SysComment::getContent, HtmlUtil.sanitize(dto.getContent().trim()));
         }
 
         if (dto.getWebsite() != null) {
-            // 支持传空字符串清空网站
+            // 支持传空字符串清空网站；非空时必须为 http/https 协议
             String website = dto.getWebsite().trim();
+            if (!website.isEmpty() && isUrlInvalid(website)) {
+                log.warn("全局更新评论失败：网站URL格式无效，id={}, website={}", dto.getId(), website);
+                return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+            }
             updateWrapper.set(SysComment::getWebsite, website.isEmpty() ? null : website);
         }
 
@@ -191,6 +203,9 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 清除缓存
         clearGlobalCommentCache(dto.getId());
+
+        // 全局文章列表缓存同步失效（评论内容/网站变更影响列表展示）
+        globalArticleService.clearGlobalArticleCache();
 
         SysComment updated = commentMapper.selectById(dto.getId());
         return SaResult.data(toResponseDTO(updated));
@@ -209,8 +224,8 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         Long blogId = existing.getBlogId();
         boolean wasApproved = (existing.getStatus() != null && existing.getStatus() == 1);
 
-        // 级联删除：先删除所有子评论（递归）
-        deleteChildComments(commentId);
+        // 级联删除：先删除所有子评论（递归），返回被级联删除的已通过评论数
+        int deletedApprovedChildren = deleteChildComments(commentId, blogId);
 
         // 逻辑删除：设置 is_deleted = 1
         commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
@@ -220,18 +235,21 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         log.info("全局评论删除成功，id={}", commentId);
 
-        // 如果删除的是已通过的评论，更新文章的评论数
-        if (wasApproved && blogId != null) {
+        // 更新文章的评论数（被删评论 + 级联删除的已通过子评论，统一按 status=1 口径扣减）
+        int approvedDeleted = (wasApproved ? 1 : 0) + deletedApprovedChildren;
+        if (approvedDeleted > 0 && blogId != null) {
             blogMapper.update(null,
                     new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
                             .eq(SysBlog::getId, blogId)
-                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
+                            .setSql("comment_count = GREATEST(comment_count - " + approvedDeleted + ", 0)")
             );
-            log.info("文章评论数已减少（删除评论），blogId={}", blogId);
+            log.info("文章评论数已减少（删除评论），blogId={}, 扣减数={}", blogId, approvedDeleted);
         }
 
         // 清除公共文章缓存
         publicArticleService.clearPublicArticleCache();
+        // 全局文章列表缓存同步失效（评论数变化）
+        globalArticleService.clearGlobalArticleCache();
 
         // 清除缓存
         clearGlobalCommentCache(commentId);
@@ -240,18 +258,23 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     }
 
     /**
-     * 递归删除子评论
+     * 递归删除子评论，返回被删除的已通过（status=1）子评论数量
      */
-    private void deleteChildComments(Long parentId) {
+    private int deleteChildComments(Long parentId, Long blogId) {
         // 查询所有直接子评论
         List<SysComment> childComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
                         .eq(SysComment::getParentId, parentId)
         );
 
+        int approvedCount = 0;
         for (SysComment child : childComments) {
             // 递归删除子评论的子评论
-            deleteChildComments(child.getId());
+            approvedCount += deleteChildComments(child.getId(), blogId);
+            // 统计已通过的子评论（级联删除时同样扣减文章评论数）
+            if (child.getStatus() != null && child.getStatus() == 1) {
+                approvedCount++;
+            }
             // 逻辑删除子评论
             commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
                     .eq(SysComment::getId, child.getId())
@@ -260,6 +283,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             clearGlobalCommentCache(child.getId());
             log.info("子评论级联删除成功，id={}", child.getId());
         }
+        return approvedCount;
     }
 
     @Override
@@ -278,7 +302,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 如果要设为已通过(1)或垃圾评论(2)，需要检查所有父评论是否都为通过状态
         if (newStatus == 1 || newStatus == 2) {
-            if (areAllParentCommentsApproved(existing)) {
+            if (hasUnapprovedParentComment(existing)) {
                 log.warn("审核评论失败：存在未通过的父评论链，commentId={}", commentId);
                 return SaResult.error("存在未通过的父评论，无法将状态设为已通过或垃圾评论").setCode(400);
             }
@@ -296,7 +320,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 记录原状态，用于更新评论数和判断是否需要发送通知
         Byte oldStatus = existing.getStatus();
-        boolean shouldUpdateCommentCount = (oldStatus != null && oldStatus == 1 && (newStatus == 0 || newStatus == 2));
+        boolean wasApproved = (oldStatus != null && oldStatus == 1);
         boolean statusActuallyChanged = (oldStatus == null || oldStatus != newStatus.byteValue());
 
         // 更新评论状态
@@ -306,56 +330,61 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
                 .set(SysComment::getUpdateTime, LocalDateTime.now()));
 
         // 如果父评论被设为待审核(0)或垃圾评论(2)，子评论也要设为待审核
+        int demotedApprovedChildren = 0;
         if (newStatus == 0 || newStatus == 2) {
-            updateChildCommentsStatus(commentId, (byte) 0);
+            demotedApprovedChildren = updateChildCommentsStatus(commentId, (byte) 0);
         }
 
         log.info("评论审核状态变更成功，id={}, 新状态={}", commentId, newStatus);
 
-        // 更新文章的评论数（仅当评论从已通过变为未通过时需要减少）
-        if (shouldUpdateCommentCount && existing.getBlogId() != null) {
-            blogMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
-                            .eq(SysBlog::getId, existing.getBlogId())
-                            .setSql("comment_count = GREATEST(comment_count - 1, 0)")
-            );
-            log.info("文章评论数已减少，blogId={}", existing.getBlogId());
+        // 更新文章的评论数（统一按 status=1 口径：未通过→通过 +1，通过→未通过 -1，级联降级的已通过子评论同步扣减）
+        int countDelta = 0;
+        if (!wasApproved && newStatus == 1) {
+            countDelta = 1;
+        } else if (wasApproved && newStatus != 1) {
+            countDelta = -1;
+        }
+        countDelta -= demotedApprovedChildren;
+        if (countDelta != 0 && existing.getBlogId() != null) {
+            if (countDelta > 0) {
+                blogMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
+                                .eq(SysBlog::getId, existing.getBlogId())
+                                .setSql("comment_count = comment_count + " + countDelta)
+                );
+            } else {
+                blogMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
+                                .eq(SysBlog::getId, existing.getBlogId())
+                                .setSql("comment_count = GREATEST(comment_count - " + (-countDelta) + ", 0)")
+                );
+            }
+            log.info("文章评论数已更新，blogId={}, delta={}", existing.getBlogId(), countDelta);
         }
 
         // 清除公共文章缓存
         publicArticleService.clearPublicArticleCache();
+        // 全局文章列表缓存同步失效（评论数变化）
+        globalArticleService.clearGlobalArticleCache();
 
         // 清除缓存
         clearGlobalCommentCache(commentId);
 
-        // 发送邮件通知（仅在状态实际变更时）
+        // 发送邮件通知（仅在状态实际变更时；移出事务在提交后执行，避免 SMTP 阻塞占用数据库连接）
         if (statusActuallyChanged) {
-            if (newStatus == 1) {
-                boolean sent = sendCommentNotification(existing, true);
-                log.debug("评论审核通知发送结果，commentId={}, sent={}", existing.getId(), sent);
-
-                Set<String> notifiedEmails = new HashSet<>();
-
-                if (isTopLevelAndApproving && blogForNotification != null) {
-                    boolean authorSent = sendTopLevelCommentApprovedNotificationToAuthor(existing, blogForNotification);
-                    if (authorSent) {
-                        notifiedEmails.add(getAuthorEmail(blogForNotification));
+            SysComment commentSnapshot = existing;
+            SysBlog blogSnapshot = blogForNotification;
+            boolean topLevelSnapshot = isTopLevelAndApproving;
+            Integer newStatusSnapshot = newStatus;
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        sendApprovalNotifications(commentSnapshot, blogSnapshot, topLevelSnapshot, newStatusSnapshot);
                     }
-                    log.debug("文章作者通知发送结果，commentId={}, sent={}", existing.getId(), authorSent);
-                }
-
-                if (existing.getParentId() != null && existing.getParentId() != 0) {
-                    String parentEmail = getParentCommentEmail(existing);
-                    if (parentEmail != null && !notifiedEmails.contains(parentEmail)) {
-                        boolean replySent = sendReplyNotificationToParent(existing);
-                        log.debug("评论回复通知发送结果，parentId={}, sent={}", existing.getParentId(), replySent);
-                    } else {
-                        log.debug("评论回复通知跳过：父评论作者已收到其他通知，parentId={}", existing.getParentId());
-                    }
-                }
-            } else if (newStatus == 2) {
-                boolean sent = sendCommentNotification(existing, false);
-                log.debug("评论未通过通知发送结果，commentId={}, sent={}", existing.getId(), sent);
+                });
+            } else {
+                sendApprovalNotifications(commentSnapshot, blogSnapshot, topLevelSnapshot, newStatusSnapshot);
             }
         } else {
             log.debug("评论状态未变更，跳过邮件通知，commentId={}, oldStatus={}, newStatus={}",
@@ -364,6 +393,45 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         SysComment updated = commentMapper.selectById(commentId);
         return SaResult.data(toResponseDTO(updated));
+    }
+
+    /**
+     * 发送审核结果相关邮件通知（管理员通知 / 文章作者通知 / 父评论作者回复通知）
+     * 事务提交后执行
+     */
+    private void sendApprovalNotifications(SysComment comment, SysBlog blogForNotification,
+                                           boolean isTopLevelAndApproving, Integer newStatus) {
+        try {
+            if (newStatus == 1) {
+                boolean sent = sendCommentNotification(comment, true);
+                log.debug("评论审核通知发送结果，commentId={}, sent={}", comment.getId(), sent);
+
+                Set<String> notifiedEmails = new HashSet<>();
+
+                if (isTopLevelAndApproving && blogForNotification != null) {
+                    boolean authorSent = sendTopLevelCommentApprovedNotificationToAuthor(comment, blogForNotification);
+                    if (authorSent) {
+                        notifiedEmails.add(getAuthorEmail(blogForNotification));
+                    }
+                    log.debug("文章作者通知发送结果，commentId={}, sent={}", comment.getId(), authorSent);
+                }
+
+                if (comment.getParentId() != null && comment.getParentId() != 0) {
+                    String parentEmail = getParentCommentEmail(comment);
+                    if (parentEmail != null && !notifiedEmails.contains(parentEmail)) {
+                        boolean replySent = sendReplyNotificationToParent(comment);
+                        log.debug("评论回复通知发送结果，parentId={}, sent={}", comment.getParentId(), replySent);
+                    } else {
+                        log.debug("评论回复通知跳过：父评论作者已收到其他通知，parentId={}", comment.getParentId());
+                    }
+                }
+            } else if (newStatus == 2) {
+                boolean sent = sendCommentNotification(comment, false);
+                log.debug("评论未通过通知发送结果，commentId={}, sent={}", comment.getId(), sent);
+            }
+        } catch (Exception e) {
+            log.error("发送审核通知邮件异常，commentId={}", comment.getId(), e);
+        }
     }
 
     /**
@@ -611,10 +679,10 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     }
 
     /**
-     * 检查所有父评论是否都为通过状态
-     * 递归向上查找所有父评论，如果有任意一个父评论不是已通过状态(1)，返回false
+     * 检查父评论链中是否存在未通过的评论（注意：方法名与实现一致，返回 true 表示存在未通过父评论）
+     * 递归向上查找所有父评论，如果有任意一个父评论不是已通过状态(1)，返回 true
      */
-    private boolean areAllParentCommentsApproved(SysComment comment) {
+    private boolean hasUnapprovedParentComment(SysComment comment) {
         Long parentId = comment.getParentId();
 
         while (parentId != null && parentId != 0) {
@@ -622,7 +690,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             if (parentComment == null) {
                 break;
             }
-            // 如果父评论不是已通过状态，返回false
+            // 如果父评论不是已通过状态，返回 true
             if (parentComment.getStatus() != 1) {
                 return true;
             }
@@ -633,15 +701,19 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     }
 
     /**
-     * 递归更新子评论状态
+     * 递归更新子评论状态，返回被降级（原 status=1）的子评论数量，用于同步扣减文章评论数
      */
-    private void updateChildCommentsStatus(Long parentId, byte status) {
+    private int updateChildCommentsStatus(Long parentId, byte status) {
         List<SysComment> childComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
                         .eq(SysComment::getParentId, parentId)
         );
 
+        int demotedApprovedCount = 0;
         for (SysComment child : childComments) {
+            if (child.getStatus() != null && child.getStatus() == 1) {
+                demotedApprovedCount++;
+            }
             commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
                     .eq(SysComment::getId, child.getId())
                     .set(SysComment::getStatus, status)
@@ -649,8 +721,9 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             clearGlobalCommentCache(child.getId());
             log.info("子评论状态联动更新，id={}, 新状态={}", child.getId(), status);
             // 递归处理子评论的子评论
-            updateChildCommentsStatus(child.getId(), status);
+            demotedApprovedCount += updateChildCommentsStatus(child.getId(), status);
         }
+        return demotedApprovedCount;
     }
 
     /**
@@ -713,6 +786,22 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         }
 
         return dto;
+    }
+
+    /**
+     * 验证 URL 协议是否为 http/https
+     */
+    private boolean isUrlInvalid(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            java.net.URL parsedUrl = new java.net.URL(url);
+            String protocol = parsedUrl.getProtocol();
+            return !"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol);
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     /**

@@ -541,7 +541,7 @@ public class MailServiceImpl implements MailService {
             return SaResult.ok("邮件发送成功");
         } catch (MessagingException e) {
             log.error("发送邮件失败：邮件消息构建异常，to={}, error={}", to, e.getMessage());
-            return SaResult.error("邮件消息构建失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("邮件消息构建失败，请稍后重试").setCode(500);
         } catch (MailException e) {
             log.error("发送邮件失败：邮件发送异常，to={}, error={}", to, e.getMessage());
             String errorMsg = e.getMessage();
@@ -551,7 +551,8 @@ public class MailServiceImpl implements MailService {
             return SaResult.error("邮件发送失败：未知错误").setCode(500);
         } catch (Exception e) {
             log.error("发送邮件失败：未知异常，to={}, error={}", to, e.getMessage());
-            return SaResult.error("邮件发送失败：" + e.getMessage()).setCode(500);
+            // 内部异常细节只进日志，避免 SMTP 主机/协议栈信息泄露给客户端
+            return SaResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
         }
     }
 
@@ -591,7 +592,7 @@ public class MailServiceImpl implements MailService {
             return SaResult.ok("成功发送通知给 " + validEmails.size() + " 位管理员");
         } catch (MessagingException e) {
             log.error("BCC 邮件发送失败：邮件消息构建异常，error={}", e.getMessage());
-            return SaResult.error("邮件消息构建失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("邮件消息构建失败，请稍后重试").setCode(500);
         } catch (MailException e) {
             log.error("BCC 邮件发送失败：邮件发送异常，error={}", e.getMessage());
             String errorMsg = e.getMessage();
@@ -601,7 +602,8 @@ public class MailServiceImpl implements MailService {
             return SaResult.error("邮件发送失败：未知错误").setCode(500);
         } catch (Exception e) {
             log.error("BCC 邮件发送失败：未知异常，error={}", e.getMessage());
-            return SaResult.error("邮件发送失败：" + e.getMessage()).setCode(500);
+            // 内部异常细节只进日志，避免 SMTP 主机/协议栈信息泄露给客户端
+            return SaResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
         }
     }
 
@@ -633,6 +635,7 @@ public class MailServiceImpl implements MailService {
         if (errorMsg.contains("must be same as authorization user")) {
             return SaResult.error("邮件发送失败：发件人邮箱必须与 SMTP 用户名一致，请检查 SMTP 发件人配置").setCode(500);
         }
-        return SaResult.error("邮件发送失败：" + errorMsg).setCode(500);
+        // 未分类的 SMTP 错误：不返回原始消息，避免内部信息泄露
+        return SaResult.error("邮件发送失败，请检查 SMTP 配置").setCode(500);
     }
 }

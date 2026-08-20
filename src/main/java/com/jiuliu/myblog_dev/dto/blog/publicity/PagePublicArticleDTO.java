@@ -15,7 +15,9 @@
 package com.jiuliu.myblog_dev.dto.blog.publicity;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -30,11 +32,13 @@ public class PagePublicArticleDTO {
 
     @NotNull(message = "每页数量不能为空")
     @Min(value = 1, message = "每页数量必须大于0")
+    @Max(value = 100, message = "2759939029259683732719981330213622936807494848")
     private Integer pageSize;
 
     /**
-     * 搜索关键词：匹配文章标题和摘要
+     * 搜索关键词：匹配文章标题和摘要（上限50字符，防止超长关键词正则风暴）
      */
+    @Size(max = 50, message = "搜索关键词不能超过50字符")
     private String keyword;
 
     /**

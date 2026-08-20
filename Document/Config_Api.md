@@ -290,6 +290,19 @@
 }
 ```
 
+**配置值校验不通过**（按 `dataType`/`validationRule` 校验）
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "配置值必须是整数",
+    "code": 400
+}
+```
+
+> **值校验说明**：修改/创建配置时会按配置项的 `dataType` 校验（string/boolean/integer/json/email/url/text），并执行 `validationRule` 规则（如 `range=1-65535`、`max_length=100`）。非法值直接返回 400，不再静默入库。空值视为合法（允许清空）。
+
 #### 权限不足响应
 
 ```json
@@ -386,6 +399,8 @@
 3. **修改范围**：所有修改接口仅更新 `config_value`，不修改 `config_key`、`data_type`、`validation_rule`、`description` 等字段。
 
 4. **删除标识**：删除自定义配置时需使用列表接口返回的 `id`，确保仅删除非系统内置项；若误传系统内置配置的 id，将返回「系统内置配置项不可删除」。
+
+5. **值校验**：修改/创建配置时按 `dataType` 与 `validationRule` 校验配置值（如 `smtp.port` 必须为 1-65535 整数、`boolean` 类型仅接受 true/false），非法值返回 400。
 
 ---
 

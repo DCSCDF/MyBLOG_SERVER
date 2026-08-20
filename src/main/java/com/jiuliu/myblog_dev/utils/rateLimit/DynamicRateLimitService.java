@@ -102,6 +102,20 @@ public class DynamicRateLimitService {
 
 
     /**
+     * 活跃请求数 +1（由限流切面在放行请求时调用）
+     */
+    public void incrementActiveRequests() {
+        activeRequests.incrementAndGet();
+    }
+
+    /**
+     * 活跃请求数 -1（由限流切面在请求结束时调用）
+     */
+    public void decrementActiveRequests() {
+        activeRequests.decrementAndGet();
+    }
+
+    /**
      * 获取有效限流阈值（考虑当前活跃请求数）
      */
     public int getEffectiveRateLimit() {

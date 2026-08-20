@@ -6,6 +6,8 @@
 
 所有SEO配置接口均需要登录，且需在请求 header 中携带 token，格式为：`{tokenName: tokenValue}`（tokenName 默认为 token，可在 application.properties 中修改）。
 
+> **接口状态**：当前全部 5 个管理端 SEO 接口（列表/详情/创建/修改/删除）以及公共 SEO 接口均被 `@Disabled` 注解禁用，调用将返回 503「接口被禁用」。若需启用，请移除 `SeoController`/`PublicSeoController` 上的 `@Disabled` 注解（同时注意后台修改 SEO 后公共 SEO 缓存已联动失效，无需额外处理）。
+
 系统内置的SEO配置（`isSystem=true`）可以编辑，但不可删除。非系统内置的可进行编辑和删除操作。
 
 **页面类型说明**：

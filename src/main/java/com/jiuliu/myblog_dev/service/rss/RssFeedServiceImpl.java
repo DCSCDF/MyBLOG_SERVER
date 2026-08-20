@@ -89,20 +89,23 @@ public class RssFeedServiceImpl implements RssFeedService {
 
         Object lock = generationLocks.computeIfAbsent(cacheKey, k -> new Object());
         synchronized (lock) {
-            cachedResponse = rssCache.getIfPresent(cacheKey);
-            if (cachedResponse != null) {
-                log.debug("RSS Feed二次缓存命中，username={}，共 {} 篇文章", username, cachedResponse.getArticleCount());
-                generationLocks.remove(cacheKey);
-                return cachedResponse;
-            }
+            try {
+                cachedResponse = rssCache.getIfPresent(cacheKey);
+                if (cachedResponse != null) {
+                    log.debug("RSS Feed二次缓存命中，username={}，共 {} 篇文章", username, cachedResponse.getArticleCount());
+                    return cachedResponse;
+                }
 
-            RssFeedResponseDTO response = generateRssFeedInternal(username);
-            
-            rssCache.put(cacheKey, response);
-            generationLocks.remove(cacheKey);
-            
-            log.info("RSS Feed生成成功并缓存，username={}，共 {} 篇文章", username, response.getArticleCount());
-            return response;
+                RssFeedResponseDTO response = generateRssFeedInternal(username);
+
+                rssCache.put(cacheKey, response);
+
+                log.info("RSS Feed生成成功并缓存，username={}，共 {} 篇文章", username, response.getArticleCount());
+                return response;
+            } finally {
+                // 无论成功失败都移除锁，避免异常路径锁泄漏
+                generationLocks.remove(cacheKey);
+            }
         }
     }
     
@@ -198,10 +201,11 @@ public class RssFeedServiceImpl implements RssFeedService {
         }
 
         feed.setLink(siteUrl);
+        // 自引用 URI 指向真实接口路径（/api/public/rss），避免订阅器按 self-link 回访 404
         if (targetUser != null) {
-            feed.setUri(siteUrl + "/rss?username=" + targetUser.getUsername());
+            feed.setUri(siteUrl + "/api/public/rss?username=" + targetUser.getUsername());
         } else {
-            feed.setUri(siteUrl + "/rss");
+            feed.setUri(siteUrl + "/api/public/rss");
         }
 
         // 生成时间
@@ -240,7 +244,7 @@ public class RssFeedServiceImpl implements RssFeedService {
             entry.setDescription(description);
 
             // 文章完整内容（HTML格式）
-            String fullContent = buildFullContent(article, siteUrl);
+            String fullContent = buildFullContent(article, siteUrl, authorMap);
             SyndContent content = new SyndContentImpl();
             content.setType("html");
             content.setValue(fullContent);
@@ -297,9 +301,13 @@ public class RssFeedServiceImpl implements RssFeedService {
             summary.append(article.getSummary());
         }
 
-        // 如果没有摘要，从内容中提取
+        // 如果没有摘要，从内容中提取（先截断再剥离标签，控制正则开销）
         if (summary.isEmpty() && article.getContent() != null) {
-            String plainText = MarkdownUtil.stripMdTags(article.getContent());
+            String content = article.getContent();
+            if (content.length() > 5000) {
+                content = content.substring(0, 5000);
+            }
+            String plainText = MarkdownUtil.stripMdTags(content);
             summary.append(plainText);
         }
 
@@ -310,13 +318,14 @@ public class RssFeedServiceImpl implements RssFeedService {
     /**
      * 构建文章完整内容（HTML格式）
      */
-    private String buildFullContent(SysBlog article, String siteUrl) {
+    private String buildFullContent(SysBlog article, String siteUrl, Map<Long, String> authorMap) {
         StringBuilder content = new StringBuilder();
 
         // 构建文章元信息
         content.append("<div style='margin-bottom: 20px; color: #666;'>");
         if (article.getAuthorId() != null) {
-            String authorName = getAuthorName(article.getAuthorId());
+            // 复用批量查询的 authorMap，避免逐篇 selectById（N+1）
+            String authorName = authorMap != null ? authorMap.get(article.getAuthorId()) : null;
             content.append("<span>作者：").append(HtmlUtils.htmlEscape(authorName != null ? authorName : ""))
                     .append("</span>");
         }
@@ -344,21 +353,6 @@ public class RssFeedServiceImpl implements RssFeedService {
         content.append("</p>");
 
         return content.toString();
-    }
-
-    /**
-     * 获取作者名称（简单缓存）
-     */
-    private String getAuthorName(Long authorId) {
-        if (authorId == null) {
-            return "未知作者";
-        }
-        try {
-            var user = userMapper.selectById(authorId);
-            return user != null ? user.getNickname() : "未知作者";
-        } catch (Exception e) {
-            return "未知作者";
-        }
     }
 
     /**

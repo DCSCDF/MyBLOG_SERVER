@@ -35,6 +35,7 @@ import com.jiuliu.myblog_dev.mapper.user.SysUserRoleMapper;
 import com.jiuliu.myblog_dev.mapper.user.permission.SysPermissionMapper;
 import com.jiuliu.myblog_dev.mapper.user.permissionGroup.SysPermissionGroupMapper;
 import com.jiuliu.myblog_dev.mapper.user.role.SysRoleMapper;
+import com.jiuliu.myblog_dev.mapper.user.role.SysRolePermissionMapper;
 import com.jiuliu.myblog_dev.service.mail.MailService;
 import com.jiuliu.myblog_dev.utils.auth.*;
 import com.jiuliu.myblog_dev.utils.rsa.RsaUtils;
@@ -50,6 +51,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -73,6 +75,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
     private final SysPermissionGroupMapper sysPermissionGroupMapper;
+    private final SysRolePermissionMapper sysRolePermissionMapper;
     private final SysConfigMapper sysConfigMapper;
     private final RegisterPendingUserService registerPendingUserService;
     private final ChangeEmailPendingService changeEmailPendingService;
@@ -90,6 +93,7 @@ public class AuthServiceImpl implements AuthService {
             SysRoleMapper sysRoleMapper,
             SysPermissionMapper sysPermissionMapper,
             SysPermissionGroupMapper sysPermissionGroupMapper,
+            SysRolePermissionMapper sysRolePermissionMapper,
             SysConfigMapper sysConfigMapper,
             RegisterPendingUserService registerPendingUserService,
             ChangeEmailPendingService changeEmailPendingService,
@@ -105,6 +109,7 @@ public class AuthServiceImpl implements AuthService {
         this.sysRoleMapper = sysRoleMapper;
         this.sysPermissionMapper = sysPermissionMapper;
         this.sysPermissionGroupMapper = sysPermissionGroupMapper;
+        this.sysRolePermissionMapper = sysRolePermissionMapper;
         this.sysConfigMapper = sysConfigMapper;
         this.registerPendingUserService = registerPendingUserService;
         this.changeEmailPendingService = changeEmailPendingService;
@@ -490,6 +495,13 @@ public class AuthServiceImpl implements AuthService {
         // 3. 验证验证码是否正确
         if (!code.equals(pendingUser.getCode())) {
             log.warn("注册确认失败：验证码错误，email={}, inputCode={}", email, code);
+            // 防在线爆破：错误次数达到上限后作废验证码
+            int attempts = registerPendingUserService.recordFailedAttempt(email);
+            if (attempts >= MAX_CODE_ATTEMPTS) {
+                log.warn("注册确认失败：验证码错误次数过多，已作废，email={}", email);
+                registerPendingUserService.deletePendingUser(email);
+                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+            }
             return SaResult.error("验证码错误").setCode(400);
         }
 
@@ -670,10 +682,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 生成6位数字注册验证码
+     * 生成6位数字注册验证码（SecureRandom，密码学安全，防预测）
      */
     private String generateRegisterCode() {
-        Random random = new Random();
+        SecureRandom random = new SecureRandom();
         StringBuilder code = new StringBuilder();
         for (int i = 0; i < REGISTER_CODE_LENGTH; i++) {
             code.append(random.nextInt(10));
@@ -957,11 +969,23 @@ public class AuthServiceImpl implements AuthService {
 
         if (!code.equals(pending.getCode())) {
             log.warn("邮箱变更确认失败：验证码错误，userId={}, inputCode={}", currentUserId, code);
+            // 防在线爆破：错误次数达到上限后作废验证码
+            int attempts = changeEmailPendingService.recordFailedAttempt(currentUserId);
+            if (attempts >= MAX_CODE_ATTEMPTS) {
+                log.warn("邮箱变更确认失败：验证码错误次数过多，已作废，userId={}", currentUserId);
+                changeEmailPendingService.deletePendingEmailChange(currentUserId);
+                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+            }
             return SaResult.error("验证码错误").setCode(400);
         }
 
         return doDirectChangeEmail(email, currentUserId);
     }
+
+    /**
+     * 验证码最大错误尝试次数
+     */
+    private static final int MAX_CODE_ATTEMPTS = 5;
 
     /**
      * 直接更换邮箱（reg.use-email = false 时）
@@ -981,6 +1005,16 @@ public class AuthServiceImpl implements AuthService {
         if (user == null) {
             log.warn("邮箱修改失败：用户不存在，userId={}", currentUserId);
             return SaResult.error("用户不存在").setCode(400);
+        }
+
+        // 唯一性校验：新邮箱不能被其他未删除用户占用（含确认路径，避免竞态撞库）
+        SysUser occupied = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
+                .eq("email", email)
+                .ne("id", currentUserId)
+                .eq("is_deleted", 0));
+        if (occupied != null) {
+            log.warn("邮箱修改失败：邮箱已被其他用户注册，userId={}, email={}", currentUserId, email);
+            return SaResult.error("邮箱已被注册").setCode(400);
         }
 
         LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
@@ -1022,7 +1056,13 @@ public class AuthServiceImpl implements AuthService {
         Set<String> resultCodes = new LinkedHashSet<>();
 
         for (SysRole role : roles) {
-            // 通过权限组获取权限（动态计算，不再依赖 sys_role_permission 表）
+            // 超管角色：直接返回全部权限编码
+            if (Boolean.TRUE.equals(role.getSuperAdmin())) {
+                resultCodes.addAll(allCodes);
+                break;
+            }
+
+            // 通过权限组获取权限（动态计算）
             List<SysPermissionGroup> groups = sysPermissionGroupMapper.selectGroupsByRoleId(role.getId());
             for (SysPermissionGroup group : groups) {
                 List<SysPermission> rolePermissions = sysPermissionMapper.selectPermissionsByGroupId(group.getId());
@@ -1036,6 +1076,22 @@ public class AuthServiceImpl implements AuthService {
                             if (PermissionOverlapHelper.isParentOf(code, candidate)) {
                                 resultCodes.add(candidate);
                             }
+                        }
+                    }
+                }
+            }
+
+            // 直接分配给角色的权限（与运行时鉴权口径一致）
+            List<SysPermission> directPermissions = sysRolePermissionMapper.selectPermissionsByRoleId(role.getId());
+            for (SysPermission permission : directPermissions) {
+                String code = permission.getCode();
+                if (!StringUtils.hasText(code)) {
+                    continue;
+                }
+                if (resultCodes.add(code)) {
+                    for (String candidate : allCodes) {
+                        if (PermissionOverlapHelper.isParentOf(code, candidate)) {
+                            resultCodes.add(candidate);
                         }
                     }
                 }
@@ -1074,7 +1130,6 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. 根据用户名或邮箱查找用户
         SysUser user;
-        String email;
         if (!ValidationHelper.validateEmail(usernameOrEmail)) {
             // 如果不是邮箱格式，则按用户名查找
             user = sysUserMapper.selectOne(new QueryWrapper<SysUser>()
@@ -1087,26 +1142,27 @@ public class AuthServiceImpl implements AuthService {
                     .eq("is_deleted", 0));
         }
 
-        // 检查频率限制：无论用户是否存在，都使用输入的标识符进行频率限制
-        long remainingSeconds = pendingPasswordResetService.checkRateLimit(usernameOrEmail,
+        // 4. 频率限制：统一使用规范化键（存在用户→其邮箱；不存在→输入标识符），
+        //    避免 check/set 键错位导致“用用户名请求时限流永不生效”的邮件轰炸漏洞
+        String rateLimitKey = (user != null && StringUtils.hasText(user.getEmail()))
+                ? user.getEmail() : usernameOrEmail;
+        long remainingSeconds = pendingPasswordResetService.checkRateLimit(rateLimitKey,
                 REGISTER_CODE_EXPIRE_MINUTES);
         if (remainingSeconds > 0) {
             return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
-        // 用户不存在，返回错误
-        if (user == null) {
-            log.warn("找回密码请求：未找到用户，input={}", usernameOrEmail);
-            return SaResult.error("未找到该用户").setCode(400);
+        // 5. 用户不存在或未绑定邮箱：响应文案统一（防账号枚举），并写入占位限流
+        if (user == null || user.getEmail() == null || user.getEmail().isEmpty()) {
+            log.warn("找回密码请求：未找到可用邮箱的用户，input={}", usernameOrEmail);
+            pendingPasswordResetService.setRateLimit(rateLimitKey, REGISTER_CODE_EXPIRE_MINUTES);
+            Map<String, Object> data = new HashMap<>();
+            data.put("message", "若该账户存在且已绑定邮箱，验证码已发送");
+            data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
+            return SaResult.data(data);
         }
 
-        // 用户存在但未绑定邮箱，返回错误
-        if (user.getEmail() == null || user.getEmail().isEmpty()) {
-            log.warn("找回密码请求：用户未绑定邮箱，username={}", user.getUsername());
-            return SaResult.error("该用户未绑定邮箱").setCode(400);
-        }
-
-        email = user.getEmail();
+        String email = user.getEmail();
 
         // 生成6位验证码
         String code = generateRegisterCode();
@@ -1201,6 +1257,13 @@ public class AuthServiceImpl implements AuthService {
         // 5. 验证验证码是否正确
         if (!code.equals(pendingReset.getCode())) {
             log.warn("找回密码确认失败：验证码错误，email={}, inputCode={}", email, code);
+            // 防在线爆破：错误次数达到上限后作废验证码
+            int attempts = pendingPasswordResetService.recordFailedAttempt(email);
+            if (attempts >= MAX_CODE_ATTEMPTS) {
+                log.warn("找回密码确认失败：验证码错误次数过多，已作废，email={}", email);
+                pendingPasswordResetService.deletePendingPasswordReset(email);
+                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+            }
             return SaResult.error("验证码错误").setCode(400);
         }
 

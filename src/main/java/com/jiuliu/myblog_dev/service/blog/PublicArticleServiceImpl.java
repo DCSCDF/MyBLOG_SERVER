@@ -85,7 +85,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
     private final Cache<String, List<Long>> superAdminUserIdCache = CacheBuilder.newBuilder()
             .maximumSize(1)
-            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .expireAfterWrite(1, TimeUnit.MINUTES)
             .build();
 
     private List<Long> getSuperAdminUserIds() {
@@ -95,15 +95,19 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             return cached;
         }
 
-        SysRole superAdminRole = roleMapper.selectOne(
+        // 使用 selectList 取第一个（id 升序），避免历史数据存在多条超管角色时 selectOne 抛 TooManyResults 导致接口 500
+        List<SysRole> superAdminRoles = roleMapper.selectList(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getSuperAdmin, true)
-                        .eq(SysRole::getIsDeleted, 0));
+                        .eq(SysRole::getIsDeleted, 0)
+                        .orderByAsc(SysRole::getId));
 
-        if (superAdminRole == null) {
+        if (superAdminRoles == null || superAdminRoles.isEmpty()) {
             superAdminUserIdCache.put(cacheKey, Collections.emptyList());
             return Collections.emptyList();
         }
+
+        SysRole superAdminRole = superAdminRoles.get(0);
 
         List<SysUserRole> userRoles = userRoleMapper.selectList(
                 new LambdaQueryWrapper<SysUserRole>()
@@ -269,17 +273,20 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             queryWrapper.eq(SysBlog::getAuthorId, authorId);
         }
 
-        boolean hasKeywordCondition = false;
         for (String token : searchTokens) {
             queryWrapper.and(w -> w.like(SysBlog::getTitle, token)
                     .or().like(SysBlog::getSummary, token)
                     .or().like(SysBlog::getTags, token));
-            hasKeywordCondition = true;
         }
 
-        if (!hasKeywordCondition) {
-            queryWrapper.orderByDesc(SysBlog::getTop).orderByDesc(SysBlog::getCreateTime);
-        }
+        // 修复：关键词分支先按 置顶+创建时间 排序再 LIMIT，保证候选集确定（不再是无序的任意 500 行）
+        queryWrapper.orderByDesc(SysBlog::getTop).orderByDesc(SysBlog::getCreateTime);
+
+        // 修复：total 单独 COUNT 全量统计，避免 LIMIT 500 截断后 total 虚低
+        Long totalCount = blogMapper.selectCount(queryWrapper);
+        long totalMatched = totalCount != null ? totalCount : 0;
+        // 超过候选上限时按上限展示，避免分页出现空白页（仅展示前 500 条）
+        long displayTotal = Math.min(totalMatched, MAX_SEARCH_CANDIDATES);
 
         queryWrapper.last("LIMIT " + MAX_SEARCH_CANDIDATES);
 
@@ -338,12 +345,12 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             return b.getCreateTime().compareTo(a.getCreateTime());
         }).collect(Collectors.toList());
 
-        int totalMatched = matchedArticles.size();
-        int totalPages = (int) Math.ceil((double) totalMatched / dto.getPageSize());
+        int matchedCount = matchedArticles.size();
+        int totalPages = (int) Math.ceil((double) displayTotal / dto.getPageSize());
         int fromIndex = (dto.getCurrentPage() - 1) * dto.getPageSize();
-        int toIndex = Math.min(fromIndex + dto.getPageSize(), totalMatched);
+        int toIndex = Math.min(fromIndex + dto.getPageSize(), matchedCount);
 
-        List<SysBlog> pagedArticles = (fromIndex < totalMatched)
+        List<SysBlog> pagedArticles = (fromIndex < matchedCount)
                 ? matchedArticles.subList(fromIndex, toIndex)
                 : Collections.emptyList();
 
@@ -355,7 +362,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         PagePublicArticleResponseDTO response = new PagePublicArticleResponseDTO();
         response.setRecords(records);
-        response.setTotal((long) totalMatched);
+        response.setTotal(displayTotal);
         response.setSize((long) dto.getPageSize());
         response.setCurrent((long) dto.getCurrentPage());
         response.setPages((long) totalPages);
@@ -481,7 +488,12 @@ public class PublicArticleServiceImpl implements PublicArticleService {
         }
         // 从MD内容中提取纯文本并截取100个字
         if (StringUtils.hasText(blog.getContent())) {
-            String plainText = MarkdownUtil.stripMdTags(blog.getContent());
+            // 先截断再剥离标签，避免对超长全文执行多段正则（CPU 风暴防护）
+            String content = blog.getContent();
+            if (content.length() > 5000) {
+                content = content.substring(0, 5000);
+            }
+            String plainText = MarkdownUtil.stripMdTags(content);
             if (plainText.length() > 100) {
                 return plainText.substring(0, 100) + "...";
             }

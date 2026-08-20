@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -55,7 +57,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     private static final String PERMISSION_COMMENT_LIST = "system:comment:list";
 
     /**
-     * 评论最大嵌套层级配置（默认为1，即只能回复顶级评论）
+     * 评论最大嵌套层级配置（默认为1，即只允许回复顶级评论；0 表示禁止任何回复）
      */
     @Value("${app.comment.max-nest-level:1}")
     private int maxNestLevel;
@@ -92,11 +94,11 @@ public class PublicCommentServiceImpl implements PublicCommentService {
     public SaResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
                                   boolean isLogin, Long userId, boolean isAdmin) {
         try {
-            // 1. 验证文章是否存在且未隐藏
+            // 1. 验证文章是否存在且未隐藏（私密文章不可评论）
             SysBlog blog = blogMapper.selectOne(
                     new LambdaQueryWrapper<SysBlog>()
                             .eq(SysBlog::getId, dto.getBlogId())
-//                            .and(w -> w.eq(SysBlog::getHidden, false).or().isNull(SysBlog::getHidden))
+                            .eq(SysBlog::getHidden, false)
             );
 
             if (blog == null) {
@@ -121,7 +123,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                 }
 
                 int parentLevel = calculateCommentLevel(parentComment);
-                if (parentLevel >= maxNestLevel) {
+                if (parentLevel > maxNestLevel) {
                     log.warn("评论提交失败：嵌套层级超过限制，parentId={}, parentLevel={}, maxNestLevel={}",
                             parentId, parentLevel, maxNestLevel);
                     return SaResult.error("回复层级已达上限，最多支持 " + maxNestLevel + " 层嵌套").setCode(400);
@@ -148,6 +150,14 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                     // 用户不存在，登录状态异常
                     log.warn("评论提交失败：用户已登录但无法获取用户信息，userId={}", userId);
                     return SaResult.error("用户信息获取失败，请重新登录").setCode(401);
+                }
+
+                // 登录用户提交的 website 同样做协议白名单校验（修复存储型 XSS 面）
+                if (dto.getWebsite() != null && !dto.getWebsite().trim().isEmpty()) {
+                    if (isUrlInvalid(dto.getWebsite())) {
+                        log.warn("评论提交失败：网站URL格式无效，website={}", dto.getWebsite());
+                        return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                    }
                 }
             } else {
                 // 游客：使用传入的信息
@@ -201,12 +211,14 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             // 5. 保存评论
             commentMapper.insert(comment);
 
-            // 6. 更新文章的评论数
-            blogMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
-                            .eq(SysBlog::getId, dto.getBlogId())
-                            .setSql("comment_count = comment_count + 1")
-            );
+            // 6. 更新文章的评论数（仅统计已通过审核的评论，与 countApprovedComments 口径一致）
+            if (comment.getStatus() != null && comment.getStatus() == 1) {
+                blogMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<SysBlog>()
+                                .eq(SysBlog::getId, dto.getBlogId())
+                                .setSql("comment_count = comment_count + 1")
+                );
+            }
 
             // 7. 清除公共文章缓存（评论数已更新）
             publicArticleService.clearPublicArticleCache();
@@ -220,30 +232,25 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             log.info("评论提交成功：commentId={}, blogId={}, parentId={}, isLogin={}",
                     comment.getId(), dto.getBlogId(), parentId, isLogin);
 
-            // 8. 发送新评论通知给管理员（排除文章作者给自己文章发评论的情况）
-            boolean isOwnArticle = isCommentOnOwnArticle(comment, blog);
-            List<String> filteredAdminEmails = new ArrayList<>();
-            if (!isOwnArticle) {
-                filteredAdminEmails = buildFilteredAdminEmails(blog);
-                if (!filteredAdminEmails.isEmpty()) {
-                    boolean adminNotified = sendNewCommentNotificationToAdmins(filteredAdminEmails, comment, blog, dto.getUsername());
-                    log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
-                } else {
-                    log.debug("管理员通知跳过：过滤后无管理员需要通知，commentId={}", comment.getId());
-                }
+            // 8. 邮件通知移出事务（afterCommit），避免 SMTP 阻塞占用数据库连接（连接池耗尽风险）
+            // 匿名内部类只能引用 effectively final 变量，先做快照
+            SysComment commentSnapshot = comment;
+            SysBlog blogSnapshot = blog;
+            SysComment parentCommentSnapshot = parentComment;
+            Long parentIdSnapshot = parentId;
+            boolean isLoginSnapshot = isLogin;
+            String commenterNameSnapshot = dto.getUsername();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        sendCommentNotifications(commentSnapshot, blogSnapshot, parentCommentSnapshot,
+                                parentIdSnapshot, isLoginSnapshot, commenterNameSnapshot);
+                    }
+                });
             } else {
-                log.debug("评论者为文章作者，跳过管理员通知，commentId={}, authorId={}",
-                        comment.getId(), blog.getAuthorId());
-            }
-
-            // 8.1 登录用户的回复：通知父评论作者（Bug2 修复 + Bug5 去重）
-            if (isLogin && parentComment != null && parentId != null && parentId != 0) {
-                sendReplyNotificationToParent(comment, parentComment, filteredAdminEmails);
-            }
-
-            // 8.2 登录用户的顶级评论：通知文章作者（Bug4 修复）
-            if (isLogin && (parentId == null || parentId == 0) && !isOwnArticle) {
-                sendTopLevelCommentNotificationToAuthor(comment, blog);
+                sendCommentNotifications(commentSnapshot, blogSnapshot, parentCommentSnapshot,
+                        parentIdSnapshot, isLoginSnapshot, commenterNameSnapshot);
             }
 
             // 9. 返回结果
@@ -258,15 +265,50 @@ public class PublicCommentServiceImpl implements PublicCommentService {
         }
     }
 
-    private static final int MAX_COMMENT_RESULTS = 500;
+    /**
+     * 发送评论相关通知（管理员通知 / 回复通知 / 作者通知）
+     * 在事务提交后执行，避免 SMTP 同步发送占用数据库连接
+     */
+    private void sendCommentNotifications(SysComment comment, SysBlog blog, SysComment parentComment,
+                                          Long parentId, boolean isLogin, String commenterName) {
+        try {
+            // 发送新评论通知给管理员（排除文章作者给自己文章发评论的情况）
+            boolean isOwnArticle = isCommentOnOwnArticle(comment, blog);
+            List<String> filteredAdminEmails = new ArrayList<>();
+            if (!isOwnArticle) {
+                filteredAdminEmails = buildFilteredAdminEmails(blog);
+                if (!filteredAdminEmails.isEmpty()) {
+                    boolean adminNotified = sendNewCommentNotificationToAdmins(filteredAdminEmails, comment, blog, commenterName);
+                    log.debug("管理员通知发送结果，commentId={}, notified={}", comment.getId(), adminNotified);
+                } else {
+                    log.debug("管理员通知跳过：过滤后无管理员需要通知，commentId={}", comment.getId());
+                }
+            } else {
+                log.debug("评论者为文章作者，跳过管理员通知，commentId={}, authorId={}",
+                        comment.getId(), blog.getAuthorId());
+            }
+
+            // 登录用户的回复：通知父评论作者（Bug2 修复 + Bug5 去重）
+            if (isLogin && parentComment != null && parentId != null && parentId != 0) {
+                sendReplyNotificationToParent(comment, parentComment, filteredAdminEmails);
+            }
+
+            // 登录用户的顶级评论：通知文章作者（Bug4 修复）
+            if (isLogin && (parentId == null || parentId == 0) && !isOwnArticle) {
+                sendTopLevelCommentNotificationToAuthor(comment, blog);
+            }
+        } catch (Exception e) {
+            log.error("发送评论通知异常，commentId={}", comment.getId(), e);
+        }
+    }
 
     @Override
     public List<PublicCommentResponseDTO> getCommentsByBlogId(Long blogId) {
-        // 1. 验证文章是否存在且未隐藏
+        // 1. 验证文章是否存在且未隐藏（私密文章的评论不可公开读取）
         SysBlog blog = blogMapper.selectOne(
                 new LambdaQueryWrapper<SysBlog>()
                         .eq(SysBlog::getId, blogId)
-//                        .and(w -> w.eq(SysBlog::getHidden, false).or().isNull(SysBlog::getHidden))
+                        .eq(SysBlog::getHidden, false)
         );
 
         if (blog == null) {
@@ -274,13 +316,13 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             return new ArrayList<>();
         }
 
-        // 2. 查询该文章下所有 status=1 且未删除的评论（限制数量防止内存问题）
+        // 2. 查询该文章下所有 status=1 且未删除的评论
+        // 不再使用 LIMIT 截断：否则超过 500 条时子评论树会丢失、总数与渲染数不一致
         List<SysComment> allComments = commentMapper.selectList(
                 new LambdaQueryWrapper<SysComment>()
                         .eq(SysComment::getBlogId, blogId)
                         .eq(SysComment::getStatus, (byte) 1)
                         .orderByAsc(SysComment::getCreateTime)
-                        .last("LIMIT " + MAX_COMMENT_RESULTS)
         );
 
         if (allComments.isEmpty()) {

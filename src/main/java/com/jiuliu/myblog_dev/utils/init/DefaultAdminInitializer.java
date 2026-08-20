@@ -29,6 +29,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
 @Component
@@ -36,6 +37,7 @@ import java.time.LocalDateTime;
 public class DefaultAdminInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultAdminInitializer.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private final SysUserMapper sysUserMapper;
@@ -54,12 +56,7 @@ public class DefaultAdminInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // 延迟执行，等待数据库初始化完成
-        try {
-            Thread.sleep(1000);  // 等待1秒，确保数据库初始化完成
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // 依赖 @Order(1)/@Order(2) 保证 DatabaseInitializer 先执行，无需 sleep hack
 
         // 检查数据库表是否存在
         if (!isDatabaseInitialized()) {
@@ -73,18 +70,24 @@ public class DefaultAdminInitializer implements CommandLineRunner {
         SysUser adminUser = sysUserMapper.selectOne(queryWrapper);
 
         if (adminUser == null) {
-            // 创建管理员
+            // 创建管理员：密码优先取环境变量 DEFAULT_ADMIN_PASSWORD，未配置时随机生成并仅打印一次
+            String initialPassword = resolveInitialPassword();
+
             SysUser sysUser = new SysUser();
             sysUser.setUsername("admin");
             sysUser.setNickname("管理员");
-            sysUser.setPassword(passwordEncoder.encode("Aa123456"));
+            sysUser.setPassword(passwordEncoder.encode(initialPassword));
             sysUser.setEmail("admin@example.com");
             sysUser.setStatus(1); // 1表示启用
             sysUser.setCreateTime(LocalDateTime.now());
             sysUser.setUpdateTime(LocalDateTime.now());
 
             sysUserMapper.insert(sysUser);
-            log.info("默认管理员已创建: username: admin (密码: Aa123456, 请首次登录后修改)");
+            if (initialPasswordFromEnv) {
+                log.info("默认管理员已创建: username: admin（密码来自环境变量 DEFAULT_ADMIN_PASSWORD，请妥善保管）");
+            } else {
+                log.info("默认管理员已创建: username: admin（未配置 DEFAULT_ADMIN_PASSWORD，本次随机生成的初始密码为 [{}]，请立即登录后修改）", initialPassword);
+            }
 
             // 为管理员分配超级管理员角色
             assignSuperAdminRole(sysUser.getId());
@@ -97,6 +100,34 @@ public class DefaultAdminInitializer implements CommandLineRunner {
                 assignSuperAdminRole(adminUser.getId());
             }
         }
+    }
+
+    /**
+     * 是否从环境变量读取了初始密码（决定日志中是否打印随机密码）
+     */
+    private boolean initialPasswordFromEnv = false;
+
+    /**
+     * 解析初始密码：
+     * 1. 环境变量 DEFAULT_ADMIN_PASSWORD（或系统属性 app.init.admin-password）
+     * 2. 未配置时随机生成 12 位强密码（仅在创建时打印一次，提示立即修改）
+     */
+    private String resolveInitialPassword() {
+        String envPassword = System.getenv("DEFAULT_ADMIN_PASSWORD");
+        if (envPassword == null || envPassword.isBlank()) {
+            envPassword = System.getProperty("app.init.admin-password");
+        }
+        if (envPassword != null && !envPassword.isBlank()) {
+            initialPasswordFromEnv = true;
+            return envPassword;
+        }
+        initialPasswordFromEnv = false;
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
+        StringBuilder sb = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) {
+            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     /**

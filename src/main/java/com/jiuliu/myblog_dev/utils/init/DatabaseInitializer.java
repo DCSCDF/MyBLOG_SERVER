@@ -112,11 +112,14 @@ public class DatabaseInitializer implements CommandLineRunner {
             // 初始化默认权限组
             initDefaultPermissionGroups();
 
-            // 初始化权限-权限组关联
-            initPermissionGroupItems();
-
-            // 初始化角色-权限组关联
-            initRolePermissionGroupRelations();
+            // 初始化权限-权限组关联 / 角色-权限组关联
+            // 仅首次初始化时播种：若已存在任何关联数据则跳过，避免每次启动还原管理员的运行期调整（权限收紧被静默重置）
+            if (!hasPermissionRelationData()) {
+                initPermissionGroupItems();
+                initRolePermissionGroupRelations();
+            } else {
+                log.info("权限关联数据已存在，跳过关联初始化（保留管理员的运行期调整）");
+            }
 
             // 初始化默认配置
             initDefaultConfigs();
@@ -132,6 +135,24 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.error("1. 确认数据库用户有足够的权限 (SELECT, INSERT, UPDATE, DELETE)");
             log.error("2. 检查数据库连接配置");
             log.error("3. 查看 schema.sql 是否已成功执行");
+        }
+    }
+
+    /**
+     * 检查是否已存在权限-权限组 / 角色-权限组关联数据（只读，不写入）
+     */
+    private boolean hasPermissionRelationData() {
+        try {
+            Long groupItemCount = sysPermissionGroupItemMapper.selectCount(new QueryWrapper<>());
+            if (groupItemCount != null && groupItemCount > 0) {
+                return true;
+            }
+            Long roleGroupCount = sysRolePermissionGroupMapper.selectCount(new QueryWrapper<>());
+            return roleGroupCount != null && roleGroupCount > 0;
+        } catch (Exception e) {
+            // 查询失败时保守跳过播种，避免误覆盖已有数据
+            log.warn("检查权限关联数据失败，跳过关联初始化：{}", e.getMessage());
+            return true;
         }
     }
 

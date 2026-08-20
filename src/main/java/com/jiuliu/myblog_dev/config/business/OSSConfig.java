@@ -240,8 +240,12 @@ public class OSSConfig {
             log.debug("OSS 图片 URL 前缀=[{}]", this.imageUrlPrefix);
             log.debug("OSS 请求将访问的域名=[{}.{}]", bucket, endpoint);
 
-            // 使用旧版 API 直接创建客户端
-            this.ossClient = new OSSClientBuilder().build(fullEndpoint, accessKey, secretKey);
+            // 使用旧版 API 直接创建客户端（配置连接/读超时，防慢客户端长期占用线程）
+            com.aliyun.oss.ClientBuilderConfiguration clientConfig = new com.aliyun.oss.ClientBuilderConfiguration();
+            clientConfig.setConnectionTimeout(10 * 1000);   // 建立连接超时 10s
+            clientConfig.setSocketTimeout(30 * 1000);       // 读写超时 30s
+            clientConfig.setConnectionRequestTimeout(10 * 1000); // 从连接池获取连接超时 10s
+            this.ossClient = new OSSClientBuilder().build(fullEndpoint, accessKey, secretKey, clientConfig);
 
             log.info("OSS 客户端初始化成功，endpoint={}, bucket={}", fullEndpoint, bucket);
         } catch (Exception e) {

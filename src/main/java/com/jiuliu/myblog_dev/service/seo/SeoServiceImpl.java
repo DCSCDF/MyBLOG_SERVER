@@ -63,9 +63,11 @@ public class SeoServiceImpl implements SeoService {
             .build();
 
     private final SysSeoMapper sysSeoMapper;
+    private final PublicSeoService publicSeoService;
 
-    public SeoServiceImpl(SysSeoMapper sysSeoMapper) {
+    public SeoServiceImpl(SysSeoMapper sysSeoMapper, PublicSeoService publicSeoService) {
         this.sysSeoMapper = sysSeoMapper;
+        this.publicSeoService = publicSeoService;
     }
 
     @Override
@@ -279,6 +281,12 @@ public class SeoServiceImpl implements SeoService {
     private void clearSeoCache() {
         seoCache.invalidateAll();
         seoListCache.invalidateAll();
+        // 公共 SEO 缓存同步失效，避免后台修改后公共端长时间返回旧值
+        try {
+            publicSeoService.clearPublicSeoCache();
+        } catch (Exception e) {
+            log.warn("清除公共SEO缓存失败：{}", e.getMessage());
+        }
         log.debug("SEO缓存已清除");
     }
 

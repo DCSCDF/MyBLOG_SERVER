@@ -33,6 +33,16 @@ public final class HtmlUtil {
     }
 
     /**
+     * flexmark Parser/Renderer 单例（解析器线程安全），避免每次调用重建对象
+     */
+    private static final MutableDataSet FLEXMARK_OPTIONS = new MutableDataSet()
+            .set(Parser.EXTENSIONS, List.of(TablesExtension.create()));
+
+    private static final Parser FLEXMARK_PARSER = Parser.builder(FLEXMARK_OPTIONS).build();
+
+    private static final HtmlRenderer FLEXMARK_RENDERER = HtmlRenderer.builder(FLEXMARK_OPTIONS).build();
+
+    /**
      * 将Markdown转换为HTML并净化XSS
      * <p>
      * 使用 flexmark-java 将 Markdown 转为 HTML，
@@ -65,14 +75,8 @@ public final class HtmlUtil {
      * </ul>
      */
     private static String markdownToHtmlRaw(String markdown) {
-        MutableDataSet options = new MutableDataSet();
-        options.set(Parser.EXTENSIONS, List.of(TablesExtension.create()));
-
-        Parser parser = Parser.builder(options).build();
-        HtmlRenderer renderer = HtmlRenderer.builder(options).build();
-
-        var document = parser.parse(markdown);
-        return renderer.render(document);
+        var document = FLEXMARK_PARSER.parse(markdown);
+        return FLEXMARK_RENDERER.render(document);
     }
 
     /**
@@ -104,16 +108,16 @@ public final class HtmlUtil {
                 // a 标签只允许 href，且限制协议
                 .addAttributes("a", "href", "title", "target")
                 .addProtocols("a", "href", "http", "https", "mailto")
-                // img 标签只允许 src，且限制协议（允许 data: 用于 base64 图片）
+                // img 标签只允许 src，且限制协议（仅 http/https，移除 data: 防超大内联内容膨胀）
                 .addAttributes("img", "src", "alt", "title", "width", "height")
-                .addProtocols("img", "src", "http", "https", "data")
-                // 表格相关属性
-                .addAttributes("table", "class", "style")
-                .addAttributes("thead", "class", "style")
-                .addAttributes("tbody", "class", "style")
-                .addAttributes("tr", "class", "style")
-                .addAttributes("th", "class", "style", "align", "valign")
-                .addAttributes("td", "class", "style", "align", "valign", "colspan", "rowspan")
+                .addProtocols("img", "src", "http", "https")
+                // 表格相关属性（不放行 style，避免 CSS 注入/钓鱼遮罩面）
+                .addAttributes("table", "class")
+                .addAttributes("thead", "class")
+                .addAttributes("tbody", "class")
+                .addAttributes("tr", "class")
+                .addAttributes("th", "class", "align", "valign")
+                .addAttributes("td", "class", "align", "valign", "colspan", "rowspan")
                 // 保留代码块的 class（highlight.js 等可能用到）
                 .addAttributes(":all", "class")
                 // input 只读属性

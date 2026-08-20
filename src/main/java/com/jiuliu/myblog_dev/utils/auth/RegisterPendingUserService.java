@@ -51,6 +51,10 @@ public class RegisterPendingUserService {
         private String password;
         private String code;
         private LocalDateTime codeExpireTime;
+        /**
+         * 错误尝试次数（超过上限后验证码作废，防在线爆破）
+         */
+        private int attemptCount;
 
         public PendingUser() {
         }
@@ -108,9 +112,31 @@ public class RegisterPendingUserService {
         log.info("删除待注册用户信息，email={}", email);
     }
 
+    /**
+     * 记录一次验证码错误尝试
+     *
+     * @param email 邮箱
+     * @return 累计错误次数；记录不存在或已过期时返回 -1
+     */
+    public int recordFailedAttempt(String email) {
+        String key = PENDING_USER_PREFIX + email;
+        PendingUser user = getPendingUser(email);
+        if (user == null) {
+            return -1;
+        }
+        user.setAttemptCount(user.getAttemptCount() + 1);
+        long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), user.getCodeExpireTime()).getSeconds();
+        if (ttlSeconds <= 0) {
+            saTokenDao.delete(key);
+            return -1;
+        }
+        saTokenDao.set(key, serialize(user), ttlSeconds);
+        return user.getAttemptCount();
+    }
+
     private String serialize(PendingUser user) {
         return user.getUsername() + "|" + user.getEmail() + "|" + user.getPassword() + "|" +
-                user.getCode() + "|" + user.getCodeExpireTime().toString();
+                user.getCode() + "|" + user.getCodeExpireTime().toString() + "|" + user.getAttemptCount();
     }
 
     private PendingUser deserialize(String data) {
@@ -123,6 +149,9 @@ public class RegisterPendingUserService {
                 user.setPassword(parts[2]);
                 user.setCode(parts[3]);
                 user.setCodeExpireTime(LocalDateTime.parse(parts[4]));
+                if (parts.length >= 6) {
+                    user.setAttemptCount(Integer.parseInt(parts[5]));
+                }
                 return user;
             }
         } catch (Exception e) {

@@ -33,8 +33,9 @@ public class BlogContentUpdateDTO {
     private String summary;
 
     /**
-     * MD文章内容
+     * MD文章内容（上限 20 万字符，防止超大内容存储/处理放大）
      */
+    @Size(max = 200000, message = "文章内容不能超过200000字符")
     private String content;
 
     /**

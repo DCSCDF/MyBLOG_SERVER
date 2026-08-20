@@ -16,6 +16,7 @@ package com.jiuliu.myblog_dev.service.blog;
 
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.cache.Cache;
@@ -23,6 +24,7 @@ import com.google.common.cache.CacheBuilder;
 import com.jiuliu.myblog_dev.dto.blog.global.*;
 import com.jiuliu.myblog_dev.dto.common.FilterOptionItem;
 import com.jiuliu.myblog_dev.entity.blog.SysBlog;
+import com.jiuliu.myblog_dev.entity.blog.comment.SysComment;
 import com.jiuliu.myblog_dev.entity.user.SysUser;
 import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
@@ -36,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -215,6 +218,17 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         // 逻辑删除
         blogMapper.deleteById(blogId);
 
+        // 级联逻辑删除该文章下的所有评论，避免孤儿评论残留
+        try {
+            commentMapper.update(null, new LambdaUpdateWrapper<SysComment>()
+                    .eq(SysComment::getBlogId, blogId)
+                    .set(SysComment::getIsDeleted, 1)
+                    .set(SysComment::getUpdateTime, LocalDateTime.now()));
+            log.info("文章删除时已级联逻辑删除评论，blogId={}", blogId);
+        } catch (Exception e) {
+            log.warn("文章删除时级联删除评论失败，blogId={}, error={}", blogId, e.getMessage());
+        }
+
         // 清除文章缓存
         clearArticleCache(blogId);
 
@@ -288,7 +302,12 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         }
         // 从MD内容中提取纯文本并截取100个字
         if (StringUtils.hasText(blog.getContent())) {
-            String plainText = MarkdownUtil.stripMdTags(blog.getContent());
+            // 先截断再剥离标签，避免对超长全文执行多段正则（CPU 风暴防护）
+            String content = blog.getContent();
+            if (content.length() > 5000) {
+                content = content.substring(0, 5000);
+            }
+            String plainText = MarkdownUtil.stripMdTags(content);
             if (plainText.length() > 100) {
                 return plainText.substring(0, 100) + "...";
             }

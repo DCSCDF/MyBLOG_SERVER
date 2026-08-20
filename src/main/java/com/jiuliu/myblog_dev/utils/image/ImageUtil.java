@@ -6,10 +6,9 @@
  * See LICENSE for full terms.
  * =======================================
  * author: "Jiu Liu"
- * author_contact: "QQ: 3209174373, GitHub: https://github.com/DCSCDF"
  * license: "MIT"
  * license_exception: "Mandatory attribution retention"
- * UpdateTime: 2026/3/26
+ * UpdateTime: 2026/8/20
  */
 
 package com.jiuliu.myblog_dev.utils.image;
@@ -19,8 +18,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -32,7 +33,12 @@ import java.util.Iterator;
 /**
  * 图片处理工具类
  *
- * <p>提供图片格式校验和无损压缩功能。</p>
+ * <p>提供图片格式校验、尺寸读取、像素上限校验、缩放与无损压缩功能。</p>
+ *
+ * <p><b>安全说明（解压炸弹防护）：</b><br>
+ * 尺寸读取只解析图片头部（ImageReader.getWidth/getHeight），不在解码前分配像素缓冲；
+ * 上传入口必须先调用 {@link #isPixelCountExceeded(byte[])} 校验像素总量上限，
+ * 防止压缩后体积很小但解压后占用 GB 级内存的恶意图片触发 OOM。</p>
  */
 public class ImageUtil {
 
@@ -57,6 +63,12 @@ public class ImageUtil {
      * 4K 分辨率最大高度（2160）
      */
     public static final int MAX_HEIGHT_4K = 2160;
+
+    /**
+     * 像素总量上限（2500 万像素，约等于 6000x4000）。
+     * 超过该上限的图片直接拒绝，防止"解压炸弹"（10MB 内压缩图片解码出 GB 级位图）导致 OOM。
+     */
+    public static final long MAX_PIXELS = 25_000_000L;
 
     /**
      * 校验图片格式
@@ -87,7 +99,29 @@ public class ImageUtil {
     }
 
     /**
+     * 校验图片像素总量是否超过上限（解码前只读头部，安全）
+     *
+     * @param bytes 图片字节数据
+     * @return 超过上限返回 true；无法读取尺寸（如 WebP 无解码器）返回 false（不做服务端解码，原样存储）
+     */
+    public static boolean isPixelCountExceeded(byte[] bytes) {
+        int[] dimensions = getImageDimensions(bytes);
+        if (dimensions == null) {
+            log.warn("无法读取图片尺寸，跳过像素上限校验（原样存储，不做服务端解码）");
+            return false;
+        }
+        long pixels = (long) dimensions[0] * dimensions[1];
+        if (pixels > MAX_PIXELS) {
+            log.warn("图片像素总量超过上限：{}x{} = {} 像素 > {} 像素", dimensions[0], dimensions[1], pixels, MAX_PIXELS);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * 获取图片尺寸
+     *
+     * <p>只读取图片头部元数据（不解码像素数据），因此对超大尺寸图片也是安全的。</p>
      *
      * @param bytes 图片字节数据
      * @return int[] 数组，index 0 为宽度，index 1 为高度；如果解析失败返回 null
@@ -97,25 +131,34 @@ public class ImageUtil {
             return null;
         }
 
-        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-        BufferedImage image;
-        try {
-            image = ImageIO.read(bais);
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                log.debug("没有找到可读取该图片格式的解码器");
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                return new int[]{width, height};
+            } catch (Exception e) {
+                log.warn("读取图片头部尺寸失败：{}", e.getMessage());
+                return null;
+            } finally {
+                reader.dispose();
+            }
         } catch (IOException e) {
             log.warn("无法读取图片尺寸信息：{}", e.getMessage());
             return null;
         }
-
-        if (image == null) {
-            return null;
-        }
-
-        return new int[]{image.getWidth(), image.getHeight()};
     }
 
     /**
      * 如果图片分辨率超过 4K，则缩放至 4K
-     * <p>缩放过程中保持宽高比和原始图片格式，使用高质量缩放算法。</p>
+     * <p>缩放过程中保持宽高比和原始图片格式，使用高质量缩放算法。
+     * 超过 {@link #MAX_PIXELS} 像素上限的图片应由调用方在上传入口拒绝，本方法不会解码超限图片。</p>
      *
      * @param bytes     图片字节数据
      * @param extension 原始文件扩展名（用于确定输出格式）
@@ -146,8 +189,8 @@ public class ImageUtil {
         double heightRatio = (double) MAX_HEIGHT_4K / originalHeight;
         double ratio = Math.min(widthRatio, heightRatio);
 
-        int newWidth = (int) (originalWidth * ratio);
-        int newHeight = (int) (originalHeight * ratio);
+        int newWidth = Math.max(1, (int) (originalWidth * ratio));
+        int newHeight = Math.max(1, (int) (originalHeight * ratio));
 
         log.debug("计算缩放比例：{}，目标分辨率：{}x{}", ratio, newWidth, newHeight);
 
@@ -165,7 +208,8 @@ public class ImageUtil {
             return bytes;
         }
 
-        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        // 使用 ARGB 保留透明通道，避免透明 PNG 缩放后黑底
+        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = resizedImage.createGraphics();
 
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -308,10 +352,6 @@ public class ImageUtil {
             writer.dispose();
         }
 
-        //        log.debug("JPEG 压缩完成：原始大小 {} bytes，压缩后 {} bytes，压缩率 {:.2f}%",
-//                bytes.length, compressed.length,
-//                (1 - (double) compressed.length / bytes.length) * 100);
-
         return baos.toByteArray();
     }
 
@@ -354,10 +394,6 @@ public class ImageUtil {
         } finally {
             writer.dispose();
         }
-
-        //        double ratio = (1 - (double) compressed.length / bytes.length) * 100;
-//        log.debug("PNG 处理完成：原始大小 {} bytes，处理后 {} bytes，压缩率 {:.2f}%",
-//                bytes.length, compressed.length, ratio);
 
         return baos.toByteArray();
     }

@@ -16,7 +16,7 @@
 
 ![MySQL](https://img.shields.io/badge/MySQL-8.4.0-00758F?logo=mysql&logoColor=white)
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.9-6DB33F?logo=springboot&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.10-6DB33F?logo=springboot&logoColor=white)
 
 > ### API对接 与数据库结构等文档
 > - [用户认证API文档 `Auth_Api`](Document/Auth_Api.md)
@@ -485,9 +485,9 @@ public class AdminController {
 
 | 接口                    | 方法  | 说明                                       |
 |-----------------------|-----|------------------------------------------|
-| `/api/captcha/gen`    | GET | 生成验证码（默认滑块，可通过 `type` 指定类型）      |
+| `/api/captcha/get`    | POST | 生成验证码（默认滑块，可通过 `type` 指定类型）      |
 | `/api/captcha/check`  | POST| 校验用户行为轨迹（滑动 / 旋转 / 文字点选等）           |
 | `/api/captcha/verify` | GET | 二次验证（需在配置中开启 `captcha.secondary.enabled`） |
 
-验证码背景图片从 `resources/images` 目录加载（例如 `a.png`、`b.png`、`c.png`、`48.png`），跨域策略统一复用项目的 `CorsConfig` 配置。 
+验证码背景图片从 `resources/images` 目录加载（例如 `a.png`、`b.png`、`c.png`），跨域策略统一复用项目的 `CorsConfig` 配置。 
 

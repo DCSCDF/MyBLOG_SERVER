@@ -584,7 +584,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/permission-group/list`
-- **需要权限**: `system:permission_group:list`
+- **需要权限**: `system:permission:permission_group:list`
 
 #### 请求参数
 
@@ -652,7 +652,7 @@
 
 - **请求方法**: `GET`
 - **请求路径**: `/api/permission-group/{id}`
-- **需要权限**: `system:permission_group:list`
+- **需要权限**: `system:permission:permission_group:list`
 
 #### 路径参数
 
@@ -688,7 +688,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/permission-group`
-- **需要权限**: `system:permission_group:create`
+- **需要权限**: `system:permission:permission_group:create`
 
 #### 请求参数
 
@@ -740,7 +740,7 @@
 
 - **请求方法**: `PUT`
 - **请求路径**: `/api/permission-group/{id}`
-- **需要权限**: `system:permission_group:edit`
+- **需要权限**: `system:permission:permission_group:edit`
 
 #### 路径参数
 
@@ -805,7 +805,7 @@
 
 - **请求方法**: `DELETE`
 - **请求路径**: `/api/permission-group/{id}`
-- **需要权限**: `system:permission_group:delete`
+- **需要权限**: `system:permission:permission_group:delete`
 
 #### 路径参数
 
@@ -854,7 +854,7 @@
 
 - **请求方法**: `GET`
 - **请求路径**: `/api/permission-group/{id}/permissions`
-- **需要权限**: `system:permission_group:list`
+- **需要权限**: `system:permission:permission_group:list`
 
 #### 路径参数
 
@@ -890,7 +890,7 @@
 
 - **请求方法**: `POST`
 - **请求路径**: `/api/permission-group/{id}/permissions`
-- **需要权限**: `system:permission_group:addPermission`
+- **需要权限**: `system:permission:permission_group:addPermission`
 
 #### 路径参数
 
@@ -937,7 +937,7 @@
 
 - **请求方法**: `DELETE`
 - **请求路径**: `/api/permission-group/{id}/permissions/{permissionId}`
-- **需要权限**: `system:permission_group:removePermission`
+- **需要权限**: `system:permission:permission_group:removePermission`
 
 #### 路径参数
 
@@ -983,9 +983,9 @@
 
 | 权限码                                      | 说明              |
 |------------------------------------------|-----------------|
-| system:permission_group:list             | 查看权限组列表、详情、关联权限 |
-| system:permission_group:create           | 创建权限组           |
-| system:permission_group:edit             | 编辑权限组           |
-| system:permission_group:delete           | 删除权限组（未被角色引用时可删除，级联删除关联）   |
-| system:permission_group:addPermission    | 为权限组添加权限        |
-| system:permission_group:removePermission | 从权限组移除权限        |
+| system:permission:permission_group:list             | 查看权限组列表、详情、关联权限 |
+| system:permission:permission_group:create           | 创建权限组           |
+| system:permission:permission_group:edit             | 编辑权限组           |
+| system:permission:permission_group:delete           | 删除权限组（未被角色引用时可删除，级联删除关联）   |
+| system:permission:permission_group:addPermission    | 为权限组添加权限        |
+| system:permission:permission_group:removePermission | 从权限组移除权限        |

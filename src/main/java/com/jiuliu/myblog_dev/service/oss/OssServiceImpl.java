@@ -106,7 +106,7 @@ public class OssServiceImpl implements OssService {
         } catch (Exception e) {
             log.warn("OSS 连接测试失败：{}", e.getMessage());
             log.warn("OSS 连接错误类型：{}", e.getClass().getName());
-            return SaResult.error("OSS 配置已完成，但无法连接到服务器：" + e.getMessage()).setCode(400);
+            return SaResult.error("OSS 配置已完成，但无法连接到服务器，请检查网络与配置").setCode(400);
         }
     }
 
@@ -148,6 +148,12 @@ public class OssServiceImpl implements OssService {
             return SaResult.error("不支持的图片格式或文件损坏，支持的格式：jpg, jpeg, png, gif, bmp, webp").setCode(400);
         }
 
+        // 3.5 校验像素总量上限（解码前只读头部，防止解压炸弹 OOM）
+        if (ImageUtil.isPixelCountExceeded(fileBytes)) {
+            log.warn("图片上传失败：像素总量超过上限，文件名=[{}]，大小={} bytes", fileName, fileBytes.length);
+            return SaResult.error("图片分辨率过高，像素总量不能超过 2500 万").setCode(400);
+        }
+
         // 4. 检查并缩放分辨率超过 4K 的图片
         byte[] resizedBytes = ImageUtil.scaleTo4KIfNeeded(fileBytes, extension);
 
@@ -157,9 +163,9 @@ public class OssServiceImpl implements OssService {
 //            log.debug("开始图片压缩...");
             processedBytes = ImageUtil.compressImage(resizedBytes, extension);
 //            log.debug("图片压缩完成，压缩后大小={} bytes", processedBytes.length);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("图片压缩失败：{}", e.getMessage(), e);
-            return SaResult.error("图片处理失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("图片处理失败，请稍后重试").setCode(500);
         }
 
         // 6. 计算 MD5 哈希值
@@ -210,7 +216,7 @@ public class OssServiceImpl implements OssService {
 //            log.info("图片上传到 OSS 成功，objectName=[{}]，大小={} bytes", objectName, processedBytes.length);
         } catch (Exception e) {
             log.error("图片上传到 OSS 失败：{}", e.getMessage(), e);
-            return SaResult.error("图片上传失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
         }
 
         // 11. 保存到数据库
@@ -224,6 +230,24 @@ public class OssServiceImpl implements OssService {
 
             sysOssImageMapper.insert(ossImage);
 //            log.info("图片记录已保存到数据库，hash=[{}]，objectName=[{}]", hash, objectName);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 并发上传同一内容：唯一索引冲突。清理本次上传的 OSS 对象，返回已存在记录（幂等成功）
+            log.warn("图片哈希已存在（并发上传），hash=[{}]，objectName=[{}]", hash, objectName);
+            try {
+                ossClient.deleteObject(ossConfig.getBucket(), objectName);
+            } catch (Exception deleteEx) {
+                log.warn("清理重复上传的 OSS 对象失败：{}，objectName={}", deleteEx.getMessage(), objectName);
+            }
+            SysOssImage existing = sysOssImageMapper.selectByHash(hash);
+            if (existing != null) {
+                eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash, userId));
+                return SaResult.data(new ImageUploadResponse(
+                        existing.getHash(),
+                        existing.getOriginalName(),
+                        existing.getFileSize()
+                ));
+            }
+            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
         } catch (Exception e) {
             log.error("保存图片记录失败：{}", e.getMessage(), e);
             // OSS 上传成功但数据库保存失败，尝试删除 OSS 文件
@@ -233,7 +257,7 @@ public class OssServiceImpl implements OssService {
             } catch (Exception deleteEx) {
                 log.error("删除 OSS 文件失败：{}", deleteEx.getMessage());
             }
-            return SaResult.error("图片上传成功但保存记录失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
         }
 
         // 12. 发布图片变更事件（清除缓存）
@@ -295,7 +319,7 @@ public class OssServiceImpl implements OssService {
 //            log.info("OSS 图片删除成功，objectName=[{}]", objectName);
         } catch (Exception e) {
             log.error("OSS 图片删除失败：{}", e.getMessage(), e);
-            return SaResult.error("删除 OSS 图片失败：" + e.getMessage()).setCode(500);
+            return SaResult.error("删除 OSS 图片失败，请稍后重试").setCode(500);
         }
 
         // 4. 删除数据库记录

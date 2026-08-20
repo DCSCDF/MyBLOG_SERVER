@@ -28,6 +28,7 @@ import com.jiuliu.myblog_dev.mapper.blog.SysBlogMapper;
 import com.jiuliu.myblog_dev.mapper.blog.comment.SysCommentMapper;
 import com.jiuliu.myblog_dev.service.blog.PublicArticleService;
 import com.jiuliu.myblog_dev.utils.cache.CacheUtil;
+import com.jiuliu.myblog_dev.utils.html.HtmlUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -156,12 +157,17 @@ public class CommentServiceImpl implements CommentService {
                 .eq(SysComment::getId, dto.getId());
 
         if (dto.getContent() != null && StringUtils.hasText(dto.getContent())) {
-            updateWrapper.set(SysComment::getContent, dto.getContent().trim());
+            // 编辑路径同样走 HTML 白名单净化，防止存储型 XSS
+            updateWrapper.set(SysComment::getContent, HtmlUtil.sanitize(dto.getContent().trim()));
         }
 
         if (dto.getWebsite() != null) {
-            // 支持传空字符串清空网站
+            // 支持传空字符串清空网站；非空时必须为 http/https 协议
             String website = dto.getWebsite().trim();
+            if (!website.isEmpty() && isUrlInvalid(website)) {
+                log.warn("更新评论失败：网站URL格式无效，id={}, website={}", dto.getId(), website);
+                return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+            }
             updateWrapper.set(SysComment::getWebsite, website.isEmpty() ? null : website);
         }
 
@@ -264,6 +270,22 @@ public class CommentServiceImpl implements CommentService {
         // 清除所有用户评论列表缓存
         userCommentListCache.invalidateAll();
         log.debug("评论缓存已清除，id={}", commentId);
+    }
+
+    /**
+     * 验证 URL 协议是否为 http/https
+     */
+    private boolean isUrlInvalid(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            java.net.URL parsedUrl = new java.net.URL(url);
+            String protocol = parsedUrl.getProtocol();
+            return !"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol);
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     /**
