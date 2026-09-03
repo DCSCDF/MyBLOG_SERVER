@@ -49,8 +49,8 @@
 
 | 字段          | 类型      | 必填 | 说明                              |
 |-------------|---------|----|---------------------------------|
-| currentPage | Integer | 是  | 当前页码（从 1 开始）                    |
-| pageSize    | Integer | 是  | 每页数量                            |
+| currentPage | Integer | 是  | 当前页码（从 1 开始，最小 1）              |
+| pageSize    | Integer | 是  | 每页数量（最小 1，最大 100）              |
 | keyword     | String  | 否  | 搜索关键词（匹配 code、name、description） |
 | status      | Integer | 否  | 状态筛选：0=禁用，1=启用                  |
 | isSystem    | Integer | 否  | 是否系统内置：0=否，1=是                  |
@@ -103,6 +103,19 @@
     "success": false,
     "errorMsg": "没有权限",
     "code": 403
+}
+```
+
+#### 参数校验失败响应
+
+当 `currentPage` 小于 1 或 `pageSize` 不在 1~100 范围内时，返回 400 错误。
+
+```json
+{
+    "data": null,
+    "success": false,
+    "errorMsg": "每页数量不能超过100",
+    "code": 400
 }
 ```
 
@@ -600,8 +613,8 @@
 
 | 字段          | 类型      | 必填 | 说明                         |
 |-------------|---------|----|----------------------------|
-| currentPage | Integer | 是  | 当前页码（从 1 开始）               |
-| pageSize    | Integer | 是  | 每页数量                       |
+| currentPage | Integer | 是  | 当前页码（从 1 开始，最小 1）          |
+| pageSize    | Integer | 是  | 每页数量（最小 1，最大 100）         |
 | keyword     | String  | 否  | 搜索关键词（匹配 name、description） |
 | status      | Integer | 否  | 状态筛选：0=禁用，1=启用             |
 | isSystem    | Integer | 否  | 是否系统内置：0=否，1=是             |

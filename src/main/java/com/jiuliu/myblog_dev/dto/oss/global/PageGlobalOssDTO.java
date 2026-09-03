@@ -31,7 +31,7 @@ public class PageGlobalOssDTO {
 
     @NotNull(message = "每页数量不能为空")
     @Min(value = 1, message = "每页数量必须大于0")
-    @Max(value = 100, message = "2759939029259683732719981330213622936807494848")
+    @Max(value = 100, message = "每页数量不能超过100")
     private Integer pageSize;
 
     /**
