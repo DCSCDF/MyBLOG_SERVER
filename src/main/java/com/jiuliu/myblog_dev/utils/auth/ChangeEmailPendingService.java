@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.utils.auth;
 
-import cn.dev33.satoken.dao.SaTokenDao;
+import com.jiuliu.myblog_dev.common.TtlStore;
 import lombok.Getter;
 import lombok.Setter;
 import org.slf4j.Logger;
@@ -34,10 +34,10 @@ public class ChangeEmailPendingService {
 
     private static final String PENDING_KEY_PREFIX = "change_email_pending:";
 
-    private final SaTokenDao saTokenDao;
+    private final TtlStore ttlStore;
 
-    public ChangeEmailPendingService(SaTokenDao saTokenDao) {
-        this.saTokenDao = saTokenDao;
+    public ChangeEmailPendingService(TtlStore ttlStore) {
+        this.ttlStore = ttlStore;
     }
 
     /**
@@ -78,7 +78,7 @@ public class ChangeEmailPendingService {
         String key = PENDING_KEY_PREFIX + userId;
         PendingEmailChange pending = new PendingEmailChange(userId, newEmail, code,
                 LocalDateTime.now().plusMinutes(expireMinutes));
-        saTokenDao.set(key, serialize(pending), expireMinutes * 60L);
+        ttlStore.set(key, serialize(pending), expireMinutes * 60L);
         log.info("保存待变更邮箱信息，userId={}, newEmail={}", userId, newEmail);
     }
 
@@ -90,7 +90,7 @@ public class ChangeEmailPendingService {
      */
     public PendingEmailChange getPendingEmailChange(Long userId) {
         String key = PENDING_KEY_PREFIX + userId;
-        String data = saTokenDao.get(key);
+        String data = ttlStore.get(key);
         if (data == null) {
             return null;
         }
@@ -104,7 +104,7 @@ public class ChangeEmailPendingService {
      */
     public void deletePendingEmailChange(Long userId) {
         String key = PENDING_KEY_PREFIX + userId;
-        saTokenDao.delete(key);
+        ttlStore.delete(key);
         log.info("删除待变更邮箱信息，userId={}", userId);
     }
 
@@ -123,10 +123,10 @@ public class ChangeEmailPendingService {
         pending.setAttemptCount(pending.getAttemptCount() + 1);
         long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), pending.getCodeExpireTime()).getSeconds();
         if (ttlSeconds <= 0) {
-            saTokenDao.delete(key);
+            ttlStore.delete(key);
             return -1;
         }
-        saTokenDao.set(key, serialize(pending), ttlSeconds);
+        ttlStore.set(key, serialize(pending), ttlSeconds);
         return pending.getAttemptCount();
     }
 

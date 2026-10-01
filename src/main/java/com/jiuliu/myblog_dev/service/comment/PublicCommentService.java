@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
 
@@ -37,7 +37,7 @@ public interface PublicCommentService {
      * @param isAdmin   当前用户是否为管理员（仅当已登录时有效）
      * @return 提交结果
      */
-    SaResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
+    ServiceResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
                           boolean isLogin, Long userId, boolean isAdmin);
 
     /**

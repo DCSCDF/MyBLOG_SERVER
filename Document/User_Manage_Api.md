@@ -6,7 +6,7 @@
 
 所有账号管理接口均需要登录，且需在请求 header 中携带 token，格式为：`{tokenName: tokenValue}`（tokenName 默认为 token，可在 `application.properties` 中修改）。
 
-接口使用 Sa-Token 权限码控制访问，权限码来源于 `schema.sql` 初始化的 `sys_permission`。
+接口使用 Spring Security 权限码控制访问，权限码来源于 `schema.sql` 初始化的 `sys_permission`。
 
 ---
 

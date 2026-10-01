@@ -14,8 +14,8 @@
 
 package com.jiuliu.myblog_dev.controller.config;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.config.*;
 import com.jiuliu.myblog_dev.service.config.SysConfigService;
@@ -39,63 +39,63 @@ public class ConfigController {
      * 系统默认配置项查询：前端传入 config_key 数组，仅返回系统内置项
      * 权限：config:system:list
      */
-    @SaCheckPermission("system:config:systemlist")
+    @PreAuthorize("hasAuthority('system:config:systemlist')")
     @PostMapping("/system/list")
     public Response<List<ConfigItemResponseDTO>> getSystemConfigByKeys(@Valid @RequestBody ConfigSystemKeysDTO dto) {
-        SaResult saResult = sysConfigService.getSystemConfigByKeys(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.getSystemConfigByKeys(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 用户自定义配置项分页列表：仅非系统内置项
      * 权限：config:custom:list
      */
-    @SaCheckPermission("system:config:customlist")
+    @PreAuthorize("hasAuthority('system:config:customlist')")
     @PostMapping("/custom/list")
     public Response<PageConfigCustomResponseDTO> getPageCustomConfigs(@Valid @RequestBody PageConfigCustomDTO pageDto) {
-        SaResult saResult = sysConfigService.getPageCustomConfigs(pageDto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.getPageCustomConfigs(pageDto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 添加用户自定义配置项
      * 权限：config:create
      */
-    @SaCheckPermission("system:config:create")
+    @PreAuthorize("hasAuthority('system:config:create')")
     @PostMapping("/custom")
     public Response<ConfigItemResponseDTO> createCustomConfig(@Valid @RequestBody ConfigCreateDTO dto) {
-        SaResult saResult = sysConfigService.createCustomConfig(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.createCustomConfig(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 修改网站配置项：仅允许修改 config_value
      * 权限：config:edit
      */
-    @SaCheckPermission("system:config:edit")
+    @PreAuthorize("hasAuthority('system:config:edit')")
     @PutMapping
     public Response<ConfigItemResponseDTO> updateConfig(@Valid @RequestBody ConfigUpdateDTO dto) {
-        SaResult saResult = sysConfigService.updateConfigValue(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.updateConfigValue(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 删除非系统内置的配置项
      * 权限：config:delete
      */
-    @SaCheckPermission("system:config:delete")
+    @PreAuthorize("hasAuthority('system:config:delete')")
     @DeleteMapping("/custom/{id}")
     public Response<Object> deleteCustomConfig(@PathVariable Long id) {
-        SaResult saResult = sysConfigService.deleteCustomConfig(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.deleteCustomConfig(id);
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }

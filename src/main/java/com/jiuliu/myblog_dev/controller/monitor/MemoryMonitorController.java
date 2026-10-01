@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.controller.monitor;
 
-import cn.dev33.satoken.annotation.SaCheckRole;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.monitor.MemoryMonitorService;
 import com.jiuliu.myblog_dev.utils.monitor.MemoryStatus;
@@ -43,7 +43,7 @@ public class MemoryMonitorController {
      * 获取当前内存状态
      */
     @GetMapping("/memory")
-    @SaCheckRole("SUPER_ADMIN")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Response<Map<String, Object>> getMemoryStatus() {
         MemoryStatus status = memoryMonitorService.getCurrentStatus();
 
@@ -64,7 +64,7 @@ public class MemoryMonitorController {
      * 获取详细的内存报告（包含 Metaspace 等信息）
      */
     @GetMapping("/memory/detail")
-    @SaCheckRole("SUPER_ADMIN")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Response<String> getMemoryDetail() {
         String report = memoryMonitorService.getDetailedReport();
         return ResponseUtil.success(report, 200);

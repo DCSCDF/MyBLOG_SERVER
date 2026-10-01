@@ -23,7 +23,7 @@
 
 package com.jiuliu.myblog_dev.service.user.permissiongroup;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -80,7 +80,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     }
 
     @Override
-    public SaResult getPagePermissionGroups(PagePermissionGroupDTO pageDto) {
+    public ServiceResult getPagePermissionGroups(PagePermissionGroupDTO pageDto) {
         try {
             LambdaQueryWrapper<SysPermissionGroup> wrapper = new LambdaQueryWrapper<SysPermissionGroup>()
                     .eq(SysPermissionGroup::getIsDeleted, 0)
@@ -109,10 +109,10 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
             response.setPages(pageResult.getPages());
             response.setFilterOptions(buildPermissionGroupListFilterOptions());
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取权限组列表异常", e);
-            return SaResult.error("获取权限组列表失败").setCode(500);
+            return ServiceResult.error("获取权限组列表失败").setCode(500);
         }
     }
 
@@ -123,20 +123,20 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
     }
 
     @Override
-    public SaResult getPermissionGroupById(Long id) {
+    public ServiceResult getPermissionGroupById(Long id) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectOne(
                 new LambdaQueryWrapper<SysPermissionGroup>()
                         .eq(SysPermissionGroup::getId, id)
                         .eq(SysPermissionGroup::getIsDeleted, 0));
         if (group == null) {
             log.warn("获取权限组详情失败：权限组不存在，id={}", id);
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
-        return SaResult.data(toResponseDTO(group));
+        return ServiceResult.data(toResponseDTO(group));
     }
 
     @Override
-    public SaResult createPermissionGroup(PermissionGroupCreateDTO dto) {
+    public ServiceResult createPermissionGroup(PermissionGroupCreateDTO dto) {
         // 检查权限组名称是否已存在（未删除的）
         SysPermissionGroup existingGroup = sysPermissionGroupMapper.selectOne(
                 new LambdaQueryWrapper<SysPermissionGroup>()
@@ -144,7 +144,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .and(w -> w.eq(SysPermissionGroup::getIsDeleted, 0).or().isNull(SysPermissionGroup::getIsDeleted)));
         if (existingGroup != null) {
             log.warn("创建权限组失败：权限组名称已存在，name={}", dto.getName());
-            return SaResult.error("权限组名称已存在").setCode(400);
+            return ServiceResult.error("权限组名称已存在").setCode(400);
         }
 
         SysPermissionGroup group = new SysPermissionGroup();
@@ -157,20 +157,20 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
 
         sysPermissionGroupMapper.insert(group);
         log.info("权限组创建成功，id={}, name={}", group.getId(), group.getName());
-        return SaResult.data(toResponseDTO(group));
+        return ServiceResult.data(toResponseDTO(group));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updatePermissionGroup(PermissionGroupUpdateDTO dto) {
+    public ServiceResult updatePermissionGroup(PermissionGroupUpdateDTO dto) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(dto.getId());
         if (group == null) {
             log.warn("更新权限组失败：权限组不存在，id={}", dto.getId());
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
             log.warn("更新权限组失败：系统内置权限组不可修改，id={}", dto.getId());
-            return SaResult.error("系统内置权限组不可修改").setCode(403);
+            return ServiceResult.error("系统内置权限组不可修改").setCode(403);
         }
 
         // 禁用时：仅收回角色通过该组获得的权限，保留角色-权限组关联，便于重新启用时恢复
@@ -192,20 +192,20 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
 
         sysPermissionGroupMapper.update(null, wrapper);
         log.info("权限组更新成功，id={}", dto.getId());
-        return SaResult.data(toResponseDTO(sysPermissionGroupMapper.selectById(dto.getId())));
+        return ServiceResult.data(toResponseDTO(sysPermissionGroupMapper.selectById(dto.getId())));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deletePermissionGroup(Long id) {
+    public ServiceResult deletePermissionGroup(Long id) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(id);
         if (group == null) {
             log.warn("删除权限组失败：权限组不存在，id={}", id);
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
             log.warn("删除权限组失败：系统内置权限组不可删除，id={}", id);
-            return SaResult.error("系统内置权限组不可删除").setCode(403);
+            return ServiceResult.error("系统内置权限组不可删除").setCode(403);
         }
 
         // 检查是否被角色引用：若存在角色-权限组关联则不允许删除，需先从相关角色中移除该权限组
@@ -213,7 +213,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                 new LambdaQueryWrapper<SysRolePermissionGroup>().eq(SysRolePermissionGroup::getGroupId, id));
         if (refCount != null && refCount > 0) {
             log.warn("删除权限组失败：该权限组已被角色引用，无法删除，id={}, 引用角色数={}", id, refCount);
-            return SaResult.error("该权限组已被角色引用，无法删除，请先从相关角色中移除该权限组").setCode(400);
+            return ServiceResult.error("该权限组已被角色引用，无法删除，请先从相关角色中移除该权限组").setCode(400);
         }
 
         // 1. 删除权限组-权限关联（此时已无角色引用，无需同步角色权限）
@@ -231,27 +231,27 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                 .set(SysPermissionGroup::getIsDeleted, 1)
                 .set(SysPermissionGroup::getUpdateTime, LocalDateTime.now()));
         log.info("权限组删除成功，已级联删除关联数据，id={}", id);
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     @Override
-    public SaResult getPermissionsByGroupId(Long groupId) {
+    public ServiceResult getPermissionsByGroupId(Long groupId) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectOne(
                 new LambdaQueryWrapper<SysPermissionGroup>()
                         .eq(SysPermissionGroup::getId, groupId)
                         .eq(SysPermissionGroup::getIsDeleted, 0));
         if (group == null) {
             log.warn("获取权限组关联权限失败：权限组不存在，groupId={}", groupId);
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
         List<SysPermission> permissions = sysPermissionMapper.selectPermissionsByGroupId(groupId);
         List<PermissionResponseDTO> dtos = permissions.stream().map(this::toPermissionDTO).collect(Collectors.toList());
-        return SaResult.data(dtos);
+        return ServiceResult.data(dtos);
     }
 
     @Override
-    public SaResult addPermissionToGroup(Long groupId, Long permissionId) {
-        SaResult validationResult = validatePermissionGroup(groupId);
+    public ServiceResult addPermissionToGroup(Long groupId, Long permissionId) {
+        ServiceResult validationResult = validatePermissionGroup(groupId);
         if (validationResult != null) {
             return validationResult;
         }
@@ -259,7 +259,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
         if (newPerm == null) {
             log.warn("权限组添加权限失败：权限不存在，groupId={}, permissionId={}", groupId, permissionId);
-            return SaResult.error("权限不存在").setCode(404);
+            return ServiceResult.error("权限不存在").setCode(404);
         }
 
         long count = sysPermissionGroupItemMapper.selectCount(
@@ -268,14 +268,14 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroupItem::getPermissionId, permissionId));
         if (count > 0) {
             log.warn("权限组添加权限失败：该权限已在权限组中，groupId={}, permissionId={}", groupId, permissionId);
-            return SaResult.error("该权限已在权限组中").setCode(400);
+            return ServiceResult.error("该权限已在权限组中").setCode(400);
         }
 
         // 父子权限互斥：关联了父权限就不能关联其子权限，关联了子权限就不能关联其父权限
         List<SysPermission> existingPerms = sysPermissionMapper.selectPermissionsByGroupId(groupId);
         for (SysPermission existing : existingPerms) {
             if (PermissionOverlapHelper.overlaps(newPerm.getCode(), existing.getCode())) {
-                return SaResult.error("该权限与权限组中已有权限存在父子关系，不能同时关联父权限和子权限").setCode(400);
+                return ServiceResult.error("该权限与权限组中已有权限存在父子关系，不能同时关联父权限和子权限").setCode(400);
             }
         }
 
@@ -287,7 +287,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
             List<String> rolePermCodesExcludingThisGroup = getRolePermissionCodesExcludingGroup(roleId, groupId);
             for (String code : rolePermCodesExcludingThisGroup) {
                 if (PermissionOverlapHelper.overlaps(newPerm.getCode(), code)) {
-                    return SaResult.error("该权限与依赖此权限组的角色已有权限重叠（角色通过直接分配或其他权限组已拥有此权限或父子权限）").setCode(400);
+                    return ServiceResult.error("该权限与依赖此权限组的角色已有权限重叠（角色通过直接分配或其他权限组已拥有此权限或父子权限）").setCode(400);
                 }
             }
         }
@@ -301,12 +301,12 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
         // 将新增权限同步到依赖此权限组的所有角色的 sys_role_permission
         syncPermissionToRoles(roleIdsWithGroup, permissionId, true);
         log.info("权限组添加权限成功，groupId={}, permissionId={}", groupId, permissionId);
-        return SaResult.data("添加成功");
+        return ServiceResult.data("添加成功");
     }
 
     @Override
-    public SaResult removePermissionFromGroup(Long groupId, Long permissionId) {
-        SaResult validationResult = validatePermissionGroup(groupId);
+    public ServiceResult removePermissionFromGroup(Long groupId, Long permissionId) {
+        ServiceResult validationResult = validatePermissionGroup(groupId);
         if (validationResult != null) {
             return validationResult;
         }
@@ -318,7 +318,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                         .eq(SysPermissionGroupItem::getPermissionId, permissionId));
         if (deleted == 0) {
             log.warn("权限组移除权限失败：该权限不在权限组中，groupId={}, permissionId={}", groupId, permissionId);
-            return SaResult.error("该权限不在权限组中").setCode(400);
+            return ServiceResult.error("该权限不在权限组中").setCode(400);
         }
 
         // 同步到依赖此权限组的所有角色：移除该权限，若角色通过其他权限组或直接分配仍拥有则需保留
@@ -327,7 +327,7 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
                 .stream().map(SysRolePermissionGroup::getRoleId).toList();
         syncPermissionToRoles(roleIdsWithGroup, permissionId, false);
         log.info("权限组移除权限成功，groupId={}, permissionId={}", groupId, permissionId);
-        return SaResult.data("移除成功");
+        return ServiceResult.data("移除成功");
     }
 
     /**
@@ -492,15 +492,15 @@ public class PermissionGroupServiceImpl implements PermissionGroupService {
      * @param groupId 权限组ID
      * @return 验证失败返回错误结果，验证成功返回null
      */
-    private SaResult validatePermissionGroup(Long groupId) {
+    private ServiceResult validatePermissionGroup(Long groupId) {
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(groupId);
         if (group == null || (group.getIsDeleted() != null && group.getIsDeleted() == 1)) {
             log.warn("权限组操作校验失败：权限组不存在，groupId={}", groupId);
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(group.getIsSystem())) {
             log.warn("权限组操作校验失败：系统内置权限组不可修改，groupId={}", groupId);
-            return SaResult.error("系统内置权限组不可修改").setCode(403);
+            return ServiceResult.error("系统内置权限组不可修改").setCode(403);
         }
         return null;
     }

@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.config;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.config.ConfigCreateDTO;
 import com.jiuliu.myblog_dev.dto.config.ConfigSystemKeysDTO;
 import com.jiuliu.myblog_dev.dto.config.ConfigUpdateDTO;
@@ -28,27 +28,27 @@ public interface SysConfigService {
     /**
      * 系统默认配置项查询：仅支持系统内置项，按传入的 config_key 列表返回
      */
-    SaResult getSystemConfigByKeys(ConfigSystemKeysDTO dto);
+    ServiceResult getSystemConfigByKeys(ConfigSystemKeysDTO dto);
 
     /**
      * 用户自定义配置项分页列表：仅非系统内置项
      */
-    SaResult getPageCustomConfigs(PageConfigCustomDTO pageDto);
+    ServiceResult getPageCustomConfigs(PageConfigCustomDTO pageDto);
 
     /**
      * 添加用户自定义配置项
      */
-    SaResult createCustomConfig(ConfigCreateDTO dto);
+    ServiceResult createCustomConfig(ConfigCreateDTO dto);
 
     /**
      * 修改配置项：仅允许修改 config_value
      */
-    SaResult updateConfigValue(ConfigUpdateDTO dto);
+    ServiceResult updateConfigValue(ConfigUpdateDTO dto);
 
     /**
      * 删除非系统内置的配置项（按主键 id 删除）
      */
-    SaResult deleteCustomConfig(Long id);
+    ServiceResult deleteCustomConfig(Long id);
 
     /**
      * 公开查询配置项：根据传入的 config_key 列表返回配置值
@@ -57,7 +57,7 @@ public interface SysConfigService {
      * @param keys 配置键列表
      * @return 配置项列表
      */
-    SaResult getPublicConfigByKeys(@NotEmpty(message = "配置键列表不能为空") List<String> keys);
+    ServiceResult getPublicConfigByKeys(@NotEmpty(message = "配置键列表不能为空") List<String> keys);
 
     /**
      * 获取网站基础信息
@@ -65,5 +65,5 @@ public interface SysConfigService {
      *
      * @return 网站基础信息
      */
-    SaResult getSiteInfo();
+    ServiceResult getSiteInfo();
 }

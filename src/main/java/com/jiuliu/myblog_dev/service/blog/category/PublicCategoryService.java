@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.blog.category;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 
 
 /**
@@ -29,7 +29,7 @@ public interface PublicCategoryService {
      *
      * @return 分类列表
      */
-    SaResult getVisibleCategories();
+    ServiceResult getVisibleCategories();
 
     /**
      * 根据ID获取分类详情
@@ -38,7 +38,7 @@ public interface PublicCategoryService {
      * @param categoryId 分类ID
      * @return 分类详情
      */
-    SaResult getCategoryById(Long categoryId);
+    ServiceResult getCategoryById(Long categoryId);
 
     /**
      * 清除公共分类缓存

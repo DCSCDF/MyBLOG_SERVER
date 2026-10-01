@@ -1,5 +1,5 @@
 /*
- * [SaTokenService.java]
+ * [AuthenticationService.java]
  * =======================================
  * This software is licensed under the MIT License.
  * However, any distribution or modification must retain this copyright notice.
@@ -14,7 +14,6 @@
 
 package com.jiuliu.myblog_dev.service.authentication;
 
-import cn.dev33.satoken.stp.StpInterface;
 import com.jiuliu.myblog_dev.entity.user.permission.SysPermission;
 import com.jiuliu.myblog_dev.entity.user.permissiongroup.SysPermissionGroup;
 import com.jiuliu.myblog_dev.entity.user.role.SysRole;
@@ -32,8 +31,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Authority loader: resolves a user's role codes and (parent-expanded)
+ * permission codes from the RBAC tables. Consumed by BlogUserDetailsService to build GrantedAuthority lists.
+ */
 @Service
-public class AuthenticationService implements StpInterface {
+public class AuthenticationService {
 
     private final SysRoleMapper sysRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
@@ -50,21 +53,13 @@ public class AuthenticationService implements StpInterface {
         this.sysRolePermissionMapper = sysRolePermissionMapper;
     }
 
-    //缓存 实现前要确保变更角色的权限后要刷新缓存
-    //@Cacheable(value = "userRoles", key = "#loginId"
-    @Override
-    public List<String> getRoleList(Object loginId, String loginType) {
-
-        Long userId = convertToLong(loginId);
+    public List<String> getRoleList(Long userId) {
 
         List<SysRole> roleList = sysRoleMapper.selectRolesByUserId(userId);
         return roleList.stream().map(SysRole::getCode).collect(Collectors.toList());
     }
 
-    //@Cacheable(value = "userPermissions", key = "#loginId")
-    @Override
-    public List<String> getPermissionList(Object loginId, String loginType) {
-        Long userId = convertToLong(loginId);
+    public List<String> getPermissionList(Long userId) {
         List<SysRole> roleList = sysRoleMapper.selectRolesByUserId(userId);
 
         // 系统中所有已注册的权限编码，用于展开父权限 -> 子权限
@@ -123,14 +118,5 @@ public class AuthenticationService implements StpInterface {
         }
 
         return new ArrayList<>(resultCodes);
-    }
-
-    private Long convertToLong(Object loginId) {
-        if (loginId instanceof Long) {
-            return (Long) loginId;
-        } else if (loginId instanceof String) {
-            return Long.parseLong((String) loginId);
-        }
-        throw new IllegalArgumentException("Unsupported loginId type: " + loginId.getClass().getName());
     }
 }

@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.oss;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.google.common.cache.Cache;
@@ -80,12 +80,12 @@ public class OssServiceImpl implements OssService {
     }
 
     @Override
-    public SaResult testConnection() {
+    public ServiceResult testConnection() {
 //        log.debug("开始 OSS 连接测试...");
 
         if (!ossConfig.isConfigured()) {
             log.warn("OSS 连接测试失败：配置未完成");
-            return SaResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
+            return ServiceResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
         }
 
         log.debug("OSS 配置检查通过 - bucket=[{}], endpoint=[{}]",
@@ -94,7 +94,7 @@ public class OssServiceImpl implements OssService {
         OSS ossClient = ossConfig.getOssClient();
         if (ossClient == null) {
             log.error("OSS 连接测试失败：无法获取 OSS 客户端");
-            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
+            return ServiceResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
         }
 
         try {
@@ -102,34 +102,34 @@ public class OssServiceImpl implements OssService {
             log.debug("尝试列出 Bucket 中的对象，bucket=[{}]", bucket);
             ossClient.listObjects(bucket);
             log.info("OSS 连接测试成功，bucket={}", bucket);
-            return SaResult.data("OSS 配置已完成且连接正常");
+            return ServiceResult.data("OSS 配置已完成且连接正常");
         } catch (Exception e) {
             log.warn("OSS 连接测试失败：{}", e.getMessage());
             log.warn("OSS 连接错误类型：{}", e.getClass().getName());
-            return SaResult.error("OSS 配置已完成，但无法连接到服务器，请检查网络与配置").setCode(400);
+            return ServiceResult.error("OSS 配置已完成，但无法连接到服务器，请检查网络与配置").setCode(400);
         }
     }
 
     @Override
-    public SaResult uploadImage(String fileName, byte[] fileBytes, String contentType, Long userId) {
+    public ServiceResult uploadImage(String fileName, byte[] fileBytes, String contentType, Long userId) {
         log.debug("开始图片上传，原始文件名=[{}]，文件大小={} bytes，contentType=[{}]，userId=[{}]",
                 fileName, fileBytes != null ? fileBytes.length : 0, contentType, userId);
 
         // 0. 参数校验
         if (fileBytes == null || fileBytes.length == 0) {
             log.warn("图片上传失败：文件数据为空");
-            return SaResult.error("文件数据为空").setCode(400);
+            return ServiceResult.error("文件数据为空").setCode(400);
         }
 
         if (!ossConfig.isConfigured()) {
             log.warn("图片上传失败：OSS 配置未完成");
-            return SaResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
+            return ServiceResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
         }
 
         OSS ossClient = ossConfig.getOssClient();
         if (ossClient == null) {
             log.error("图片上传失败：无法获取 OSS 客户端");
-            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
+            return ServiceResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
         }
 
         // 1. 提取文件扩展名
@@ -139,19 +139,19 @@ public class OssServiceImpl implements OssService {
         // 2. 校验图片大小（不超过 10MB）
         if (fileBytes.length > MAX_IMAGE_SIZE) {
             log.warn("图片上传失败：文件大小超过限制 {} bytes", fileBytes.length);
-            return SaResult.error("图片大小不能超过 10MB").setCode(400);
+            return ServiceResult.error("图片大小不能超过 10MB").setCode(400);
         }
 
         // 3. 校验图片格式
         if (!ImageUtil.isValidFormat(fileBytes, extension)) {
             log.warn("图片上传失败：格式校验不通过，文件名=[{}]", fileName);
-            return SaResult.error("不支持的图片格式或文件损坏，支持的格式：jpg, jpeg, png, gif, bmp, webp").setCode(400);
+            return ServiceResult.error("不支持的图片格式或文件损坏，支持的格式：jpg, jpeg, png, gif, bmp, webp").setCode(400);
         }
 
         // 3.5 校验像素总量上限（解码前只读头部，防止解压炸弹 OOM）
         if (ImageUtil.isPixelCountExceeded(fileBytes)) {
             log.warn("图片上传失败：像素总量超过上限，文件名=[{}]，大小={} bytes", fileName, fileBytes.length);
-            return SaResult.error("图片分辨率过高，像素总量不能超过 2500 万").setCode(400);
+            return ServiceResult.error("图片分辨率过高，像素总量不能超过 2500 万").setCode(400);
         }
 
         // 4. 检查并缩放分辨率超过 4K 的图片
@@ -165,14 +165,14 @@ public class OssServiceImpl implements OssService {
 //            log.debug("图片压缩完成，压缩后大小={} bytes", processedBytes.length);
         } catch (Exception e) {
             log.error("图片压缩失败：{}", e.getMessage(), e);
-            return SaResult.error("图片处理失败，请稍后重试").setCode(500);
+            return ServiceResult.error("图片处理失败，请稍后重试").setCode(500);
         }
 
         // 6. 计算 MD5 哈希值
         String hash = calculateMD5(processedBytes);
         if (hash == null) {
             log.error("图片哈希计算失败");
-            return SaResult.error("图片哈希计算失败").setCode(500);
+            return ServiceResult.error("图片哈希计算失败").setCode(500);
         }
 //        log.debug("图片 MD5 哈希=[{}]", hash);
 
@@ -180,7 +180,7 @@ public class OssServiceImpl implements OssService {
         SysOssImage existingImage = sysOssImageMapper.selectByHash(hash);
         if (existingImage != null) {
             log.info("图片已存在，跳过重复上传，hash=[{}]，objectName=[{}]", hash, existingImage.getObjectName());
-            return SaResult.data(new ImageUploadResponse(
+            return ServiceResult.data(new ImageUploadResponse(
                     hash,
                     existingImage.getOriginalName(),
                     existingImage.getFileSize()
@@ -216,7 +216,7 @@ public class OssServiceImpl implements OssService {
 //            log.info("图片上传到 OSS 成功，objectName=[{}]，大小={} bytes", objectName, processedBytes.length);
         } catch (Exception e) {
             log.error("图片上传到 OSS 失败：{}", e.getMessage(), e);
-            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
+            return ServiceResult.error("图片上传失败，请稍后重试").setCode(500);
         }
 
         // 11. 保存到数据库
@@ -241,13 +241,13 @@ public class OssServiceImpl implements OssService {
             SysOssImage existing = sysOssImageMapper.selectByHash(hash);
             if (existing != null) {
                 eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.UPLOAD, hash, userId));
-                return SaResult.data(new ImageUploadResponse(
+                return ServiceResult.data(new ImageUploadResponse(
                         existing.getHash(),
                         existing.getOriginalName(),
                         existing.getFileSize()
                 ));
             }
-            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
+            return ServiceResult.error("图片上传失败，请稍后重试").setCode(500);
         } catch (Exception e) {
             log.error("保存图片记录失败：{}", e.getMessage(), e);
             // OSS 上传成功但数据库保存失败，尝试删除 OSS 文件
@@ -257,7 +257,7 @@ public class OssServiceImpl implements OssService {
             } catch (Exception deleteEx) {
                 log.error("删除 OSS 文件失败：{}", deleteEx.getMessage());
             }
-            return SaResult.error("图片上传失败，请稍后重试").setCode(500);
+            return ServiceResult.error("图片上传失败，请稍后重试").setCode(500);
         }
 
         // 12. 发布图片变更事件（清除缓存）
@@ -268,7 +268,7 @@ public class OssServiceImpl implements OssService {
         log.info("图片上传全部完成，hash=[{}]，URL=[{}]，原始大小={} bytes，处理后={} bytes",
                 hash, imageUrl, fileBytes.length, processedBytes.length);
 
-        return SaResult.data(new ImageUploadResponse(
+        return ServiceResult.data(new ImageUploadResponse(
                 hash,
                 originalNameTruncated,
                 fileSize
@@ -276,31 +276,31 @@ public class OssServiceImpl implements OssService {
     }
 
     @Override
-    public SaResult deleteImage(String objectName, Long userId) {
+    public ServiceResult deleteImage(String objectName, Long userId) {
         log.debug("开始删除图片，objectName=[{}]，userId=[{}]", objectName, userId);
 
         if (!ossConfig.isConfigured()) {
             log.warn("图片删除失败：OSS 配置未完成");
-            return SaResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
+            return ServiceResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
         }
 
         if (objectName == null || objectName.isBlank()) {
             log.warn("图片删除失败：对象名为空");
-            return SaResult.error("对象名称不能为空").setCode(400);
+            return ServiceResult.error("对象名称不能为空").setCode(400);
         }
 
         // 1. 从数据库查询图片记录
         SysOssImage imageRecord = sysOssImageMapper.selectByObjectName(objectName);
         if (imageRecord == null) {
             log.warn("图片记录不存在，objectName=[{}]", objectName);
-            return SaResult.error("图片记录不存在").setCode(404);
+            return ServiceResult.error("图片记录不存在").setCode(404);
         }
 
         // 2. 校验用户权限：只有上传该图片的用户才能删除
         if (userId == null || !userId.equals(imageRecord.getUserId())) {
             log.warn("图片删除失败：权限不足，objectName=[{}]，图片上传者=[{}]，请求删除者=[{}]",
                     objectName, imageRecord.getUserId(), userId);
-            return SaResult.error("无权限删除此图片").setCode(403);
+            return ServiceResult.error("无权限删除此图片").setCode(403);
         }
 
 //        String hash = imageRecord.getHash();
@@ -310,7 +310,7 @@ public class OssServiceImpl implements OssService {
         OSS ossClient = ossConfig.getOssClient();
         if (ossClient == null) {
             log.error("图片删除失败：无法获取 OSS 客户端");
-            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
+            return ServiceResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
         }
 
         try {
@@ -319,7 +319,7 @@ public class OssServiceImpl implements OssService {
 //            log.info("OSS 图片删除成功，objectName=[{}]", objectName);
         } catch (Exception e) {
             log.error("OSS 图片删除失败：{}", e.getMessage(), e);
-            return SaResult.error("删除 OSS 图片失败，请稍后重试").setCode(500);
+            return ServiceResult.error("删除 OSS 图片失败，请稍后重试").setCode(500);
         }
 
         // 4. 删除数据库记录
@@ -329,40 +329,40 @@ public class OssServiceImpl implements OssService {
         } catch (Exception e) {
             log.error("数据库图片记录删除失败：{}", e.getMessage(), e);
             // OSS 已删除，但数据库记录删除失败（不应发生）
-            return SaResult.error("OSS 图片已删除，但数据库记录删除失败").setCode(500);
+            return ServiceResult.error("OSS 图片已删除，但数据库记录删除失败").setCode(500);
         }
 
         // 5. 发布图片变更事件（清除缓存）
         eventPublisher.publishEvent(new OssImageChangedEvent(this, OssImageChangedEvent.EventType.DELETE, objectName, userId));
 
-        return SaResult.ok().setMsg("删除成功");
+        return ServiceResult.ok().setMsg("删除成功");
     }
 
     @Override
-    public SaResult deleteImageByHash(String hash, Long userId) {
+    public ServiceResult deleteImageByHash(String hash, Long userId) {
         log.debug("开始删除图片（通过哈希），hash=[{}]，userId=[{}]", hash, userId);
 
         if (hash == null || hash.isBlank()) {
             log.warn("图片删除失败：哈希值为空");
-            return SaResult.error("哈希值不能为空").setCode(400);
+            return ServiceResult.error("哈希值不能为空").setCode(400);
         }
 
         // 1. 从数据库查询图片记录
         SysOssImage imageRecord = sysOssImageMapper.selectByHash(hash);
         if (imageRecord == null) {
             log.warn("图片记录不存在，hash=[{}]", hash);
-            return SaResult.error("图片记录不存在").setCode(404);
+            return ServiceResult.error("图片记录不存在").setCode(404);
         }
 
         return deleteImage(imageRecord.getObjectName(), userId);
     }
 
     @Override
-    public SaResult getPageUserOssImages(PageUserOssDTO dto, Long userId) {
+    public ServiceResult getPageUserOssImages(PageUserOssDTO dto, Long userId) {
         try {
             if (userId == null) {
                 log.warn("获取用户图片列表失败：用户ID为空");
-                return SaResult.error("用户未登录").setCode(401);
+                return ServiceResult.error("用户未登录").setCode(401);
             }
 
             // 构建缓存键
@@ -373,7 +373,7 @@ public class OssServiceImpl implements OssService {
             PageUserOssResponseDTO cached = userOssListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取用户OSS图片列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 构建查询条件
@@ -419,10 +419,10 @@ public class OssServiceImpl implements OssService {
             // 存入缓存
             userOssListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取用户OSS图片列表异常", e);
-            return SaResult.error("获取图片列表失败").setCode(500);
+            return ServiceResult.error("获取图片列表失败").setCode(500);
         }
     }
 

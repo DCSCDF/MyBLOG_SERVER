@@ -14,10 +14,11 @@
 
 package com.jiuliu.myblog_dev.exception;
 
-import cn.dev33.satoken.exception.NotLoginException;
-import cn.dev33.satoken.exception.NotPermissionException;
-import cn.dev33.satoken.exception.NotRoleException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jiuliu.myblog_dev.security.NotAuthenticatedException;
+import com.jiuliu.myblog_dev.security.SecurityUtil;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.utils.disabled.DisabledException;
 import com.jiuliu.myblog_dev.utils.monitor.MemoryCriticalException;
@@ -130,28 +131,32 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理 Sa-Token 未登录异常（业务正常分支，不作为 WARN 记录）
+     * 处理未登录异常（业务正常分支，不作为 WARN 记录）
      * 用户未登录访问受保护接口属于预期行为，降级为 DEBUG 以避免污染生产日志。
-     * 根据异常类型给出不同提示：token冻结（长时间未操作）与普通未登录。
+     * Covers code paths that require a principal via SecurityUtil and any
+     * Spring Security AuthenticationException escaping method security.
      */
-    @ExceptionHandler(NotLoginException.class)
+    @ExceptionHandler({NotAuthenticatedException.class, AuthenticationException.class})
     @SuppressWarnings("unused")
-    public Response<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request, HttpServletResponse response) {
+    public Response<Void> handleNotAuthenticatedException(Exception e, HttpServletRequest request, HttpServletResponse response) {
         log.debug("未登录访问: {} {}", request.getMethod(), request.getRequestURI());
-        String message = switch (e.getType()) {
-            case NotLoginException.TOKEN_FREEZE, NotLoginException.TOKEN_TIMEOUT -> "登录已过期，请重新登录";
-            default -> "未授权，请先登录";
-        };
         response.setStatus(401);
-        return ResponseUtil.fail(message, 401);
+        return ResponseUtil.fail("未授权，请先登录", 401);
     }
 
     /**
-     * 处理 Sa-Token 角色/权限不足异常（真正的越权访问，保留 WARN）
+     * 处理角色/权限不足异常（真正的越权访问，保留 WARN）
+     * Thrown by @PreAuthorize checks via Spring Security method security.
      */
-    @ExceptionHandler({NotRoleException.class, NotPermissionException.class})
+    @ExceptionHandler(AccessDeniedException.class)
     @SuppressWarnings("unused")
-    public Response<Void> handlePermissionDeniedException(Exception e, HttpServletRequest request, HttpServletResponse response) {
+    public Response<Void> handleAccessDeniedException(AccessDeniedException e, HttpServletRequest request, HttpServletResponse response) {
+        // Anonymous callers hitting a protected method get 401, not 403
+        if (!SecurityUtil.isAuthenticated()) {
+            log.debug("未登录访问: {} {}", request.getMethod(), request.getRequestURI());
+            response.setStatus(401);
+            return ResponseUtil.fail("未授权，请先登录", 401);
+        }
         log.warn("鉴权失败: {} {} {}", e.getClass().getSimpleName(),
                 request.getMethod(), request.getRequestURI());
         response.setStatus(403);

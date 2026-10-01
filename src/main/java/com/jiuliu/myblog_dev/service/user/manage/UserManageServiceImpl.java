@@ -23,8 +23,8 @@
 
 package com.jiuliu.myblog_dev.service.user.manage;
 
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
+import com.jiuliu.myblog_dev.security.ActiveTokenRegistry;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -61,17 +61,20 @@ public class UserManageServiceImpl implements UserManageService {
     private final SysUserMapper sysUserMapper;
     private final SysUserRoleMapper sysUserRoleMapper;
     private final SysRoleMapper sysRoleMapper;
+    private final ActiveTokenRegistry tokenRegistry;
 
     public UserManageServiceImpl(SysUserMapper sysUserMapper,
                                  SysUserRoleMapper sysUserRoleMapper,
-                                 SysRoleMapper sysRoleMapper) {
+                                 SysRoleMapper sysRoleMapper,
+                                 ActiveTokenRegistry tokenRegistry) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
+        this.tokenRegistry = tokenRegistry;
     }
 
     @Override
-    public SaResult getPageUsers(PageUserDTO pageDto) {
+    public ServiceResult getPageUsers(PageUserDTO pageDto) {
         try {
             LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<SysUser>()
                     .eq(SysUser::getIsDeleted, 0)
@@ -99,47 +102,47 @@ public class UserManageServiceImpl implements UserManageService {
             resp.setCurrent(pageResult.getCurrent());
             resp.setPages(pageResult.getPages());
             resp.setFilterOptions(buildUserListFilterOptions());
-            return SaResult.data(resp);
+            return ServiceResult.data(resp);
         } catch (Exception e) {
             log.error("分页获取用户列表异常", e);
-            return SaResult.error("获取用户列表失败").setCode(500);
+            return ServiceResult.error("获取用户列表失败").setCode(500);
         }
     }
 
     @Override
-    public SaResult getUserById(Long id) {
+    public ServiceResult getUserById(Long id) {
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
-        return SaResult.data(toUserAdminResponseDTO(user));
+        return ServiceResult.data(toUserAdminResponseDTO(user));
     }
 
     @Override
-    public SaResult getUserRoles(Long userId) {
+    public ServiceResult getUserRoles(Long userId) {
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getId, userId)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
 
         List<SysRole> roles = sysRoleMapper.selectRolesByUserId(userId);
         List<RoleResponseDTO> dtos = roles.stream().map(this::toRoleResponseDTO).collect(Collectors.toList());
-        return SaResult.data(dtos);
+        return ServiceResult.data(dtos);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateUser(Long id, UserUpdateDTO dto) {
+    public ServiceResult updateUser(Long id, UserUpdateDTO dto) {
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
             log.warn("更新用户失败：用户不存在，id={}", id);
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
 
         // 角色更新：传入 roleId 则覆盖用户现有角色（单一角色）
@@ -150,18 +153,18 @@ public class UserManageServiceImpl implements UserManageService {
                     .eq(SysRole::getStatus, 1));
             if (role == null) {
                 log.warn("更新用户失败：角色不存在或已禁用，userId={}, roleId={}", id, dto.getRoleId());
-                return SaResult.error("角色不存在或已禁用").setCode(404);
+                return ServiceResult.error("角色不存在或已禁用").setCode(404);
             }
             // 超级管理员只能有一个，且只能分配给默认管理员账号
             boolean isSuperAdminRole = Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode());
             boolean isDefaultAdmin = "admin".equals(user.getUsername());
             if (isSuperAdminRole && !isDefaultAdmin) {
                 log.warn("更新用户失败：超级管理员角色只能分配给默认管理员账号，userId={}", id);
-                return SaResult.error("超级管理员角色只能分配给默认管理员账号（admin）").setCode(403);
+                return ServiceResult.error("超级管理员角色只能分配给默认管理员账号（admin）").setCode(403);
             }
             if (isDefaultAdmin && !isSuperAdminRole) {
                 log.warn("更新用户失败：默认管理员必须保留超级管理员角色，userId={}", id);
-                return SaResult.error("默认管理员必须保留超级管理员角色").setCode(403);
+                return ServiceResult.error("默认管理员必须保留超级管理员角色").setCode(403);
             }
             sysUserRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, id));
             SysUserRole userRole = new SysUserRole();
@@ -177,7 +180,7 @@ public class UserManageServiceImpl implements UserManageService {
             if (!v.isEmpty()) {
                 if (!isValidAvatarUrl(v)) {
                     log.warn("更新用户失败：头像URL格式无效，userId={}, avatarUrl={}", id, dto.getAvatarUrl());
-                    return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
+                    return ServiceResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
                 }
                 avatarValueToSet = v;
             }
@@ -198,10 +201,10 @@ public class UserManageServiceImpl implements UserManageService {
     }
 
     @Override
-    public SaResult updateUserStatus(Long id, Integer status) {
+    public ServiceResult updateUserStatus(Long id, Integer status) {
         if (status == null || (status != 0 && status != 1)) {
             log.warn("更新用户状态失败：status 参数错误，id={}, status={}", id, status);
-            return SaResult.error("status 参数错误").setCode(400);
+            return ServiceResult.error("status 参数错误").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
@@ -209,13 +212,13 @@ public class UserManageServiceImpl implements UserManageService {
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
             log.warn("更新用户状态失败：用户不存在，id={}", id);
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
 
         // 避免禁用超级管理员账号
         if (status == 0 && isSuperAdminUser(id)) {
             log.warn("更新用户状态失败：超级管理员账号不可禁用，id={}", id);
-            return SaResult.error("超级管理员账号不可禁用").setCode(403);
+            return ServiceResult.error("超级管理员账号不可禁用").setCode(403);
         }
 
         sysUserMapper.update(null, new LambdaUpdateWrapper<SysUser>()
@@ -226,26 +229,26 @@ public class UserManageServiceImpl implements UserManageService {
 
         // 禁用后强制下线
         if (status == 0) {
-            StpUtil.logout(id);
+            tokenRegistry.revokeAllForUser(id);
         }
         log.info("用户状态更新成功，id={}, status={}", id, status);
-        return SaResult.data("更新成功");
+        return ServiceResult.data("更新成功");
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteUser(Long id) {
+    public ServiceResult deleteUser(Long id) {
         SysUser user = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getId, id)
                 .eq(SysUser::getIsDeleted, 0));
         if (user == null) {
             log.warn("删除用户失败：用户不存在，id={}", id);
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
 
         if (isSuperAdminUser(id)) {
             log.warn("删除用户失败：超级管理员账号不可删除，id={}", id);
-            return SaResult.error("超级管理员账号不可删除").setCode(403);
+            return ServiceResult.error("超级管理员账号不可删除").setCode(403);
         }
 
         // 删除用户-角色关联
@@ -271,9 +274,9 @@ public class UserManageServiceImpl implements UserManageService {
                 .set(SysUser::getUpdateTime, LocalDateTime.now()));
 
         // 删除后强制下线
-        StpUtil.logout(id);
+        tokenRegistry.revokeAllForUser(id);
         log.info("用户删除成功（逻辑删除），id={}, username={}", id, user.getUsername());
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     private boolean isSuperAdminUser(Long userId) {
@@ -294,7 +297,7 @@ public class UserManageServiceImpl implements UserManageService {
         dto.setUpdateTime(user.getUpdateTime());
         List<SysRole> roles = sysRoleMapper.selectRolesByUserId(user.getId());
         dto.setRoles(roles.stream().map(this::toRoleResponseDTO).collect(Collectors.toList()));
-        dto.setIsLoggedIn(StpUtil.isLogin(user.getId()));
+        dto.setIsLoggedIn(tokenRegistry.isLoggedIn(user.getId()));
         return dto;
     }
 

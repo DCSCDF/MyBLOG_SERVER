@@ -402,7 +402,7 @@ src/main/java/com/jiuliu/myblog_dev/
 │   ├── RsaKeyConfig
 │   ├── Captcha/
 │   ├── rsa/
-│   ├── satoken/
+│   ├── security/ (Spring Security + JWT)
 │   ├── security/
 │   └── validation/
 ├── controller/user/        # 控制器（按业务域划分）
@@ -418,63 +418,43 @@ src/main/java/com/jiuliu/myblog_dev/
 ```
 
 
-### 鉴权 API 说明
+### 鉴权 API 说明（Spring Security + JWT）
 
-您可以这样使用鉴权：
+项目使用 Spring Security + JWT 鉴权：登录签发 JWT，前端以
+`Authorization: Bearer <token>` 发送（同时兼容旧请求头 `token: <token>`，
+登录响应仍为 `{ token }`，现有前端无需改动）。
+
+代码中获取当前用户或判断权限：
 
 ``` java
+// 获取当前登录用户 ID（未登录时抛 NotAuthenticatedException，返回 401）
+Long userId = SecurityUtil.getCurrentUserId();
 
-// 获取权限列表
-List<String> permissionList = StpUtil.getPermissionList();
-
-// 判断权限
-boolean hasPermission = StpUtil.hasPermission("system:user:list");
-
-// 检查权限（未通过则抛出异常）
-StpUtil.checkPermission("system:user:list");
-
-// 检查多个权限（全部通过）
-StpUtil.checkPermissionAnd("system:user:list","system:user:create");
-
-// 检查多个权限（任一通过）
-StpUtil.checkPermissionOr("system:user:list","system:user:delete");
-
-// 获取角色列表
-List<String> roleList = StpUtil.getRoleList();
-
-// 判断角色
-boolean hasRole = StpUtil.hasRole("ADMIN");
-
-// 检查角色（未通过则抛出异常）
-StpUtil.checkRole("ADMIN");
-
-// 检查多个角色（全部通过）
-StpUtil.checkRoleAnd("ADMIN","SUPER_ADMIN");
-
-// 检查多个角色（任一通过）
-StpUtil.checkRoleOr("ADMIN","SUPER_ADMIN");
+// 判断是否已登录 / 是否拥有权限
+boolean loggedIn = SecurityUtil.isAuthenticated();
+boolean hasPermission = SecurityUtil.hasAuthority("system:user:list");
 ```
 
-控制器中使用权限验证：
+控制器中使用权限验证（权限码来源于数据库的 `sys_permission` 表，
+含父权限自动展开规则，见 `Document/Permission_Hierarchy.md`）：
 
 ``` java
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    // 参考数据库的 sys_permission 表中的 system:user:list 权限
-    @SaCheckPermission("system:user:list")
+    @PreAuthorize("hasAuthority('system:user:list')")
     @GetMapping("/users")
-    public SaResult getUserList() {
+    public ServiceResult getUserList() {
         // 业务逻辑
-        return SaResult.ok("用户列表");
+        return ServiceResult.data("用户列表");
     }
 
-    @SaCheckRole("ADMIN")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/users")
-    public SaResult createUser() {
+    public ServiceResult createUser() {
         // 业务逻辑
-        return SaResult.ok("用户创建成功");
+        return ServiceResult.ok("用户创建成功");
     }
 }
 ```

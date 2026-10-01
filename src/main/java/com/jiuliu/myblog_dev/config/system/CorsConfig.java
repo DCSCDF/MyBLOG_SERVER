@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.config.system;
 
-import lombok.Getter;
+import com.jiuliu.myblog_dev.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -27,27 +27,15 @@ public class CorsConfig implements WebMvcConfigurer {
     @Value("${app.cors.allowed-origins}")
     private String[] allowedOrigins;
 
-    /**
-     * 获取配置的 token 名称
-     */
-    @Getter
-    @Value("${sa-token.token-name}")
-    private String tokenName;
-
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOriginPatterns(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
-                // Origin - CORS 标准 header
-                // Content-Type - 内容类型 header
-                // Accept - 接受的内容类型 header
-                // Authorization - 标准认证 header（保持兼容性）
-                // X-Requested-With - AJAX 请求标识（可考虑后续删除）
-                // tokenName - Sa-Token 自定义认证 header（来自配置）
+                // Authorization - 标准认证 header; "token" - 旧前端使用的认证 header（兼容保留）
                 .allowedHeaders("Origin", "Content-Type", "Accept", "Authorization",
-                        "X-Requested-With", tokenName)
-                .exposedHeaders(tokenName)
+                        "X-Requested-With", JwtAuthenticationFilter.LEGACY_TOKEN_HEADER)
+                .exposedHeaders("Authorization", JwtAuthenticationFilter.LEGACY_TOKEN_HEADER)
                 .allowCredentials(true)
                 .maxAge(86400); // 24小时预检请求缓存
     }

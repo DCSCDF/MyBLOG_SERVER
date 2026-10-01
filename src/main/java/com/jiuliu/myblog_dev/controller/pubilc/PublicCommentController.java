@@ -14,8 +14,8 @@
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.security.SecurityUtil;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
@@ -54,15 +54,15 @@ public class PublicCommentController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
     /**
@@ -88,25 +88,25 @@ public class PublicCommentController {
         String deviceInfo = request.getHeader("User-Agent");
 
         // 检查用户登录状态
-        boolean isLogin = StpUtil.isLogin();
+        boolean isLogin = SecurityUtil.isAuthenticated();
         Long userId = null;
         boolean isAdmin = false;
 
         if (isLogin) {
             try {
-                userId = StpUtil.getLoginIdAsLong();
+                userId = SecurityUtil.getCurrentUserId();
                 // 检查是否为管理员（拥有任意系统管理权限即视为管理员）
-                isAdmin = StpUtil.hasPermission("admin:login")
-                        || StpUtil.hasPermission("system:user:list")
-                        || StpUtil.hasPermission("system:blog:list");
+                isAdmin = SecurityUtil.hasAuthority("admin:login")
+                        || SecurityUtil.hasAuthority("system:user:list")
+                        || SecurityUtil.hasAuthority("system:blog:list");
             } catch (Exception e) {
                 log.warn("获取登录用户信息失败", e);
                 isLogin = false;
             }
         }
 
-        SaResult saResult = publicCommentService.createComment(dto, ipAddress, deviceInfo, isLogin, userId, isAdmin);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicCommentService.createComment(dto, ipAddress, deviceInfo, isLogin, userId, isAdmin);
+        return handleServiceResult(serviceResult);
     }
 
     /**

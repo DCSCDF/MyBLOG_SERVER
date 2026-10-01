@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentCreateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PublicCommentResponseDTO;
@@ -91,7 +91,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
     @Override
     @Transactional
-    public SaResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
+    public ServiceResult createComment(PublicCommentCreateDTO dto, String ipAddress, String deviceInfo,
                                   boolean isLogin, Long userId, boolean isAdmin) {
         try {
             // 1. 验证文章是否存在且未隐藏（私密文章不可评论）
@@ -103,7 +103,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             if (blog == null) {
                 log.warn("评论提交失败：文章不存在或已隐藏，blogId={}", dto.getBlogId());
-                return SaResult.error("文章不存在或已下架").setCode(404);
+                return ServiceResult.error("文章不存在或已下架").setCode(404);
             }
 
             // 2. 如果是回复评论，验证父评论是否存在且属于同一篇文章
@@ -119,14 +119,14 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
                 if (parentComment == null) {
                     log.warn("评论提交失败：父评论不存在或不属于该文章，parentId={}, blogId={}", parentId, dto.getBlogId());
-                    return SaResult.error("父评论不存在或不属于该文章").setCode(400);
+                    return ServiceResult.error("父评论不存在或不属于该文章").setCode(400);
                 }
 
                 int parentLevel = calculateCommentLevel(parentComment);
                 if (parentLevel > maxNestLevel) {
                     log.warn("评论提交失败：嵌套层级超过限制，parentId={}, parentLevel={}, maxNestLevel={}",
                             parentId, parentLevel, maxNestLevel);
-                    return SaResult.error("回复层级已达上限，最多支持 " + maxNestLevel + " 层嵌套").setCode(400);
+                    return ServiceResult.error("回复层级已达上限，最多支持 " + maxNestLevel + " 层嵌套").setCode(400);
                 }
             }
 
@@ -149,32 +149,32 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                 } else {
                     // 用户不存在，登录状态异常
                     log.warn("评论提交失败：用户已登录但无法获取用户信息，userId={}", userId);
-                    return SaResult.error("用户信息获取失败，请重新登录").setCode(401);
+                    return ServiceResult.error("用户信息获取失败，请重新登录").setCode(401);
                 }
 
                 // 登录用户提交的 website 同样做协议白名单校验（修复存储型 XSS 面）
                 if (dto.getWebsite() != null && !dto.getWebsite().trim().isEmpty()) {
                     if (isUrlInvalid(dto.getWebsite())) {
                         log.warn("评论提交失败：网站URL格式无效，website={}", dto.getWebsite());
-                        return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                        return ServiceResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
                     }
                 }
             } else {
                 // 游客：使用传入的信息
                 if (!StringUtils.hasText(dto.getUsername())) {
-                    return SaResult.error("评论者名称不能为空").setCode(400);
+                    return ServiceResult.error("评论者名称不能为空").setCode(400);
                 }
 
                 // 邮箱必填校验
                 if (!StringUtils.hasText(dto.getEmail())) {
-                    return SaResult.error("邮箱不能为空").setCode(400);
+                    return ServiceResult.error("邮箱不能为空").setCode(400);
                 }
 
                 // 邮箱格式验证
                 if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
                     if (isEmailInvalid(dto.getEmail())) {
                         log.warn("评论提交失败：邮箱格式无效，email={}", dto.getEmail());
-                        return SaResult.error("邮箱格式无效，请输入有效的邮箱地址").setCode(400);
+                        return ServiceResult.error("邮箱格式无效，请输入有效的邮箱地址").setCode(400);
                     }
                 }
 
@@ -182,14 +182,14 @@ public class PublicCommentServiceImpl implements PublicCommentService {
                 if (dto.getAvatarUrl() != null && !dto.getAvatarUrl().trim().isEmpty()) {
                     if (isUrlInvalid(dto.getAvatarUrl())) {
                         log.warn("评论提交失败：头像URL格式无效，avatarUrl={}", dto.getAvatarUrl());
-                        return SaResult.error("头像URL格式无效，请输入有效的网址").setCode(400);
+                        return ServiceResult.error("头像URL格式无效，请输入有效的网址").setCode(400);
                     }
                 }
 
                 if (dto.getWebsite() != null && !dto.getWebsite().trim().isEmpty()) {
                     if (isUrlInvalid(dto.getWebsite())) {
                         log.warn("评论提交失败：网站URL格式无效，website={}", dto.getWebsite());
-                        return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                        return ServiceResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
                     }
                 }
 
@@ -257,11 +257,11 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             java.util.HashMap<String, Object> result = new java.util.HashMap<>();
             result.put("id", comment.getId());
             result.put("message", isLogin ? "评论提交成功" : "评论提交成功，待审核后显示");
-            return SaResult.data(result);
+            return ServiceResult.data(result);
 
         } catch (Exception e) {
             log.error("评论提交异常，blogId={}", dto.getBlogId(), e);
-            return SaResult.error("评论提交失败").setCode(500);
+            return ServiceResult.error("评论提交失败").setCode(500);
         }
     }
 
@@ -545,7 +545,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             boolean isGuest = (comment.getUserId() == null);
             String commenter = isGuest ? commenterName : getCommenterName(comment);
 
-            SaResult result = mailService.sendNewCommentNotificationToAdmins(
+            ServiceResult result = mailService.sendNewCommentNotificationToAdmins(
                     filteredAdminEmails,
                     siteDomain,
                     isGuest,
@@ -604,7 +604,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
 
             String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
 
-            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
+            ServiceResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
             if (result.getCode() == 200) {
                 log.info("评论回复通知发送成功，replyCommentId={}, parentId={}, to={}",
                         replyComment.getId(), parentComment.getId(), toEmail);
@@ -645,7 +645,7 @@ public class PublicCommentServiceImpl implements PublicCommentService {
             String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
             String commenter = getCommenterName(comment);
 
-            SaResult result = mailService.sendTopLevelCommentApprovedNotification(
+            ServiceResult result = mailService.sendTopLevelCommentApprovedNotification(
                     author.getEmail(), siteDomain, blog.getId(), blog.getTitle(),
                     comment.getId(), comment.getContent(), commenter);
 

@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -69,26 +69,26 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult createBlog(BlogCreateDTO dto, Long authorId) {
+    public ServiceResult createBlog(BlogCreateDTO dto, Long authorId) {
         if (!StringUtils.hasText(dto.getTitle())) {
             log.warn("文章创建失败：标题为空");
-            return SaResult.error("文章标题不能为空").setCode(400);
+            return ServiceResult.error("文章标题不能为空").setCode(400);
         }
 
         if (dto.getTitle().length() > 30) {
             log.warn("文章创建失败：标题长度超过30字符");
-            return SaResult.error("文章标题不能超过30字符").setCode(400);
+            return ServiceResult.error("文章标题不能超过30字符").setCode(400);
         }
 
         if (dto.getSummary() != null && dto.getSummary().length() > 200) {
             log.warn("文章创建失败：摘要长度超过200字符");
-            return SaResult.error("文章摘要不能超过200字符").setCode(400);
+            return ServiceResult.error("文章摘要不能超过200字符").setCode(400);
         }
 
         if (StringUtils.hasText(dto.getCoverImage())) {
             if (!isValidUrl(dto.getCoverImage())) {
                 log.warn("文章创建失败：封面图URL格式无效，url={}", dto.getCoverImage());
-                return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+                return ServiceResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
             }
         }
 
@@ -97,11 +97,11 @@ public class BlogServiceImpl implements BlogService {
             SysCategory category = categoryMapper.selectById(dto.getCategoryId());
             if (category == null) {
                 log.warn("文章创建失败：分类不存在，categoryId={}", dto.getCategoryId());
-                return SaResult.error("分类不存在").setCode(400);
+                return ServiceResult.error("分类不存在").setCode(400);
             }
             if (category.getHidden()) {
                 log.warn("文章创建失败：分类已隐藏，categoryId={}", dto.getCategoryId());
-                return SaResult.error("该分类已隐藏，无法选择").setCode(400);
+                return ServiceResult.error("该分类已隐藏，无法选择").setCode(400);
             }
         }
 
@@ -136,7 +136,7 @@ public class BlogServiceImpl implements BlogService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blog.getId());
         data.put("message", "文章创建成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     private boolean isValidUrl(String url) {
@@ -153,7 +153,7 @@ public class BlogServiceImpl implements BlogService {
     }
 
     @Override
-    public SaResult getPageUserBlogs(PageUserBlogDTO dto, Long userId) {
+    public ServiceResult getPageUserBlogs(PageUserBlogDTO dto, Long userId) {
         // 构建查询条件
         LambdaQueryWrapper<SysBlog> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(SysBlog::getAuthorId, userId);
@@ -203,42 +203,42 @@ public class BlogServiceImpl implements BlogService {
         // 设置筛选项
         response.setFilterOptions(buildFilterOptions());
 
-        return SaResult.data(response);
+        return ServiceResult.data(response);
     }
 
     @Override
-    public SaResult getBlogDetail(Long blogId, Long userId) {
+    public ServiceResult getBlogDetail(Long blogId, Long userId) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 检查是否是作者本人
         if (!blog.getAuthorId().equals(userId)) {
             log.warn("无权限访问其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
-            return SaResult.error("无权限访问该文章").setCode(403);
+            return ServiceResult.error("无权限访问该文章").setCode(403);
         }
 
         BlogDetailResponseDTO response = convertToDetailResponseDTO(blog);
 
-        return SaResult.data(response);
+        return ServiceResult.data(response);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId) {
+    public ServiceResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
 
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 检查是否是作者本人
         if (!blog.getAuthorId().equals(userId)) {
             log.warn("无权限修改其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
-            return SaResult.error("无权限修改该文章").setCode(403);
+            return ServiceResult.error("无权限修改该文章").setCode(403);
         }
 
         // 更新状态
@@ -263,22 +263,22 @@ public class BlogServiceImpl implements BlogService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blog.getId());
         data.put("message", "文章状态更新成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId) {
+    public ServiceResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 检查是否是作者本人
         if (!blog.getAuthorId().equals(userId)) {
             log.warn("无权修改其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
-            return SaResult.error("无权限修改该文章").setCode(403);
+            return ServiceResult.error("无权限修改该文章").setCode(403);
         }
 
         // 验证封面图URL - 支持传空字符串清空
@@ -288,7 +288,7 @@ public class BlogServiceImpl implements BlogService {
             if (!v.isEmpty()) {
                 if (!isValidUrl(v)) {
                     log.warn("文章更新失败：封面图URL格式无效，url={}", dto.getCoverImage());
-                    return SaResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
+                    return ServiceResult.error("封面图片URL格式无效，请输入有效的http/https链接").setCode(400);
                 }
                 coverImageValueToSet = v;
             }
@@ -302,7 +302,7 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getTitle() != null && StringUtils.hasText(dto.getTitle())) {
             if (dto.getTitle().length() > 30) {
                 log.warn("文章更新失败：标题长度超过30字符");
-                return SaResult.error("文章标题不能超过30字符").setCode(400);
+                return ServiceResult.error("文章标题不能超过30字符").setCode(400);
             }
             updateWrapper.set(SysBlog::getTitle, dto.getTitle().trim());
         }
@@ -310,7 +310,7 @@ public class BlogServiceImpl implements BlogService {
         if (dto.getSummary() != null) {
             if (dto.getSummary().length() > 200) {
                 log.warn("文章更新失败：摘要长度超过200字符");
-                return SaResult.error("文章摘要不能超过200字符").setCode(400);
+                return ServiceResult.error("文章摘要不能超过200字符").setCode(400);
             }
             updateWrapper.set(SysBlog::getSummary, dto.getSummary().trim());
         }
@@ -332,11 +332,11 @@ public class BlogServiceImpl implements BlogService {
             SysCategory category = categoryMapper.selectById(dto.getCategoryId());
             if (category == null) {
                 log.warn("文章更新失败：分类不存在，categoryId={}", dto.getCategoryId());
-                return SaResult.error("分类不存在").setCode(400);
+                return ServiceResult.error("分类不存在").setCode(400);
             }
             if (category.getHidden()) {
                 log.warn("文章更新失败：分类已隐藏，categoryId={}", dto.getCategoryId());
-                return SaResult.error("该分类已隐藏，无法选择").setCode(400);
+                return ServiceResult.error("该分类已隐藏，无法选择").setCode(400);
             }
             updateWrapper.set(SysBlog::getCategoryId, dto.getCategoryId());
         }
@@ -352,23 +352,23 @@ public class BlogServiceImpl implements BlogService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blog.getId());
         data.put("message", "文章更新成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteBlog(Long blogId, Long userId) {
+    public ServiceResult deleteBlog(Long blogId, Long userId) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
             log.warn("文章不存在，文章ID：{}", blogId);
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 检查是否是作者本人
         if (!blog.getAuthorId().equals(userId)) {
             log.warn("无权限删除其他用户的文章，文章ID：{}，当前用户ID：{}", blogId, userId);
-            return SaResult.error("无权限删除该文章").setCode(403);
+            return ServiceResult.error("无权限删除该文章").setCode(403);
         }
 
         // 逻辑删除
@@ -394,7 +394,7 @@ public class BlogServiceImpl implements BlogService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blogId);
         data.put("message", "文章删除成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     /**

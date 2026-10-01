@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.config.ConfigItemResponseDTO;
 import com.jiuliu.myblog_dev.dto.config.SiteInfoDTO;
@@ -49,8 +49,8 @@ public class GlobalConfigController {
     @RateLimit(count = 520, period = 1, prefix = "public_config_keys", ipBased = true)
     @PostMapping
     public Response<List<ConfigItemResponseDTO>> getConfigByKeys(@Valid @RequestBody ConfigKeysDTO dto) {
-        SaResult saResult = sysConfigService.getPublicConfigByKeys(dto.getKeys());
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.getPublicConfigByKeys(dto.getKeys());
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -66,17 +66,17 @@ public class GlobalConfigController {
     @RateLimit(count = 500, period = 1, prefix = "public_config_site_info", ipBased = true)
     @GetMapping("/site-info")
     public Response<SiteInfoDTO> getSiteInfo() {
-        SaResult saResult = sysConfigService.getSiteInfo();
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = sysConfigService.getSiteInfo();
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
     /**

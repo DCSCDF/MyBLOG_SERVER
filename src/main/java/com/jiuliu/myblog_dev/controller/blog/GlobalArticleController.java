@@ -14,8 +14,8 @@
 
 package com.jiuliu.myblog_dev.controller.blog;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.global.GlobalArticleStatusUpdateDTO;
 import com.jiuliu.myblog_dev.dto.blog.global.PageGlobalArticleDTO;
@@ -41,28 +41,28 @@ public class GlobalArticleController {
     }
 
     /**
-     * 处理返回Map类型的SaResult结果
+     * 处理返回Map类型的ServiceResult结果
      */
-    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private Response<Map<String, Object>> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
+            Map<String, Object> data = (Map<String, Object>) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResultGeneral(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResultGeneral(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -71,11 +71,11 @@ public class GlobalArticleController {
      * POST /api/global-article/list
      * 权限：system:article:list
      */
-    @SaCheckPermission("system:article:list")
+    @PreAuthorize("hasAuthority('system:article:list')")
     @PostMapping("/list")
     public Response<PageGlobalArticleResponseDTO> getPageGlobalArticles(@Valid @RequestBody PageGlobalArticleDTO dto) {
-        SaResult saResult = globalArticleService.getPageGlobalArticles(dto);
-        return handleSaResultGeneral(saResult);
+        ServiceResult serviceResult = globalArticleService.getPageGlobalArticles(dto);
+        return handleServiceResultGeneral(serviceResult);
     }
 
     /**
@@ -83,12 +83,12 @@ public class GlobalArticleController {
      * PUT /api/global-article/{id}/status
      * 权限：system:article:edit
      */
-    @SaCheckPermission("system:article:edit")
+    @PreAuthorize("hasAuthority('system:article:edit')")
     @PutMapping("/{id}/status")
     public Response<Map<String, Object>> updateArticleStatus(@PathVariable Long id,
                                                              @Valid @RequestBody GlobalArticleStatusUpdateDTO dto) {
-        SaResult saResult = globalArticleService.updateArticleStatus(id, dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalArticleService.updateArticleStatus(id, dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -96,10 +96,10 @@ public class GlobalArticleController {
      * DELETE /api/global-article/{id}
      * 权限：system:article:delete
      */
-    @SaCheckPermission("system:article:delete")
+    @PreAuthorize("hasAuthority('system:article:delete')")
     @DeleteMapping("/{id}")
     public Response<Map<String, Object>> deleteArticle(@PathVariable Long id) {
-        SaResult saResult = globalArticleService.deleteArticle(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalArticleService.deleteArticle(id);
+        return handleServiceResult(serviceResult);
     }
 }

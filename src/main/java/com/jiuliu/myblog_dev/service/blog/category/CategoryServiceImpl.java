@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.blog.category;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -79,7 +79,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public SaResult getAvailableCategories() {
+    public ServiceResult getAvailableCategories() {
         try {
             LambdaQueryWrapper<SysCategory> wrapper = new LambdaQueryWrapper<SysCategory>()
                     .eq(SysCategory::getHidden, false)
@@ -92,15 +92,15 @@ public class CategoryServiceImpl implements CategoryService {
                     .map(this::toResponseDTO)
                     .collect(Collectors.toList());
 
-            return SaResult.data(records);
+            return ServiceResult.data(records);
         } catch (Exception e) {
             log.error("获取可用分类列表异常", e);
-            return SaResult.error("获取分类列表失败").setCode(500);
+            return ServiceResult.error("获取分类列表失败").setCode(500);
         }
     }
 
     @Override
-    public SaResult getPageCategories(PageCategoryDTO pageDto) {
+    public ServiceResult getPageCategories(PageCategoryDTO pageDto) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_CATEGORY_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
@@ -110,7 +110,7 @@ public class CategoryServiceImpl implements CategoryService {
             PageCategoryResponseDTO cached = categoryListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取分类列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             LambdaQueryWrapper<SysCategory> wrapper = new LambdaQueryWrapper<SysCategory>()
@@ -145,10 +145,10 @@ public class CategoryServiceImpl implements CategoryService {
             // 存入缓存
             categoryListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取分类列表异常", e);
-            return SaResult.error("获取分类列表失败").setCode(500);
+            return ServiceResult.error("获取分类列表失败").setCode(500);
         }
     }
 
@@ -162,7 +162,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult createCategory(CategoryCreateDTO dto) {
+    public ServiceResult createCategory(CategoryCreateDTO dto) {
         SysCategory category = new SysCategory();
         category.setName(dto.getName());
         category.setDescription(dto.getDescription());
@@ -174,16 +174,16 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("分类创建成功，id={}, name={}", category.getId(), category.getName());
         // 清除分类缓存
         clearCategoryCache();
-        return SaResult.data(toResponseDTO(categoryMapper.selectById(category.getId())));
+        return ServiceResult.data(toResponseDTO(categoryMapper.selectById(category.getId())));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateCategory(CategoryUpdateDTO dto) {
+    public ServiceResult updateCategory(CategoryUpdateDTO dto) {
         SysCategory existing = categoryMapper.selectById(dto.getId());
         if (existing == null) {
             log.warn("更新分类失败：记录不存在，id={}", dto.getId());
-            return SaResult.error("分类不存在").setCode(404);
+            return ServiceResult.error("分类不存在").setCode(404);
         }
 
         // 如果要将分类设置为隐藏，检查是否有文章使用了该分类
@@ -194,7 +194,7 @@ public class CategoryServiceImpl implements CategoryService {
             );
             if (articleCount > 0) {
                 log.warn("隐藏分类失败：分类已被文章使用，分类id={}, 文章数量={}", dto.getId(), articleCount);
-                return SaResult.error("该分类下已有文章，无法隐藏").setCode(400);
+                return ServiceResult.error("该分类下已有文章，无法隐藏").setCode(400);
             }
         }
 
@@ -211,16 +211,16 @@ public class CategoryServiceImpl implements CategoryService {
         // 清除分类缓存
         clearCategoryCache();
         SysCategory updated = categoryMapper.selectById(dto.getId());
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteCategory(Long id) {
+    public ServiceResult deleteCategory(Long id) {
         SysCategory existing = categoryMapper.selectById(id);
         if (existing == null) {
             log.warn("删除分类失败：记录不存在，id={}", id);
-            return SaResult.error("分类不存在").setCode(404);
+            return ServiceResult.error("分类不存在").setCode(404);
         }
 
         // 将使用该分类的文章的 categoryId 设为 null
@@ -237,7 +237,7 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("分类删除成功，id={}", id);
         // 清除分类缓存
         clearCategoryCache();
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**

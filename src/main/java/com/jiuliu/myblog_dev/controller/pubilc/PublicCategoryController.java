@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PublicCategoryResponseDTO;
 import com.jiuliu.myblog_dev.service.blog.category.PublicCategoryService;
@@ -41,15 +41,15 @@ public class PublicCategoryController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
     /**
@@ -61,8 +61,8 @@ public class PublicCategoryController {
     @RateLimit(count = 500, period = 1, prefix = "public_category_list", ipBased = false)
     @GetMapping("/list")
     public Response<List<PublicCategoryResponseDTO>> getVisibleCategories() {
-        SaResult saResult = publicCategoryService.getVisibleCategories();
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicCategoryService.getVisibleCategories();
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -74,7 +74,7 @@ public class PublicCategoryController {
     @RateLimit(count = 500, period = 1, prefix = "public_category_detail", ipBased = false)
     @GetMapping("/{id}")
     public Response<PublicCategoryResponseDTO> getCategoryById(@PathVariable("id") Long id) {
-        SaResult saResult = publicCategoryService.getCategoryById(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicCategoryService.getCategoryById(id);
+        return handleServiceResult(serviceResult);
     }
 }

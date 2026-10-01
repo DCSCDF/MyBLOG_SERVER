@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.seo;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -51,10 +51,10 @@ public class PublicSeoServiceImpl implements PublicSeoService {
     }
 
     @Override
-    public SaResult getSeoByPageType(String pageType, Long pageId) {
+    public ServiceResult getSeoByPageType(String pageType, Long pageId) {
         try {
             if (pageType == null || pageType.trim().isEmpty()) {
-                return SaResult.error("页面类型不能为空").setCode(400);
+                return ServiceResult.error("页面类型不能为空").setCode(400);
             }
 
             // 构建缓存键
@@ -64,7 +64,7 @@ public class PublicSeoServiceImpl implements PublicSeoService {
             PublicSeoResponseDTO cached = seoCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取SEO配置，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 构建查询条件
@@ -89,7 +89,7 @@ public class PublicSeoServiceImpl implements PublicSeoService {
 
             if (seo == null) {
                 log.debug("未找到SEO配置，pageType={}, pageId={}", pageType, pageId);
-                return SaResult.error("未找到该页面类型的SEO配置").setCode(404);
+                return ServiceResult.error("未找到该页面类型的SEO配置").setCode(404);
             }
 
             // 转换为响应DTO
@@ -98,10 +98,10 @@ public class PublicSeoServiceImpl implements PublicSeoService {
             // 存入缓存
             seoCache.put(cacheKey, responseDTO);
 
-            return SaResult.data(responseDTO);
+            return ServiceResult.data(responseDTO);
         } catch (Exception e) {
             log.error("获取SEO配置异常，pageType={}, pageId={}", pageType, pageId, e);
-            return SaResult.error("获取SEO配置失败").setCode(500);
+            return ServiceResult.error("获取SEO配置失败").setCode(500);
         }
     }
 

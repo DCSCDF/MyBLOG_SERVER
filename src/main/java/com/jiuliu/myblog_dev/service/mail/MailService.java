@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.mail;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 
 import java.util.List;
 
@@ -29,16 +29,16 @@ public interface MailService {
      * @param to      收件人邮箱
      * @param subject 邮件主题
      * @param content 邮件内容
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendTestMail(String to, String subject, String content);
+    ServiceResult sendTestMail(String to, String subject, String content);
 
     /**
      * 检查 SMTP 配置是否完成
      *
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult checkSmtpConfiguration();
+    ServiceResult checkSmtpConfiguration();
 
     /**
      * 发送评论审核结果通知邮件
@@ -46,9 +46,9 @@ public interface MailService {
      * @param to          收件人邮箱
      * @param approved    是否审核通过
      * @param siteDomain  网站域名
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendCommentReviewNotification(String to, boolean approved, String siteDomain);
+    ServiceResult sendCommentReviewNotification(String to, boolean approved, String siteDomain);
 
     /**
      * 发送评论回复通知邮件
@@ -56,9 +56,9 @@ public interface MailService {
      * @param to          收件人邮箱
      * @param siteDomain  网站域名
      * @param replyContent 回复的评论内容
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendCommentReplyNotification(String to, String siteDomain, String replyContent);
+    ServiceResult sendCommentReplyNotification(String to, String siteDomain, String replyContent);
 
     /**
      * 检查评论通知功能是否启用
@@ -78,9 +78,9 @@ public interface MailService {
      * @param blogTitle    文章标题
      * @param commenter    评论者名称
      * @param content      评论内容
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
+    ServiceResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
                                                  boolean isGuest, Long commentId, Long blogId,
                                                  String blogTitle, String commenter, String content);
 
@@ -94,9 +94,9 @@ public interface MailService {
      * @param commentId    评论ID
      * @param commentContent 评论内容
      * @param commenter    评论者名称
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
+    ServiceResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
                                                       Long blogId, String blogTitle, Long commentId,
                                                       String commentContent, String commenter);
 
@@ -106,9 +106,9 @@ public interface MailService {
      * @param toEmail     收件人邮箱
      * @param code        验证码
      * @param username    用户名
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendRegisterVerificationCode(String toEmail, String code, String username);
+    ServiceResult sendRegisterVerificationCode(String toEmail, String code, String username);
 
     /**
      * 发送邮箱变更验证码邮件
@@ -116,9 +116,9 @@ public interface MailService {
      * @param toEmail  收件人邮箱
      * @param code     验证码
      * @param username 用户名
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendChangeEmailVerificationCode(String toEmail, String code, String username);
+    ServiceResult sendChangeEmailVerificationCode(String toEmail, String code, String username);
 
     /**
      * 发送找回密码验证码邮件
@@ -126,9 +126,9 @@ public interface MailService {
      * @param toEmail  收件人邮箱
      * @param code     验证码
      * @param username 用户名
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendFindPasswordVerificationCode(String toEmail, String code, String username);
+    ServiceResult sendFindPasswordVerificationCode(String toEmail, String code, String username);
 
     /**
      * 发送新友链提交通知邮件给管理员
@@ -139,9 +139,9 @@ public interface MailService {
      * @param linkUrl     友链URL
      * @param summary     友链简介
      * @param imageUrl    友链图片
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendNewFriendLinkNotificationToAdmins(List<String> toEmailList, String siteDomain,
+    ServiceResult sendNewFriendLinkNotificationToAdmins(List<String> toEmailList, String siteDomain,
                                                     String linkName, String linkUrl,
                                                     String summary, String imageUrl);
 
@@ -153,8 +153,8 @@ public interface MailService {
      * @param linkName   友链名称
      * @param linkUrl    友链URL
      * @param siteDomain 网站域名
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult sendFriendLinkReviewNotification(String toEmail, boolean approved,
+    ServiceResult sendFriendLinkReviewNotification(String toEmail, boolean approved,
                                                 String linkName, String linkUrl, String siteDomain);
 }

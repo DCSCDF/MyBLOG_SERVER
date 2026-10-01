@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.seo;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -71,7 +71,7 @@ public class SeoServiceImpl implements SeoService {
     }
 
     @Override
-    public SaResult getPageSeos(PageSeoDTO pageDto) {
+    public ServiceResult getPageSeos(PageSeoDTO pageDto) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_SEO_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
@@ -81,7 +81,7 @@ public class SeoServiceImpl implements SeoService {
             PageSeoResponseDTO cached = seoListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取SEO列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             LambdaQueryWrapper<SysSeo> wrapper = new LambdaQueryWrapper<SysSeo>()
@@ -118,10 +118,10 @@ public class SeoServiceImpl implements SeoService {
             // 存入缓存
             seoListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取SEO列表异常", e);
-            return SaResult.error("获取SEO列表失败").setCode(500);
+            return ServiceResult.error("获取SEO列表失败").setCode(500);
         }
     }
 
@@ -143,20 +143,20 @@ public class SeoServiceImpl implements SeoService {
     }
 
     @Override
-    public SaResult getSeoById(Long id) {
+    public ServiceResult getSeoById(Long id) {
         SysSeo seo = sysSeoMapper.selectOne(
                 new LambdaQueryWrapper<SysSeo>()
                         .eq(SysSeo::getId, id)
                         .eq(SysSeo::getIsDeleted, 0));
         if (seo == null) {
             log.warn("获取SEO详情失败：SEO配置不存在，id={}", id);
-            return SaResult.error("SEO配置不存在").setCode(404);
+            return ServiceResult.error("SEO配置不存在").setCode(404);
         }
-        return SaResult.data(toResponseDTO(seo));
+        return ServiceResult.data(toResponseDTO(seo));
     }
 
     @Override
-    public SaResult createSeo(SeoCreateDTO dto) {
+    public ServiceResult createSeo(SeoCreateDTO dto) {
         // 检查页面类型和页面ID的组合是否已存在
         LambdaQueryWrapper<SysSeo> wrapper = new LambdaQueryWrapper<SysSeo>()
                 .eq(SysSeo::getPageType, dto.getPageType())
@@ -167,7 +167,7 @@ public class SeoServiceImpl implements SeoService {
         SysSeo existingSeo = sysSeoMapper.selectOne(wrapper);
         if (existingSeo != null) {
             log.warn("创建SEO配置失败：该页面类型配置已存在，pageType={}, pageId={}", dto.getPageType(), dto.getPageId());
-            return SaResult.error("该页面类型的SEO配置已存在").setCode(400);
+            return ServiceResult.error("该页面类型的SEO配置已存在").setCode(400);
         }
 
         SysSeo seo = getSysSeo(dto);
@@ -176,7 +176,7 @@ public class SeoServiceImpl implements SeoService {
         log.info("SEO配置创建成功，id={}, pageType={}, pageId={}", seo.getId(), seo.getPageType(), seo.getPageId());
         // 清除SEO缓存
         clearSeoCache();
-        return SaResult.data(toResponseDTO(seo));
+        return ServiceResult.data(toResponseDTO(seo));
     }
 
     @NonNull
@@ -199,15 +199,15 @@ public class SeoServiceImpl implements SeoService {
     }
 
     @Override
-    public SaResult updateSeo(SeoUpdateDTO dto) {
+    public ServiceResult updateSeo(SeoUpdateDTO dto) {
         SysSeo seo = sysSeoMapper.selectById(dto.getId());
         if (seo == null) {
             log.warn("更新SEO配置失败：SEO配置不存在，id={}", dto.getId());
-            return SaResult.error("SEO配置不存在").setCode(404);
+            return ServiceResult.error("SEO配置不存在").setCode(404);
         }
         if (seo.getIsDeleted() != null && seo.getIsDeleted() == 1) {
             log.warn("更新SEO配置失败：SEO配置已被删除，id={}", dto.getId());
-            return SaResult.error("SEO配置已被删除").setCode(404);
+            return ServiceResult.error("SEO配置已被删除").setCode(404);
         }
 
         // 如果修改了pageId，需要检查新的组合是否已存在
@@ -221,7 +221,7 @@ public class SeoServiceImpl implements SeoService {
             SysSeo existingSeo = sysSeoMapper.selectOne(wrapper);
             if (existingSeo != null) {
                 log.warn("更新SEO配置失败：该页面类型配置已存在，pageType={}, pageId={}", seo.getPageType(), dto.getPageId());
-                return SaResult.error("该页面类型的SEO配置已存在").setCode(400);
+                return ServiceResult.error("该页面类型的SEO配置已存在").setCode(400);
             }
         }
 
@@ -243,24 +243,24 @@ public class SeoServiceImpl implements SeoService {
         log.info("SEO配置更新成功，id={}", dto.getId());
         // 清除SEO缓存
         clearSeoCache();
-        return SaResult.data(toResponseDTO(sysSeoMapper.selectById(dto.getId())));
+        return ServiceResult.data(toResponseDTO(sysSeoMapper.selectById(dto.getId())));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteSeo(Long id) {
+    public ServiceResult deleteSeo(Long id) {
         SysSeo seo = sysSeoMapper.selectById(id);
         if (seo == null) {
             log.warn("删除SEO配置失败：SEO配置不存在，id={}", id);
-            return SaResult.error("SEO配置不存在").setCode(404);
+            return ServiceResult.error("SEO配置不存在").setCode(404);
         }
         if (seo.getIsDeleted() != null && seo.getIsDeleted() == 1) {
             log.warn("删除SEO配置失败：SEO配置已被删除，id={}", id);
-            return SaResult.error("SEO配置已被删除").setCode(404);
+            return ServiceResult.error("SEO配置已被删除").setCode(404);
         }
         if (Boolean.TRUE.equals(seo.getIsSystem())) {
             log.warn("删除SEO配置失败：系统内置SEO配置不可删除，id={}, pageType={}", id, seo.getPageType());
-            return SaResult.error("系统内置SEO配置不可删除").setCode(403);
+            return ServiceResult.error("系统内置SEO配置不可删除").setCode(403);
         }
 
         // 逻辑删除
@@ -272,7 +272,7 @@ public class SeoServiceImpl implements SeoService {
         log.info("SEO配置删除成功，id={}", id);
         // 清除SEO缓存
         clearSeoCache();
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**

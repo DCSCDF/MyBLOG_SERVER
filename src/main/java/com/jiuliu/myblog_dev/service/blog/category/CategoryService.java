@@ -14,21 +14,21 @@
 
 package com.jiuliu.myblog_dev.service.blog.category;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.blog.category.CategoryCreateDTO;
 import com.jiuliu.myblog_dev.dto.blog.category.CategoryUpdateDTO;
 import com.jiuliu.myblog_dev.dto.blog.category.PageCategoryDTO;
 
 public interface CategoryService {
 
-    SaResult getPageCategories(PageCategoryDTO pageDto);
+    ServiceResult getPageCategories(PageCategoryDTO pageDto);
 
-    SaResult getAvailableCategories();
+    ServiceResult getAvailableCategories();
 
-    SaResult createCategory(CategoryCreateDTO dto);
+    ServiceResult createCategory(CategoryCreateDTO dto);
 
-    SaResult updateCategory(CategoryUpdateDTO dto);
+    ServiceResult updateCategory(CategoryUpdateDTO dto);
 
-    SaResult deleteCategory(Long id);
+    ServiceResult deleteCategory(Long id);
 }
 

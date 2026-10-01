@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.blog.category;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -63,13 +63,13 @@ public class PublicCategoryServiceImpl implements PublicCategoryService {
     }
 
     @Override
-    public SaResult getVisibleCategories() {
+    public ServiceResult getVisibleCategories() {
         try {
             // 尝试从缓存获取
             List<PublicCategoryResponseDTO> cached = publicCategoryListCache.getIfPresent(CACHE_KEY_ALL_CATEGORIES);
             if (cached != null) {
                 log.debug("从缓存获取公共分类列表");
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 查询所有未隐藏的分类
@@ -88,25 +88,25 @@ public class PublicCategoryServiceImpl implements PublicCategoryService {
             // 存入缓存
             publicCategoryListCache.put(CACHE_KEY_ALL_CATEGORIES, result);
 
-            return SaResult.data(result);
+            return ServiceResult.data(result);
         } catch (Exception e) {
             log.error("获取公共分类列表异常", e);
-            return SaResult.error("获取分类列表失败").setCode(500);
+            return ServiceResult.error("获取分类列表失败").setCode(500);
         }
     }
 
     @Override
-    public SaResult getCategoryById(Long categoryId) {
+    public ServiceResult getCategoryById(Long categoryId) {
         try {
             if (categoryId == null) {
-                return SaResult.error("分类ID不能为空").setCode(400);
+                return ServiceResult.error("分类ID不能为空").setCode(400);
             }
 
             // 尝试从缓存获取
             PublicCategoryResponseDTO cached = publicCategoryCache.getIfPresent(categoryId);
             if (cached != null) {
                 log.debug("从缓存获取公共分类详情，id={}", categoryId);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 查询分类（仅未隐藏的）
@@ -117,7 +117,7 @@ public class PublicCategoryServiceImpl implements PublicCategoryService {
             );
 
             if (category == null) {
-                return SaResult.error("分类不存在或已隐藏").setCode(404);
+                return ServiceResult.error("分类不存在或已隐藏").setCode(404);
             }
 
             PublicCategoryResponseDTO response = toResponseDTO(category);
@@ -125,10 +125,10 @@ public class PublicCategoryServiceImpl implements PublicCategoryService {
             // 存入缓存
             publicCategoryCache.put(categoryId, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("获取公共分类详情异常，id={}", categoryId, e);
-            return SaResult.error("获取分类详情失败").setCode(500);
+            return ServiceResult.error("获取分类详情失败").setCode(500);
         }
     }
 

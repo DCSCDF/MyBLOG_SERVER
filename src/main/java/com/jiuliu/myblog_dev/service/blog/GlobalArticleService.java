@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.jiuliu.myblog_dev.dto.blog.global.*;
 
 /**
@@ -28,7 +28,7 @@ public interface GlobalArticleService {
      * @param dto 分页查询参数
      * @return 分页结果
      */
-    SaResult getPageGlobalArticles(PageGlobalArticleDTO dto);
+    ServiceResult getPageGlobalArticles(PageGlobalArticleDTO dto);
 
     /**
      * 更新文章状态（隐藏、置顶、推荐）
@@ -37,7 +37,7 @@ public interface GlobalArticleService {
      * @param dto    状态更新参数
      * @return 操作结果
      */
-    SaResult updateArticleStatus(Long blogId, GlobalArticleStatusUpdateDTO dto);
+    ServiceResult updateArticleStatus(Long blogId, GlobalArticleStatusUpdateDTO dto);
 
     /**
      * 删除文章
@@ -45,7 +45,7 @@ public interface GlobalArticleService {
      * @param blogId 文章ID
      * @return 操作结果
      */
-    SaResult deleteArticle(Long blogId);
+    ServiceResult deleteArticle(Long blogId);
 
     /**
      * 清除全局文章列表缓存

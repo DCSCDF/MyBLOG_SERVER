@@ -23,7 +23,7 @@
 
 package com.jiuliu.myblog_dev.service.user.role;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.common.ServiceResult;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -94,7 +94,7 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public SaResult getPageRoles(PageRoleDTO pageDto) {
+    public ServiceResult getPageRoles(PageRoleDTO pageDto) {
         try {
             LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<SysRole>()
                     .eq(SysRole::getIsDeleted, 0)
@@ -124,10 +124,10 @@ public class RoleServiceImpl implements RoleService {
             response.setPages(pageResult.getPages());
             response.setFilterOptions(buildRoleListFilterOptions());
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取角色列表异常", e);
-            return SaResult.error("获取角色列表失败").setCode(500);
+            return ServiceResult.error("获取角色列表失败").setCode(500);
         }
     }
 
@@ -138,26 +138,26 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public SaResult getRoleById(Long id) {
+    public ServiceResult getRoleById(Long id) {
         SysRole role = sysRoleMapper.selectOne(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getId, id)
                         .eq(SysRole::getIsDeleted, 0));
         if (role == null) {
             log.warn("获取角色详情失败：角色不存在，id={}", id);
-            return SaResult.error("角色不存在").setCode(404);
+            return ServiceResult.error("角色不存在").setCode(404);
         }
-        return SaResult.data(toResponseDTO(role));
+        return ServiceResult.data(toResponseDTO(role));
     }
 
     @Override
-    public SaResult createRole(RoleCreateDTO dto) {
+    public ServiceResult createRole(RoleCreateDTO dto) {
         // 检查角色编码是否已存在（含逻辑删除记录，因数据库 code 唯一约束对全表生效）
         SysRole existingRole = sysRoleMapper.selectOne(
                 new LambdaQueryWrapper<SysRole>().eq(SysRole::getCode, dto.getCode()));
         if (existingRole != null) {
             log.warn("创建角色失败：角色编码已存在，code={}", dto.getCode());
-            return SaResult.error("角色编码已存在").setCode(400);
+            return ServiceResult.error("角色编码已存在").setCode(400);
         }
 
         SysRole role = new SysRole();
@@ -172,30 +172,30 @@ public class RoleServiceImpl implements RoleService {
 
         sysRoleMapper.insert(role);
         log.info("角色创建成功，id={}, code={}", role.getId(), role.getCode());
-        return SaResult.data(toResponseDTO(role));
+        return ServiceResult.data(toResponseDTO(role));
     }
 
     @Override
-    public SaResult updateRole(RoleUpdateDTO dto) {
+    public ServiceResult updateRole(RoleUpdateDTO dto) {
         SysRole role = sysRoleMapper.selectById(dto.getId());
         if (role == null) {
             log.warn("更新角色失败：角色不存在，id={}", dto.getId());
-            return SaResult.error("角色不存在").setCode(404);
+            return ServiceResult.error("角色不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
             log.warn("更新角色失败：超级管理员角色不可修改，id={}", dto.getId());
-            return SaResult.error("超级管理员角色不可修改").setCode(403);
+            return ServiceResult.error("超级管理员角色不可修改").setCode(403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             log.warn("更新角色失败：系统内置角色不可修改，id={}", dto.getId());
-            return SaResult.error("系统内置角色不可修改").setCode(403);
+            return ServiceResult.error("系统内置角色不可修改").setCode(403);
         }
 
         if (dto.getStatus() != null && dto.getStatus() == 0) {
             long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, dto.getId()));
             if (userCount > 0) {
                 log.warn("更新角色失败：该角色正在被用户使用无法禁用，roleId={}, 关联用户数={}", dto.getId(), userCount);
-                return SaResult.error("该角色正在被用户使用，无法禁用。请先解除用户与该角色的关联").setCode(403);
+                return ServiceResult.error("该角色正在被用户使用，无法禁用。请先解除用户与该角色的关联").setCode(403);
             }
         }
 
@@ -209,36 +209,36 @@ public class RoleServiceImpl implements RoleService {
 
         sysRoleMapper.update(null, wrapper);
         log.info("角色更新成功，id={}", dto.getId());
-        return SaResult.data(toResponseDTO(sysRoleMapper.selectById(dto.getId())));
+        return ServiceResult.data(toResponseDTO(sysRoleMapper.selectById(dto.getId())));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteRole(Long id) {
+    public ServiceResult deleteRole(Long id) {
         SysRole role = sysRoleMapper.selectById(id);
         if (role == null) {
             log.warn("删除角色失败：角色不存在，id={}", id);
-            return SaResult.error("角色不存在").setCode(404);
+            return ServiceResult.error("角色不存在").setCode(404);
         }
         if (Boolean.TRUE.equals(role.getSuperAdmin()) || "SUPER_ADMIN".equals(role.getCode())) {
             log.warn("删除角色失败：超级管理员角色不可删除，id={}", id);
-            return SaResult.error("超级管理员角色不可删除").setCode(403);
+            return ServiceResult.error("超级管理员角色不可删除").setCode(403);
         }
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             log.warn("删除角色失败：系统内置角色不可删除，id={}", id);
-            return SaResult.error("系统内置角色不可删除").setCode(403);
+            return ServiceResult.error("系统内置角色不可删除").setCode(403);
         }
 
         String defaultRoleCode = sysConfigMapper.selectValueByKey(CONFIG_KEY_REGISTER_DEFAULT_ROLE);
         if (StringUtils.hasText(defaultRoleCode) && defaultRoleCode.equals(role.getCode())) {
             log.warn("删除角色失败：该角色已设为注册默认角色不可删除，id={}, code={}", id, role.getCode());
-            return SaResult.error("该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role").setCode(403);
+            return ServiceResult.error("该角色已设为用户注册默认角色，不可删除。请先在系统配置中修改 user_register_default_role").setCode(403);
         }
 
         long userCount = sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getRoleId, id));
         if (userCount > 0) {
             log.warn("删除角色失败：该角色正在被用户使用，id={}, 关联用户数={}", id, userCount);
-            return SaResult.error("该角色正在被用户使用，无法删除。请先解除用户与该角色的关联").setCode(403);
+            return ServiceResult.error("该角色正在被用户使用，无法删除。请先解除用户与该角色的关联").setCode(403);
         }
 
         // 1. 删除用户-角色关联
@@ -259,18 +259,18 @@ public class RoleServiceImpl implements RoleService {
                 .set(SysRole::getIsDeleted, 1)
                 .set(SysRole::getUpdateTime, LocalDateTime.now()));
         log.info("角色删除成功，已级联删除关联数据，id={}", id);
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     @Override
-    public SaResult getRolePermissionsDetail(Long roleId) {
+    public ServiceResult getRolePermissionsDetail(Long roleId) {
         SysRole role = sysRoleMapper.selectOne(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getId, roleId)
                         .and(w -> w.eq(SysRole::getIsDeleted, 0).or().isNull(SysRole::getIsDeleted)));
         if (role == null) {
             log.warn("获取角色权限详情失败：角色不存在，roleId={}", roleId);
-            return SaResult.error("角色不存在").setCode(404);
+            return ServiceResult.error("角色不存在").setCode(404);
         }
 
         // 通过权限组动态计算权限（不再依赖 sys_role_permission 表）
@@ -281,7 +281,7 @@ public class RoleServiceImpl implements RoleService {
         detail.setRole(toResponseDTO(role));
         detail.setPermissions(permissions.stream().map(this::toPermissionDTO).collect(Collectors.toList()));
         detail.setPermissionGroups(groups.stream().map(this::toPermissionGroupDTO).collect(Collectors.toList()));
-        return SaResult.data(detail);
+        return ServiceResult.data(detail);
     }
 
     /**
@@ -313,19 +313,19 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public SaResult addPermissionToRole(Long roleId, Long permissionId) {
+    public ServiceResult addPermissionToRole(Long roleId, Long permissionId) {
         validateRoleForModification(roleId);
         SysPermission newPerm = sysPermissionMapper.selectById(permissionId);
         if (newPerm == null) {
             log.warn("角色添加权限失败：权限不存在，roleId={}, permissionId={}", roleId, permissionId);
-            return SaResult.error("权限不存在").setCode(404);
+            return ServiceResult.error("权限不存在").setCode(404);
         }
 
         // 父子权限重叠校验：与角色已有权限（权限组+直接分配）任一重叠则不通过
         List<String> rolePermissionCodes = getRoleAllPermissionCodes(roleId);
         for (String existingCode : rolePermissionCodes) {
             if (PermissionOverlapHelper.overlaps(newPerm.getCode(), existingCode)) {
-                return SaResult.error("该权限与角色已有权限重叠（存在父子关系或重复），请勿重复添加").setCode(400);
+                return ServiceResult.error("该权限与角色已有权限重叠（存在父子关系或重复），请勿重复添加").setCode(400);
             }
         }
 
@@ -334,11 +334,11 @@ public class RoleServiceImpl implements RoleService {
         rp.setPermissionId(permissionId);
         sysRolePermissionMapper.insert(rp);
         log.info("角色添加权限成功，roleId={}, permissionId={}", roleId, permissionId);
-        return SaResult.data("添加成功");
+        return ServiceResult.data("添加成功");
     }
 
     @Override
-    public SaResult removePermissionFromRole(Long roleId, Long permissionId) {
+    public ServiceResult removePermissionFromRole(Long roleId, Long permissionId) {
         validateRoleForModification(roleId);
 
         int deleted = sysRolePermissionMapper.delete(
@@ -347,23 +347,23 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermission::getPermissionId, permissionId));
         if (deleted == 0) {
             log.warn("角色移除权限失败：该权限未直接分配给角色，roleId={}, permissionId={}", roleId, permissionId);
-            return SaResult.error("该权限未直接分配给角色").setCode(400);
+            return ServiceResult.error("该权限未直接分配给角色").setCode(400);
         }
         log.info("角色移除权限成功，roleId={}, permissionId={}", roleId, permissionId);
-        return SaResult.data("移除成功");
+        return ServiceResult.data("移除成功");
     }
 
     @Override
-    public SaResult addPermissionGroupToRole(Long roleId, Long groupId) {
+    public ServiceResult addPermissionGroupToRole(Long roleId, Long groupId) {
         validateRoleForModification(roleId);
         SysPermissionGroup group = sysPermissionGroupMapper.selectById(groupId);
         if (group == null || (group.getIsDeleted() != null && group.getIsDeleted() == 1)) {
             log.warn("角色添加权限组失败：权限组不存在，roleId={}, groupId={}", roleId, groupId);
-            return SaResult.error("权限组不存在").setCode(404);
+            return ServiceResult.error("权限组不存在").setCode(404);
         }
         if (group.getStatus() != null && group.getStatus() == 0) {
             log.warn("角色添加权限组失败：禁用的权限组无法添加，roleId={}, groupId={}", roleId, groupId);
-            return SaResult.error("禁用的权限组无法添加到角色").setCode(400);
+            return ServiceResult.error("禁用的权限组无法添加到角色").setCode(400);
         }
 
         long count = sysRolePermissionGroupMapper.selectCount(
@@ -372,7 +372,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermissionGroup::getGroupId, groupId));
         if (count > 0) {
             log.warn("角色添加权限组失败：该权限组已分配给角色，roleId={}, groupId={}", roleId, groupId);
-            return SaResult.error("该权限组已分配给角色").setCode(400);
+            return ServiceResult.error("该权限组已分配给角色").setCode(400);
         }
 
         // 父子权限重叠校验：权限组中的权限与角色已有权限任一重叠则不通过
@@ -381,7 +381,7 @@ public class RoleServiceImpl implements RoleService {
         for (SysPermission gp : groupPermissions) {
             for (String existingCode : rolePermissionCodes) {
                 if (PermissionOverlapHelper.overlaps(gp.getCode(), existingCode)) {
-                    return SaResult.error("权限组中的权限「" + gp.getCode() + "」与角色已有权限重叠（存在父子关系或重复），请勿重复添加").setCode(400);
+                    return ServiceResult.error("权限组中的权限「" + gp.getCode() + "」与角色已有权限重叠（存在父子关系或重复），请勿重复添加").setCode(400);
                 }
             }
         }
@@ -391,7 +391,7 @@ public class RoleServiceImpl implements RoleService {
         rpg.setGroupId(groupId);
         sysRolePermissionGroupMapper.insert(rpg);
 
-        // 同步权限组中的权限到角色权限表，供 Sa-Token 鉴权使用
+        // 同步权限组中的权限到角色权限表，供鉴权使用
         List<Long> permissionIds = sysPermissionMapper.selectPermissionsByGroupId(groupId).stream()
                 .map(SysPermission::getId)
                 .toList();
@@ -408,11 +408,11 @@ public class RoleServiceImpl implements RoleService {
             }
         }
         log.info("角色添加权限组成功，roleId={}, groupId={}", roleId, groupId);
-        return SaResult.data("添加成功");
+        return ServiceResult.data("添加成功");
     }
 
     @Override
-    public SaResult removePermissionGroupFromRole(Long roleId, Long groupId) {
+    public ServiceResult removePermissionGroupFromRole(Long roleId, Long groupId) {
         validateRoleForModification(roleId);
 
         int deleted = sysRolePermissionGroupMapper.delete(
@@ -421,7 +421,7 @@ public class RoleServiceImpl implements RoleService {
                         .eq(SysRolePermissionGroup::getGroupId, groupId));
         if (deleted == 0) {
             log.warn("角色移除权限组失败：该权限组未分配给角色，roleId={}, groupId={}", roleId, groupId);
-            return SaResult.error("该权限组未分配给角色").setCode(400);
+            return ServiceResult.error("该权限组未分配给角色").setCode(400);
         }
 
         // 从角色权限表中移除该权限组包含的权限（这些权限仅通过该组获得，直接分配的权限在删除组时保留）
@@ -435,7 +435,7 @@ public class RoleServiceImpl implements RoleService {
                             .eq(SysRolePermission::getPermissionId, pid));
         }
         log.info("角色移除权限组成功，roleId={}, groupId={}", roleId, groupId);
-        return SaResult.data("移除成功");
+        return ServiceResult.data("移除成功");
     }
 
     private PermissionResponseDTO toPermissionDTO(SysPermission p) {

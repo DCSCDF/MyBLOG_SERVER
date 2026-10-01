@@ -23,8 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import cn.dev33.satoken.dao.SaTokenDao;
-import cn.dev33.satoken.util.SaFoxUtil;
+import com.jiuliu.myblog_dev.common.TtlStore;
+import com.jiuliu.myblog_dev.utils.security.TokenGenerator;
 import jakarta.annotation.PreDestroy;
 
 /**
@@ -42,13 +42,13 @@ public class OAuthCodeService {
     private static final int MAX_LOCK_ENTRIES = 5000;
     private static final long LOCK_CLEANUP_INTERVAL_MINUTES = 10;
 
-    private final SaTokenDao saTokenDao;
+    private final TtlStore ttlStore;
     private final ConcurrentHashMap<String, Object> codeLocks = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService cleanupScheduler;
 
-    public OAuthCodeService(SaTokenDao saTokenDao) {
-        this.saTokenDao = saTokenDao;
+    public OAuthCodeService(TtlStore ttlStore) {
+        this.ttlStore = ttlStore;
         // 启动定时清理任务
         // 定时清理任务
         cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -101,13 +101,13 @@ public class OAuthCodeService {
      * @return 授权码
      */
     public String generateCode(Long userId, String token) {
-        String code = SaFoxUtil.getRandomString(32);
+        String code = TokenGenerator.randomString(32);
         String key = CODE_PREFIX + code;
         String tokenKey = key + TOKEN_KEY_SUFFIX;
 
         // 保存用户ID和token
-        saTokenDao.set(key, String.valueOf(userId), CODE_EXPIRE_SECONDS);
-        saTokenDao.set(tokenKey, token, CODE_EXPIRE_SECONDS);
+        ttlStore.set(key, String.valueOf(userId), CODE_EXPIRE_SECONDS);
+        ttlStore.set(tokenKey, token, CODE_EXPIRE_SECONDS);
 
         log.info("生成OAuth授权码，userId={}, code={}", userId, code);
         return code;
@@ -130,9 +130,9 @@ public class OAuthCodeService {
         synchronized (lock) {
             try {
                 String key = CODE_PREFIX + code;
-                String userIdStr = saTokenDao.get(key);
+                String userIdStr = ttlStore.get(key);
                 String tokenKey = key + TOKEN_KEY_SUFFIX;
-                String token = saTokenDao.get(tokenKey);
+                String token = ttlStore.get(tokenKey);
 
                 if (userIdStr == null) {
                     log.warn("OAuth授权码无效或已过期，code={}", code);
@@ -140,8 +140,8 @@ public class OAuthCodeService {
                 }
 
                 // 删除授权码，确保一次性使用
-                saTokenDao.delete(key);
-                saTokenDao.delete(tokenKey);
+                ttlStore.delete(key);
+                ttlStore.delete(tokenKey);
 
                 log.info("OAuth授权码兑换成功，userId={}", userIdStr);
 
