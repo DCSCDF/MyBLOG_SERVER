@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleResponseDTO;
@@ -44,15 +45,15 @@ public class PublicArticleController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
     /**
@@ -63,8 +64,8 @@ public class PublicArticleController {
     @RateLimit(count = 500, period = 1, prefix = "public_article_list", ipBased = true)
     @PostMapping("/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticles(@Valid @RequestBody PagePublicArticleDTO dto) {
-        SaResult saResult = publicArticleService.getPagePublicArticles(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicArticleService.getPagePublicArticles(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -76,8 +77,8 @@ public class PublicArticleController {
     @RateLimit(count = 500, period = 1, prefix = "public_article_admin_list", ipBased = true)
     @PostMapping("/admin/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByAdmin(@Valid @RequestBody PagePublicArticleDTO dto) {
-        SaResult saResult = publicArticleService.getPagePublicArticlesByAdmin(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicArticleService.getPagePublicArticlesByAdmin(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -89,8 +90,8 @@ public class PublicArticleController {
     @RateLimit(count = 500, period = 1, prefix = "public_article_user_list", ipBased = true)
     @PostMapping("/user/list")
     public Response<PagePublicArticleResponseDTO> getPagePublicArticlesByUser(@Valid @RequestBody PagePublicArticleDTO dto) {
-        SaResult saResult = publicArticleService.getPagePublicArticlesByUser(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicArticleService.getPagePublicArticlesByUser(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -102,7 +103,7 @@ public class PublicArticleController {
     @RateLimit(count = 500, period = 1, prefix = "public_article_detail", ipBased = true)
     @GetMapping("/{id}")
     public Response<PublicArticleDetailResponseDTO> getPublicArticleDetail(@PathVariable Long id) {
-        SaResult saResult = publicArticleService.getPublicArticleDetail(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicArticleService.getPublicArticleDetail(id);
+        return handleServiceResult(serviceResult);
     }
 }

@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.seo;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 
 /**
  * 公共SEO Service接口 - 无需登录即可访问
@@ -30,7 +31,7 @@ public interface PublicSeoService {
      * @param pageId   页面ID（可选，用于精确匹配）
      * @return SEO配置
      */
-    SaResult getSeoByPageType(String pageType, Long pageId);
+    ServiceResult getSeoByPageType(String pageType, Long pageId);
 
     /**
      * 清除公共 SEO 缓存（后台修改 SEO 配置后调用，避免公共端最长 30 分钟返回旧值）

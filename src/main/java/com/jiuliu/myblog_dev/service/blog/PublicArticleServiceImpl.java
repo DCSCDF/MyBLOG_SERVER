@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -123,23 +124,23 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     }
 
     @Override
-    public SaResult getPagePublicArticles(PagePublicArticleDTO dto) {
+    public ServiceResult getPagePublicArticles(PagePublicArticleDTO dto) {
         return getPagePublicArticlesWithFilter(dto, null, null);
     }
 
     @Override
-    public SaResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto) {
+    public ServiceResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto) {
         List<Long> superAdminIds = getSuperAdminUserIds();
         return getPagePublicArticlesWithFilter(dto, superAdminIds, true);
     }
 
     @Override
-    public SaResult getPagePublicArticlesByUser(PagePublicArticleDTO dto) {
+    public ServiceResult getPagePublicArticlesByUser(PagePublicArticleDTO dto) {
         List<Long> superAdminIds = getSuperAdminUserIds();
         return getPagePublicArticlesWithFilter(dto, superAdminIds, false);
     }
 
-    private SaResult getPagePublicArticlesWithFilter(PagePublicArticleDTO dto, List<Long> authorIds,
+    private ServiceResult getPagePublicArticlesWithFilter(PagePublicArticleDTO dto, List<Long> authorIds,
             Boolean includeOnly) {
         try {
             String filterType = includeOnly != null ? (includeOnly ? "admin" : "user") : null;
@@ -147,7 +148,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
             PagePublicArticleResponseDTO cached = publicArticleListCache.getIfPresent(cacheKey);
             if (cached != null) {
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             if (Boolean.TRUE.equals(includeOnly) && (authorIds == null || authorIds.isEmpty())) {
@@ -158,7 +159,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                 emptyResponse.setCurrent((long) dto.getCurrentPage());
                 emptyResponse.setPages(0L);
                 publicArticleListCache.put(cacheKey, emptyResponse);
-                return SaResult.data(emptyResponse);
+                return ServiceResult.data(emptyResponse);
             }
 
             Map<Long, String> categoryMap = getCategoryMap();
@@ -195,7 +196,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
                     emptyResponse.setSize((long) dto.getPageSize());
                     emptyResponse.setCurrent((long) dto.getCurrentPage());
                     emptyResponse.setPages(0L);
-                    return SaResult.data(emptyResponse);
+                    return ServiceResult.data(emptyResponse);
                 }
             }
 
@@ -206,11 +207,11 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             return queryArticlesWithoutKeyword(dto, categoryMap, queryWrapper, cacheKey);
         } catch (Exception e) {
             log.error("分页获取公共文章列表异常", e);
-            return SaResult.error("获取文章列表失败").setCode(500);
+            return ServiceResult.error("获取文章列表失败").setCode(500);
         }
     }
 
-    private SaResult queryArticlesWithoutKeyword(PagePublicArticleDTO dto,
+    private ServiceResult queryArticlesWithoutKeyword(PagePublicArticleDTO dto,
                                                  Map<Long, String> categoryMap,
                                                  LambdaQueryWrapper<SysBlog> queryWrapper,
                                                  String cacheKey) {
@@ -237,10 +238,10 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         publicArticleListCache.put(cacheKey, response);
 
-        return SaResult.data(response);
+        return ServiceResult.data(response);
     }
 
-    private SaResult searchArticlesWithKeyword(PagePublicArticleDTO dto,
+    private ServiceResult searchArticlesWithKeyword(PagePublicArticleDTO dto,
                                                Map<Long, String> categoryMap,
             Long authorId,
             String cacheKey,
@@ -369,7 +370,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
         publicArticleListCache.put(cacheKey, response);
 
-        return SaResult.data(response);
+        return ServiceResult.data(response);
     }
 
     private Map<Long, String> getAuthorNicknameMap(List<SysBlog> articles) {
@@ -391,10 +392,10 @@ public class PublicArticleServiceImpl implements PublicArticleService {
     }
 
     @Override
-    public SaResult getPublicArticleDetail(Long articleId) {
+    public ServiceResult getPublicArticleDetail(Long articleId) {
         try {
             if (articleId == null) {
-                return SaResult.error("文章ID不能为空").setCode(400);
+                return ServiceResult.error("文章ID不能为空").setCode(400);
             }
 
             // 查询文章，只查询公开的文章（is_hidden = false）
@@ -406,7 +407,7 @@ public class PublicArticleServiceImpl implements PublicArticleService {
 
             if (blog == null) {
                 log.warn("公共文章详情获取失败：文章不存在或已隐藏，articleId={}", articleId);
-                return SaResult.error("文章不存在或已下架").setCode(404);
+                return ServiceResult.error("文章不存在或已下架").setCode(404);
             }
 
             // 获取分类名称
@@ -448,10 +449,10 @@ public class PublicArticleServiceImpl implements PublicArticleService {
             dto.setAuthorBio(authorBio);
             dto.setCreateTime(blog.getCreateTime());
 
-            return SaResult.data(dto);
+            return ServiceResult.data(dto);
         } catch (Exception e) {
             log.error("获取公共文章详情异常，articleId={}", articleId, e);
-            return SaResult.error("获取文章详情失败").setCode(500);
+            return ServiceResult.error("获取文章详情失败").setCode(500);
         }
     }
 

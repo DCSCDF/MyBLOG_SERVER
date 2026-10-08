@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.controller.oss;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.oss.global.PageGlobalOssDTO;
 import com.jiuliu.myblog_dev.dto.oss.global.PageGlobalOssResponseDTO;
@@ -40,28 +41,28 @@ public class GlobalOssController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResultGeneral(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResultGeneral(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
     /**
-     * 处理返回Map类型的SaResult结果
+     * 处理返回Map类型的ServiceResult结果
      */
-    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private Response<Map<String, Object>> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
+            Map<String, Object> data = (Map<String, Object>) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -70,11 +71,11 @@ public class GlobalOssController {
      * POST /api/global-oss/list
      * 权限：system:oss:list
      */
-    @SaCheckPermission("system:oss:list")
+    @PreAuthorize("hasAuthority('system:oss:list')")
     @PostMapping("/list")
     public Response<PageGlobalOssResponseDTO> getPageGlobalOssImages(@Valid @RequestBody PageGlobalOssDTO dto) {
-        SaResult saResult = globalOssService.getPageGlobalOssImages(dto);
-        return handleSaResultGeneral(saResult);
+        ServiceResult serviceResult = globalOssService.getPageGlobalOssImages(dto);
+        return handleServiceResultGeneral(serviceResult);
     }
 
     /**
@@ -82,10 +83,10 @@ public class GlobalOssController {
      * DELETE /api/global-oss/{hash}
      * 权限：system:oss:delete
      */
-    @SaCheckPermission("system:oss:delete")
+    @PreAuthorize("hasAuthority('system:oss:delete')")
     @DeleteMapping("/{hash}")
     public Response<Map<String, Object>> deleteImage(@PathVariable String hash) {
-        SaResult saResult = globalOssService.deleteImage(hash);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalOssService.deleteImage(hash);
+        return handleServiceResult(serviceResult);
     }
 }

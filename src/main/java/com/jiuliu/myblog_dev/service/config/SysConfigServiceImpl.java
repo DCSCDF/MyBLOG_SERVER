@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.config;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -70,15 +71,15 @@ public class SysConfigServiceImpl implements SysConfigService {
     }
 
     @Override
-    public SaResult getSystemConfigByKeys(ConfigSystemKeysDTO dto) {
+    public ServiceResult getSystemConfigByKeys(ConfigSystemKeysDTO dto) {
         if (dto.getKeys() == null || dto.getKeys().isEmpty()) {
             log.warn("系统配置查询失败：配置键列表为空");
-            return SaResult.error("配置键列表不能为空").setCode(400);
+            return ServiceResult.error("配置键列表不能为空").setCode(400);
         }
         List<String> keys = dto.getKeys().stream().filter(StringUtils::hasText).distinct().toList();
         if (keys.isEmpty()) {
             log.warn("系统配置查询失败：过滤后配置键列表为空");
-            return SaResult.error("配置键列表不能为空").setCode(400);
+            return ServiceResult.error("配置键列表不能为空").setCode(400);
         }
 
         // 从缓存中获取配置，先尝试从缓存读取每个key
@@ -117,11 +118,11 @@ public class SysConfigServiceImpl implements SysConfigService {
         List<ConfigItemResponseDTO> result = resultList.stream()
                 .map(this::toItemResponse)
                 .collect(Collectors.toList());
-        return SaResult.data(result);
+        return ServiceResult.data(result);
     }
 
     @Override
-    public SaResult getPageCustomConfigs(PageConfigCustomDTO pageDto) {
+    public ServiceResult getPageCustomConfigs(PageConfigCustomDTO pageDto) {
         LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
                 .eq(SysConfig::getIsSystem, 0)
                 .eq(SysConfig::getIsDeleted, 0)
@@ -141,24 +142,24 @@ public class SysConfigServiceImpl implements SysConfigService {
         response.setSize(pageResult.getSize());
         response.setCurrent(pageResult.getCurrent());
         response.setPages(pageResult.getPages());
-        return SaResult.data(response);
+        return ServiceResult.data(response);
     }
 
     @Override
-    public SaResult createCustomConfig(ConfigCreateDTO dto) {
+    public ServiceResult createCustomConfig(ConfigCreateDTO dto) {
         LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
                 .eq(SysConfig::getConfigKey, dto.getConfigKey())
                 .eq(SysConfig::getIsDeleted, 0);
         SysConfig existing = sysConfigMapper.selectOne(wrapper);
         if (existing != null) {
             log.warn("创建自定义配置失败：配置键已存在，configKey={}", dto.getConfigKey());
-            return SaResult.error("配置键已存在").setCode(400);
+            return ServiceResult.error("配置键已存在").setCode(400);
         }
         String dataType = StringUtils.hasText(dto.getDataType()) ? dto.getDataType() : "string";
         String validationError = validateConfigValue(dto.getConfigValue(), dataType, dto.getValidationRule());
         if (validationError != null) {
             log.warn("创建自定义配置失败：值校验不通过，configKey={}, error={}", dto.getConfigKey(), validationError);
-            return SaResult.error(validationError).setCode(400);
+            return ServiceResult.error(validationError).setCode(400);
         }
         SysConfig config = new SysConfig();
         config.setConfigKey(dto.getConfigKey());
@@ -173,25 +174,25 @@ public class SysConfigServiceImpl implements SysConfigService {
         log.info("自定义配置项创建成功，id={}, configKey={}", config.getId(), config.getConfigKey());
         // 清除相关缓存
         clearConfigCache(dto.getConfigKey());
-        return SaResult.data(toItemResponseWithId(config));
+        return ServiceResult.data(toItemResponseWithId(config));
     }
 
     @Override
-    public SaResult updateConfigValue(ConfigUpdateDTO dto) {
+    public ServiceResult updateConfigValue(ConfigUpdateDTO dto) {
         LambdaQueryWrapper<SysConfig> wrapper = new LambdaQueryWrapper<SysConfig>()
                 .eq(SysConfig::getConfigKey, dto.getConfigKey())
                 .eq(SysConfig::getIsDeleted, 0);
         SysConfig config = sysConfigMapper.selectOne(wrapper);
         if (config == null) {
             log.warn("修改配置失败：配置项不存在，configKey={}", dto.getConfigKey());
-            return SaResult.error("配置项不存在").setCode(404);
+            return ServiceResult.error("配置项不存在").setCode(404);
         }
 
         // 按 dataType/validationRule 校验配置值，非法值直接拒绝（不再静默入库后使用时才报错）
         String validationError = validateConfigValue(dto.getConfigValue(), config.getDataType(), config.getValidationRule());
         if (validationError != null) {
             log.warn("修改配置失败：值校验不通过，configKey={}, error={}", dto.getConfigKey(), validationError);
-            return SaResult.error(validationError).setCode(400);
+            return ServiceResult.error(validationError).setCode(400);
         }
 
         LambdaUpdateWrapper<SysConfig> updateWrapper = new LambdaUpdateWrapper<SysConfig>()
@@ -217,24 +218,24 @@ public class SysConfigServiceImpl implements SysConfigService {
 
         log.info("网站配置更新成功，configKey={}", dto.getConfigKey());
         SysConfig updated = sysConfigMapper.selectOne(wrapper);
-        return SaResult.data(toItemResponse(updated));
+        return ServiceResult.data(toItemResponse(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteCustomConfig(Long id) {
+    public ServiceResult deleteCustomConfig(Long id) {
         SysConfig config = sysConfigMapper.selectById(id);
         if (config == null) {
             log.warn("删除自定义配置失败：配置项不存在，id={}", id);
-            return SaResult.error("配置项不存在").setCode(404);
+            return ServiceResult.error("配置项不存在").setCode(404);
         }
         if (config.getIsDeleted() != null && config.getIsDeleted() == 1) {
             log.warn("删除自定义配置失败：配置项已被删除，id={}", id);
-            return SaResult.error("配置项已被删除").setCode(404);
+            return ServiceResult.error("配置项已被删除").setCode(404);
         }
         if (config.getIsSystem() != null && config.getIsSystem() == 1) {
             log.warn("删除自定义配置失败：系统内置配置项不可删除，id={}, configKey={}", id, config.getConfigKey());
-            return SaResult.error("系统内置配置项不可删除").setCode(403);
+            return ServiceResult.error("系统内置配置项不可删除").setCode(403);
         }
         // 为被删除的配置项添加"_已删除"后缀，防止与未删除的配置项产生键名冲突
         String deletedConfigKey = config.getConfigKey() + "_已删除";
@@ -249,7 +250,7 @@ public class SysConfigServiceImpl implements SysConfigService {
         clearConfigCache(config.getConfigKey());
 
         log.info("自定义配置项删除成功，id={}, configKey={}", id, config.getConfigKey());
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**
@@ -387,15 +388,15 @@ public class SysConfigServiceImpl implements SysConfigService {
     }
 
     @Override
-    public SaResult getPublicConfigByKeys(List<String> keys) {
+    public ServiceResult getPublicConfigByKeys(List<String> keys) {
         if (keys == null || keys.isEmpty()) {
             log.warn("公开配置查询失败：配置键列表为空");
-            return SaResult.error("配置键列表不能为空").setCode(400);
+            return ServiceResult.error("配置键列表不能为空").setCode(400);
         }
         List<String> validKeys = keys.stream().filter(StringUtils::hasText).distinct().toList();
         if (validKeys.isEmpty()) {
             log.warn("公开配置查询失败：过滤后配置键列表为空");
-            return SaResult.error("配置键列表不能为空").setCode(400);
+            return ServiceResult.error("配置键列表不能为空").setCode(400);
         }
 
         // 从缓存中获取配置，先尝试从缓存读取每个key（只返回is_open=1的配置）
@@ -434,7 +435,7 @@ public class SysConfigServiceImpl implements SysConfigService {
         List<ConfigItemResponseDTO> result = resultList.stream()
                 .map(this::toItemResponse)
                 .collect(Collectors.toList());
-        return SaResult.data(result);
+        return ServiceResult.data(result);
     }
 
     /**
@@ -448,7 +449,7 @@ public class SysConfigServiceImpl implements SysConfigService {
     );
 
     @Override
-    public SaResult getSiteInfo() {
+    public ServiceResult getSiteInfo() {
         List<String> keys = SITE_INFO_KEYS;
         List<SysConfig> resultList = new java.util.ArrayList<>();
 
@@ -486,7 +487,7 @@ public class SysConfigServiceImpl implements SysConfigService {
         // 构建返回对象
         SiteInfoDTO siteInfo = getSiteInfoDTO(resultList);
 
-        return SaResult.data(siteInfo);
+        return ServiceResult.data(siteInfo);
     }
 
     @NonNull

@@ -14,8 +14,8 @@
 
 package com.jiuliu.myblog_dev.utils.auth;
 
-import cn.dev33.satoken.dao.SaTokenDao;
-import cn.dev33.satoken.util.SaFoxUtil;
+import com.jiuliu.myblog_dev.security.ExpiringValueStore;
+import com.jiuliu.myblog_dev.utils.security.RandomStringUtil;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +35,7 @@ public class TempLoginTokenService {
     private static final int MAX_LOCK_ENTRIES = 5000;
     private static final long LOCK_CLEANUP_INTERVAL_MINUTES = 10;
 
-    private final SaTokenDao saTokenDao;
+    private final ExpiringValueStore valueStore;
 
     // 每个 token 的锁（用于防止并发消费）
     private final ConcurrentHashMap<String, Object> tokenLocks = new ConcurrentHashMap<>();
@@ -43,8 +43,8 @@ public class TempLoginTokenService {
     private final ScheduledExecutorService cleanupScheduler;
 
     // 构造函数注入
-    public TempLoginTokenService(SaTokenDao saTokenDao) {
-        this.saTokenDao = saTokenDao;
+    public TempLoginTokenService(ExpiringValueStore valueStore) {
+        this.valueStore = valueStore;
         // 启动定时清理任务
         // 定时清理任务
         cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -62,9 +62,9 @@ public class TempLoginTokenService {
      * return 32位随机字符串 token
      */
     public String generateTempToken() {
-        String token = SaFoxUtil.getRandomString(32);
+        String token = RandomStringUtil.random(32);
         String key = TOKEN_PREFIX + token;
-        saTokenDao.set(key, "unbound", EXPIRE_SECONDS);
+        valueStore.set(key, "unbound", EXPIRE_SECONDS);
         return token;
     }
 
@@ -76,9 +76,9 @@ public class TempLoginTokenService {
 //        if (loginId == null) {
 //            throw new IllegalArgumentException("loginId 不能为空");
 //        }
-//        String token = SaFoxUtil.getRandomString(32);
+//        String token = RandomStringUtil.random(32);
 //        String key = TOKEN_PREFIX + token;
-//        saTokenDao.set(key, String.valueOf(loginId), EXPIRE_SECONDS);
+//        valueStore.set(key, String.valueOf(loginId), EXPIRE_SECONDS);
 //        return token;
 //    }
 
@@ -95,9 +95,9 @@ public class TempLoginTokenService {
         synchronized (lock) {
             try {
                 String key = TOKEN_PREFIX + token;
-                String value = saTokenDao.get(key);
+                String value = valueStore.get(key);
                 if (value != null) {
-                    saTokenDao.delete(key);
+                    valueStore.delete(key);
                     return value;
                 }
                 return null; // 已被消费或过期
@@ -152,7 +152,7 @@ public class TempLoginTokenService {
 //        if (token == null) return true;  // 空令牌视为无效
 //
 //        // 从持久化存储中获取令牌，如果不存在则说明已使用或已过期
-//        return saTokenDao.get(TOKEN_PREFIX + token) == null;
+//        return valueStore.get(TOKEN_PREFIX + token) == null;
 //    }
 //
 //    /**
@@ -164,7 +164,7 @@ public class TempLoginTokenService {
 //    public void invalidateToken(String token) {
 //        if (token != null) {
 //            // 从持久化存储中删除令牌
-//            saTokenDao.delete(TOKEN_PREFIX + token);
+//            valueStore.delete(TOKEN_PREFIX + token);
 //        }
 //    }
 //
@@ -179,6 +179,6 @@ public class TempLoginTokenService {
 //        if (token == null) return false;  // 空令牌视为不存在
 //
 //        // 检查令牌是否存在于持久化存储中
-//        return saTokenDao.get(TOKEN_PREFIX + token) != null;
+//        return valueStore.get(TOKEN_PREFIX + token) != null;
 //    }
 }

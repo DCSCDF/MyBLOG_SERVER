@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentDTO;
 
@@ -27,17 +28,17 @@ public interface CommentService {
     /**
      * 分页获取当前用户的评论列表
      */
-    SaResult getPageUserComments(PageCommentDTO dto, Long userId);
+    ServiceResult getPageUserComments(PageCommentDTO dto, Long userId);
 
     /**
      * 更新自己的评论
      */
-    SaResult updateComment(CommentUpdateDTO dto, Long userId);
+    ServiceResult updateComment(CommentUpdateDTO dto, Long userId);
 
     /**
      * 删除自己的评论
      */
-    SaResult deleteComment(Long commentId, Long userId);
+    ServiceResult deleteComment(Long commentId, Long userId);
 
     /**
      * 清除用户评论列表缓存
@@ -52,5 +53,5 @@ public interface CommentService {
      * @param limit  返回条数，最大100条
      * @return 回复评论列表
      */
-    SaResult getReplyComments(Long userId, Integer limit);
+    ServiceResult getReplyComments(Long userId, Integer limit);
 }

@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.blog.*;
 
 public interface BlogService {
@@ -26,7 +27,7 @@ public interface BlogService {
      * @param authorId   作者ID（从token获取）
      * @return 操作结果
      */
-    SaResult createBlog(BlogCreateDTO dto, Long authorId);
+    ServiceResult createBlog(BlogCreateDTO dto, Long authorId);
 
     /**
      * 分页获取用户文章列表
@@ -35,7 +36,7 @@ public interface BlogService {
      * @param userId    当前用户ID
      * @return 分页结果
      */
-    SaResult getPageUserBlogs(PageUserBlogDTO dto, Long userId);
+    ServiceResult getPageUserBlogs(PageUserBlogDTO dto, Long userId);
 
     /**
      * 获取文章详情
@@ -44,7 +45,7 @@ public interface BlogService {
      * @param userId   当前用户ID
      * @return 文章详情
      */
-    SaResult getBlogDetail(Long blogId, Long userId);
+    ServiceResult getBlogDetail(Long blogId, Long userId);
 
     /**
      * 更新文章状态（隐藏、置顶、推荐）
@@ -54,7 +55,7 @@ public interface BlogService {
      * @param userId   当前用户ID
      * @return 操作结果
      */
-    SaResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId);
+    ServiceResult updateBlogStatus(Long blogId, BlogStatusUpdateDTO dto, Long userId);
 
     /**
      * 更新文章内容
@@ -64,7 +65,7 @@ public interface BlogService {
      * @param userId   当前用户ID
      * @return 操作结果
      */
-    SaResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId);
+    ServiceResult updateBlogContent(Long blogId, BlogContentUpdateDTO dto, Long userId);
 
     /**
      * 删除文章（逻辑删除）
@@ -73,5 +74,5 @@ public interface BlogService {
      * @param userId   当前用户ID
      * @return 操作结果
      */
-    SaResult deleteBlog(Long blogId, Long userId);
+    ServiceResult deleteBlog(Long blogId, Long userId);
 }

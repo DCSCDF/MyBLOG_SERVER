@@ -14,9 +14,11 @@
 
 package com.jiuliu.myblog_dev.controller.comment;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.utils.security.SecurityUtils;
+
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageCommentDTO;
@@ -40,15 +42,15 @@ public class CommentController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -58,11 +60,11 @@ public class CommentController {
      * 权限：comment:list
      */
     @PostMapping("/list")
-    @SaCheckPermission("comment:list")
+    @PreAuthorize("hasAuthority('comment:list')")
     public Response<PageCommentResponseDTO> getPageUserComments(@Valid @RequestBody PageCommentDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = commentService.getPageUserComments(dto, currentUserId);
-        return handleSaResult(saResult);
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        ServiceResult serviceResult = commentService.getPageUserComments(dto, currentUserId);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -71,13 +73,13 @@ public class CommentController {
      * 权限：comment:edit
      */
     @PutMapping("/{id}")
-    @SaCheckPermission("comment:edit")
+    @PreAuthorize("hasAuthority('comment:edit')")
     public Response<Object> updateComment(@PathVariable Long id,
                                           @Valid @RequestBody CommentUpdateDTO dto) {
         dto.setId(id);
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = commentService.updateComment(dto, currentUserId);
-        return handleSaResult(saResult);
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        ServiceResult serviceResult = commentService.updateComment(dto, currentUserId);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -86,11 +88,11 @@ public class CommentController {
      * 权限：comment:delete
      */
     @DeleteMapping("/{id}")
-    @SaCheckPermission("comment:delete")
+    @PreAuthorize("hasAuthority('comment:delete')")
     public Response<Object> deleteComment(@PathVariable Long id) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = commentService.deleteComment(id, currentUserId);
-        return handleSaResult(saResult);
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        ServiceResult serviceResult = commentService.deleteComment(id, currentUserId);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -101,11 +103,11 @@ public class CommentController {
      * @param limit 返回条数，最大100条，默认10条
      */
     @GetMapping("/replies")
-    @SaCheckPermission("comment:list")
+    @PreAuthorize("hasAuthority('comment:list')")
     public Response<List<PublicCommentResponseDTO>> getReplyComments(
             @RequestParam(value = "limit", defaultValue = "10") Integer limit) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        SaResult saResult = commentService.getReplyComments(currentUserId, limit);
-        return handleSaResult(saResult);
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        ServiceResult serviceResult = commentService.getReplyComments(currentUserId, limit);
+        return handleServiceResult(serviceResult);
     }
 }

@@ -14,9 +14,11 @@
 
 package com.jiuliu.myblog_dev.controller.blog;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.utils.security.SecurityUtils;
+
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.*;
 import com.jiuliu.myblog_dev.service.blog.BlogService;
@@ -38,31 +40,31 @@ public class BlogController {
     }
 
     /**
-     * 处理返回Map类型的SaResult结果
+     * 处理返回Map类型的ServiceResult结果
      *
-     * @param saResult Sa-Token返回的结果
+     * @param serviceResult 服务层返回的结果
      * @return 统一响应格式
      */
-    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private Response<Map<String, Object>> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
+            Map<String, Object> data = (Map<String, Object>) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResultGeneral(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResultGeneral(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -72,11 +74,11 @@ public class BlogController {
      * 权限：article:create
      */
     @PostMapping
-    @SaCheckPermission("article:create")
+    @PreAuthorize("hasAuthority('article:create')")
     @RateLimit(count = 20, period = 60)
     public Response<Map<String, Object>> createBlog(@Valid @RequestBody BlogCreateDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(blogService.createBlog(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(blogService.createBlog(dto, currentUserId));
     }
 
     /**
@@ -85,10 +87,10 @@ public class BlogController {
      * 权限：article:list
      */
     @PostMapping("/list")
-    @SaCheckPermission("article:list")
+    @PreAuthorize("hasAuthority('article:list')")
     public Response<PageUserBlogResponseDTO> getPageUserBlogs(@Valid @RequestBody PageUserBlogDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResultGeneral(blogService.getPageUserBlogs(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResultGeneral(blogService.getPageUserBlogs(dto, currentUserId));
     }
 
     /**
@@ -97,10 +99,10 @@ public class BlogController {
      * 权限：article:list
      */
     @GetMapping("/{id}")
-    @SaCheckPermission("article:list")
+    @PreAuthorize("hasAuthority('article:list')")
     public Response<BlogDetailResponseDTO> getBlogDetail(@PathVariable Long id) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResultGeneral(blogService.getBlogDetail(id, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResultGeneral(blogService.getBlogDetail(id, currentUserId));
     }
 
     /**
@@ -109,11 +111,11 @@ public class BlogController {
      * 权限：article:edit
      */
     @PutMapping("/{id}/status")
-    @SaCheckPermission("article:edit")
+    @PreAuthorize("hasAuthority('article:edit')")
     public Response<Map<String, Object>> updateBlogStatus(@PathVariable Long id,
                                                           @Valid @RequestBody BlogStatusUpdateDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(blogService.updateBlogStatus(id, dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(blogService.updateBlogStatus(id, dto, currentUserId));
     }
 
     /**
@@ -122,11 +124,11 @@ public class BlogController {
      * 权限：article:edit
      */
     @PutMapping("/{id}")
-    @SaCheckPermission("article:edit")
+    @PreAuthorize("hasAuthority('article:edit')")
     public Response<Map<String, Object>> updateBlogContent(@PathVariable Long id,
                                                            @Valid @RequestBody BlogContentUpdateDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(blogService.updateBlogContent(id, dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(blogService.updateBlogContent(id, dto, currentUserId));
     }
 
     /**
@@ -135,9 +137,9 @@ public class BlogController {
      * 权限：article:delete
      */
     @DeleteMapping("/{id}")
-    @SaCheckPermission("article:delete")
+    @PreAuthorize("hasAuthority('article:delete')")
     public Response<Map<String, Object>> deleteBlog(@PathVariable Long id) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(blogService.deleteBlog(id, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(blogService.deleteBlog(id, currentUserId));
     }
 }

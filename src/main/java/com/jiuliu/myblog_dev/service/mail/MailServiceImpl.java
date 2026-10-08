@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.mail;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.config.business.MailConfig;
 import com.jiuliu.myblog_dev.utils.mail.SmtpConnectionTester;
 import jakarta.mail.MessagingException;
@@ -43,10 +44,10 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendTestMail(String to, String subject, String content) {
+    public ServiceResult sendTestMail(String to, String subject, String content) {
         if (!StringUtils.hasText(to)) {
             log.warn("发送测试邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱不能为空").setCode(400);
+            return ServiceResult.error("收件人邮箱不能为空").setCode(400);
         }
 
         if (!StringUtils.hasText(subject)) {
@@ -59,10 +60,10 @@ public class MailServiceImpl implements MailService {
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送测试邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
         }
 
-        SaResult connectionTestResult = testSmtpConnection();
+        ServiceResult connectionTestResult = testSmtpConnection();
         if (connectionTestResult.getCode() != 200) {
             return connectionTestResult;
         }
@@ -71,35 +72,35 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult checkSmtpConfiguration() {
+    public ServiceResult checkSmtpConfiguration() {
         boolean configured = mailConfig.isConfigured();
         if (configured) {
-            SaResult connectionTestResult = testSmtpConnection();
+            ServiceResult connectionTestResult = testSmtpConnection();
             if (connectionTestResult.getCode() == 200) {
-                return SaResult.data("SMTP 配置已完成且连接正常");
+                return ServiceResult.data("SMTP 配置已完成且连接正常");
             } else {
-                return SaResult.error("SMTP 配置已完成，但无法连接到服务器：" + connectionTestResult.getMsg()).setCode(400);
+                return ServiceResult.error("SMTP 配置已完成，但无法连接到服务器：" + connectionTestResult.getMsg()).setCode(400);
             }
         } else {
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
     }
 
-    private SaResult testSmtpConnection() {
+    private ServiceResult testSmtpConnection() {
         JavaMailSenderImpl mailSenderImpl = mailConfig.getMailSenderImpl();
         if (mailSenderImpl == null) {
             log.warn("SMTP 连接测试失败：无法获取 JavaMailSenderImpl 实例");
-            return SaResult.error("邮件发送器未正确初始化").setCode(500);
+            return ServiceResult.error("邮件发送器未正确初始化").setCode(500);
         }
 
         SmtpConnectionTester.ConnectionTestResult result = smtpConnectionTester.testConnection(mailSenderImpl);
         if (!result.isSuccess()) {
             log.warn("SMTP 连接测试失败：{}", result.getMessage());
-            return SaResult.error(result.getMessage()).setCode(500);
+            return ServiceResult.error(result.getMessage()).setCode(500);
         }
 
         log.info("SMTP 连接测试通过");
-        return SaResult.ok("SMTP 连接正常");
+        return ServiceResult.ok("SMTP 连接正常");
     }
 
     @Override
@@ -108,15 +109,15 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendCommentReviewNotification(String to, boolean approved, String siteDomain) {
+    public ServiceResult sendCommentReviewNotification(String to, boolean approved, String siteDomain) {
         if (!StringUtils.hasText(to)) {
             log.warn("发送评论审核通知邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱为空").setCode(400);
+            return ServiceResult.error("收件人邮箱为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送评论审核通知邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = approved ? "您的评论已通过审核" : "您的评论未通过审核";
@@ -126,15 +127,15 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendCommentReplyNotification(String to, String siteDomain, String replyContent) {
+    public ServiceResult sendCommentReplyNotification(String to, String siteDomain, String replyContent) {
         if (!StringUtils.hasText(to)) {
             log.warn("发送评论回复通知邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱为空").setCode(400);
+            return ServiceResult.error("收件人邮箱为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送评论回复通知邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = "您的评论收到新的回复";
@@ -144,17 +145,17 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
+    public ServiceResult sendNewCommentNotificationToAdmins(List<String> toEmailList, String siteDomain,
                                                        boolean isGuest, Long commentId, Long blogId,
                                                        String blogTitle, String commenter, String content) {
         if (toEmailList == null || toEmailList.isEmpty()) {
             log.warn("发送新评论通知邮件失败：收件人列表为空");
-            return SaResult.error("收件人列表为空").setCode(400);
+            return ServiceResult.error("收件人列表为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送新评论通知邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = isGuest
@@ -167,17 +168,17 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
+    public ServiceResult sendTopLevelCommentApprovedNotification(String toEmail, String siteDomain,
                                                             Long blogId, String blogTitle, Long commentId,
                                                             String commentContent, String commenter) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送顶级评论通过通知失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱为空").setCode(400);
+            return ServiceResult.error("收件人邮箱为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送顶级评论通过通知失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = "您的文章《" + blogTitle + "》有新评论";
@@ -188,15 +189,15 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendRegisterVerificationCode(String toEmail, String code, String username) {
+    public ServiceResult sendRegisterVerificationCode(String toEmail, String code, String username) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送注册验证码邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱不能为空").setCode(400);
+            return ServiceResult.error("收件人邮箱不能为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送注册验证码邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
         }
 
         String subject = "注册验证码";
@@ -206,15 +207,15 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendChangeEmailVerificationCode(String toEmail, String code, String username) {
+    public ServiceResult sendChangeEmailVerificationCode(String toEmail, String code, String username) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送邮箱变更验证码邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱不能为空").setCode(400);
+            return ServiceResult.error("收件人邮箱不能为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送邮箱变更验证码邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
         }
 
         String subject = "邮箱变更验证码";
@@ -224,15 +225,15 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendFindPasswordVerificationCode(String toEmail, String code, String username) {
+    public ServiceResult sendFindPasswordVerificationCode(String toEmail, String code, String username) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送找回密码验证码邮件失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱不能为空").setCode(400);
+            return ServiceResult.error("收件人邮箱不能为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送找回密码验证码邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成，请先在系统配置中完成 SMTP 相关配置").setCode(400);
         }
 
         String subject = "找回密码验证码";
@@ -403,17 +404,17 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendNewFriendLinkNotificationToAdmins(List<String> toEmailList, String siteDomain,
+    public ServiceResult sendNewFriendLinkNotificationToAdmins(List<String> toEmailList, String siteDomain,
                                                            String linkName, String linkUrl,
                                                            String summary, String imageUrl) {
         if (toEmailList == null || toEmailList.isEmpty()) {
             log.warn("发送新友链通知邮件失败：收件人列表为空");
-            return SaResult.error("收件人列表为空").setCode(400);
+            return ServiceResult.error("收件人列表为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送新友链通知邮件失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = "【待审核】新友链申请：" + linkName;
@@ -423,16 +424,16 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public SaResult sendFriendLinkReviewNotification(String toEmail, boolean approved,
+    public ServiceResult sendFriendLinkReviewNotification(String toEmail, boolean approved,
                                                       String linkName, String linkUrl, String siteDomain) {
         if (!StringUtils.hasText(toEmail)) {
             log.warn("发送友链审核结果通知失败：收件人邮箱为空");
-            return SaResult.error("收件人邮箱为空").setCode(400);
+            return ServiceResult.error("收件人邮箱为空").setCode(400);
         }
 
         if (!mailConfig.isConfigured()) {
             log.warn("发送友链审核结果通知失败：SMTP 配置未完成");
-            return SaResult.error("SMTP 配置未完成").setCode(400);
+            return ServiceResult.error("SMTP 配置未完成").setCode(400);
         }
 
         String subject = approved ? "友链申请已通过" : "友链申请未通过";
@@ -513,18 +514,18 @@ public class MailServiceImpl implements MailService {
                 .replace("'", "&#39;");
     }
 
-    private SaResult doSendMail(String to, String subject, String content) {
+    private ServiceResult doSendMail(String to, String subject, String content) {
         try {
             JavaMailSenderImpl mailSender = mailConfig.getMailSenderImpl();
             if (mailSender == null) {
                 log.warn("发送邮件失败：邮件发送器未初始化");
-                return SaResult.error("邮件发送器未初始化").setCode(500);
+                return ServiceResult.error("邮件发送器未初始化").setCode(500);
             }
 
             String fromAddress = mailConfig.getFromAddress();
             if (!StringUtils.hasText(fromAddress)) {
                 log.error("发送邮件失败：发件人地址未配置");
-                return SaResult.error("发件人地址未配置，请在系统配置中设置 smtp.fromName").setCode(500);
+                return ServiceResult.error("发件人地址未配置，请在系统配置中设置 smtp.fromName").setCode(500);
             }
 
             MimeMessage message = mailSender.createMimeMessage();
@@ -538,36 +539,36 @@ public class MailServiceImpl implements MailService {
             mailSender.send(message);
 
             log.info("邮件发送成功，to={}, subject={}", to, subject);
-            return SaResult.ok("邮件发送成功");
+            return ServiceResult.ok("邮件发送成功");
         } catch (MessagingException e) {
             log.error("发送邮件失败：邮件消息构建异常，to={}, error={}", to, e.getMessage());
-            return SaResult.error("邮件消息构建失败，请稍后重试").setCode(500);
+            return ServiceResult.error("邮件消息构建失败，请稍后重试").setCode(500);
         } catch (MailException e) {
             log.error("发送邮件失败：邮件发送异常，to={}, error={}", to, e.getMessage());
             String errorMsg = e.getMessage();
             if (errorMsg != null) {
                 return classifyMailError(errorMsg);
             }
-            return SaResult.error("邮件发送失败：未知错误").setCode(500);
+            return ServiceResult.error("邮件发送失败：未知错误").setCode(500);
         } catch (Exception e) {
             log.error("发送邮件失败：未知异常，to={}, error={}", to, e.getMessage());
             // 内部异常细节只进日志，避免 SMTP 主机/协议栈信息泄露给客户端
-            return SaResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
+            return ServiceResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
         }
     }
 
-    private SaResult doSendMailBcc(List<String> toEmailList, String subject, String content) {
+    private ServiceResult doSendMailBcc(List<String> toEmailList, String subject, String content) {
         try {
             JavaMailSenderImpl mailSender = mailConfig.getMailSenderImpl();
             if (mailSender == null) {
                 log.warn("发送邮件失败：邮件发送器未初始化");
-                return SaResult.error("邮件发送器未初始化").setCode(500);
+                return ServiceResult.error("邮件发送器未初始化").setCode(500);
             }
 
             String fromAddress = mailConfig.getFromAddress();
             if (!StringUtils.hasText(fromAddress)) {
                 log.error("发送邮件失败：发件人地址未配置");
-                return SaResult.error("发件人地址未配置，请在系统配置中设置 smtp.fromName").setCode(500);
+                return ServiceResult.error("发件人地址未配置，请在系统配置中设置 smtp.fromName").setCode(500);
             }
 
             List<String> validEmails = toEmailList.stream()
@@ -575,7 +576,7 @@ public class MailServiceImpl implements MailService {
                     .toList();
 
             if (validEmails.isEmpty()) {
-                return SaResult.error("没有有效的收件人邮箱").setCode(400);
+                return ServiceResult.error("没有有效的收件人邮箱").setCode(400);
             }
 
             MimeMessage message = mailSender.createMimeMessage();
@@ -589,53 +590,53 @@ public class MailServiceImpl implements MailService {
             mailSender.send(message);
 
             log.info("BCC 邮件发送成功，count={}, subject={}", validEmails.size(), subject);
-            return SaResult.ok("成功发送通知给 " + validEmails.size() + " 位管理员");
+            return ServiceResult.ok("成功发送通知给 " + validEmails.size() + " 位管理员");
         } catch (MessagingException e) {
             log.error("BCC 邮件发送失败：邮件消息构建异常，error={}", e.getMessage());
-            return SaResult.error("邮件消息构建失败，请稍后重试").setCode(500);
+            return ServiceResult.error("邮件消息构建失败，请稍后重试").setCode(500);
         } catch (MailException e) {
             log.error("BCC 邮件发送失败：邮件发送异常，error={}", e.getMessage());
             String errorMsg = e.getMessage();
             if (errorMsg != null) {
                 return classifyMailError(errorMsg);
             }
-            return SaResult.error("邮件发送失败：未知错误").setCode(500);
+            return ServiceResult.error("邮件发送失败：未知错误").setCode(500);
         } catch (Exception e) {
             log.error("BCC 邮件发送失败：未知异常，error={}", e.getMessage());
             // 内部异常细节只进日志，避免 SMTP 主机/协议栈信息泄露给客户端
-            return SaResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
+            return ServiceResult.error("邮件发送失败，请稍后重试或检查 SMTP 配置").setCode(500);
         }
     }
 
-    private SaResult classifyMailError(String errorMsg) {
+    private ServiceResult classifyMailError(String errorMsg) {
         if (errorMsg.contains("AuthenticationFailed")) {
-            return SaResult.error("邮件发送失败：用户名或密码错误，请检查 SMTP 用户名和密码配置").setCode(500);
+            return ServiceResult.error("邮件发送失败：用户名或密码错误，请检查 SMTP 用户名和密码配置").setCode(500);
         }
         if (errorMsg.contains("Connection refused") || errorMsg.contains("Connect failed")) {
-            return SaResult.error("邮件发送失败：无法连接到 SMTP 服务器，请检查 SMTP 主机和端口配置").setCode(500);
+            return ServiceResult.error("邮件发送失败：无法连接到 SMTP 服务器，请检查 SMTP 主机和端口配置").setCode(500);
         }
         if (errorMsg.contains("Timeout") || errorMsg.contains("timed out")) {
-            return SaResult.error("邮件发送失败：连接 SMTP 服务器超时，请检查网络或 SMTP 主机配置").setCode(500);
+            return ServiceResult.error("邮件发送失败：连接 SMTP 服务器超时，请检查网络或 SMTP 主机配置").setCode(500);
         }
         if (errorMsg.contains("SSL") || errorMsg.contains("TLS")) {
-            return SaResult.error("邮件发送失败：SSL/TLS 连接失败，请检查 SSL 配置是否正确").setCode(500);
+            return ServiceResult.error("邮件发送失败：SSL/TLS 连接失败，请检查 SSL 配置是否正确").setCode(500);
         }
         if (errorMsg.contains("502")) {
-            return SaResult.error("邮件发送失败：SMTP 服务器拒绝请求，可能是发件人邮箱格式不正确或 IP 被风控").setCode(500);
+            return ServiceResult.error("邮件发送失败：SMTP 服务器拒绝请求，可能是发件人邮箱格式不正确或 IP 被风控").setCode(500);
         }
         if (errorMsg.contains("550")) {
-            return SaResult.error("邮件发送失败：SMTP 服务器拒绝，可能是收件人邮箱不存在或发件人邮箱未验证").setCode(500);
+            return ServiceResult.error("邮件发送失败：SMTP 服务器拒绝，可能是收件人邮箱不存在或发件人邮箱未验证").setCode(500);
         }
         if (errorMsg.contains("553")) {
-            return SaResult.error("邮件发送失败：SMTP 服务器拒绝发件人邮箱，请检查 SMTP 发件人邮箱格式是否正确").setCode(500);
+            return ServiceResult.error("邮件发送失败：SMTP 服务器拒绝发件人邮箱，请检查 SMTP 发件人邮箱格式是否正确").setCode(500);
         }
         if (errorMsg.contains("Invalid input") || errorMsg.contains("501")) {
-            return SaResult.error("邮件发送失败：SMTP 参数格式错误，请检查发件人邮箱格式是否正确").setCode(500);
+            return ServiceResult.error("邮件发送失败：SMTP 参数格式错误，请检查发件人邮箱格式是否正确").setCode(500);
         }
         if (errorMsg.contains("must be same as authorization user")) {
-            return SaResult.error("邮件发送失败：发件人邮箱必须与 SMTP 用户名一致，请检查 SMTP 发件人配置").setCode(500);
+            return ServiceResult.error("邮件发送失败：发件人邮箱必须与 SMTP 用户名一致，请检查 SMTP 发件人配置").setCode(500);
         }
         // 未分类的 SMTP 错误：不返回原始消息，避免内部信息泄露
-        return SaResult.error("邮件发送失败，请检查 SMTP 配置").setCode(500);
+        return ServiceResult.error("邮件发送失败，请检查 SMTP 配置").setCode(500);
     }
 }

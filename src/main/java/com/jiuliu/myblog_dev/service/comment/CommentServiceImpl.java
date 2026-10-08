@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -79,7 +80,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public SaResult getPageUserComments(PageCommentDTO dto, Long userId) {
+    public ServiceResult getPageUserComments(PageCommentDTO dto, Long userId) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_USER_COMMENT_LIST + userId + "-" + dto.getCurrentPage() + "-"
@@ -89,7 +90,7 @@ public class CommentServiceImpl implements CommentService {
             PageCommentResponseDTO cached = userCommentListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取用户评论列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             LambdaQueryWrapper<SysComment> wrapper = new LambdaQueryWrapper<SysComment>()
@@ -121,26 +122,26 @@ public class CommentServiceImpl implements CommentService {
             // 存入缓存
             userCommentListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取用户评论列表异常", e);
-            return SaResult.error("获取评论列表失败").setCode(500);
+            return ServiceResult.error("获取评论列表失败").setCode(500);
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateComment(CommentUpdateDTO dto, Long userId) {
+    public ServiceResult updateComment(CommentUpdateDTO dto, Long userId) {
         SysComment existing = commentMapper.selectById(dto.getId());
         if (existing == null) {
             log.warn("更新评论失败：评论不存在，id={}", dto.getId());
-            return SaResult.error("评论不存在").setCode(404);
+            return ServiceResult.error("评论不存在").setCode(404);
         }
 
         // 检查是否是评论作者本人
         if (existing.getUserId() == null || !existing.getUserId().equals(userId)) {
             log.warn("无权限修改其他用户的评论，评论ID：{}，当前用户ID：{}", dto.getId(), userId);
-            return SaResult.error("无权限修改该评论").setCode(403);
+            return ServiceResult.error("无权限修改该评论").setCode(403);
         }
 
         // 如果是子评论，检查父评论链是否都通过审核
@@ -148,7 +149,7 @@ public class CommentServiceImpl implements CommentService {
             if (!areAllParentCommentsApproved(existing)) {
                 // 父评论链中有未通过的评论，子评论只能是待审核状态且无法修改内容
                 log.warn("更新评论失败：父评论链中存在未通过的评论，commentId={}", dto.getId());
-                return SaResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
+                return ServiceResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
             }
         }
 
@@ -166,7 +167,7 @@ public class CommentServiceImpl implements CommentService {
             String website = dto.getWebsite().trim();
             if (!website.isEmpty() && isUrlInvalid(website)) {
                 log.warn("更新评论失败：网站URL格式无效，id={}, website={}", dto.getId(), website);
-                return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                return ServiceResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
             }
             updateWrapper.set(SysComment::getWebsite, website.isEmpty() ? null : website);
         }
@@ -180,22 +181,22 @@ public class CommentServiceImpl implements CommentService {
         clearCommentCache(dto.getId());
 
         SysComment updated = commentMapper.selectById(dto.getId());
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteComment(Long commentId, Long userId) {
+    public ServiceResult deleteComment(Long commentId, Long userId) {
         SysComment existing = commentMapper.selectById(commentId);
         if (existing == null) {
             log.warn("删除评论失败：评论不存在，id={}", commentId);
-            return SaResult.error("评论不存在").setCode(404);
+            return ServiceResult.error("评论不存在").setCode(404);
         }
 
         // 检查是否是评论作者本人
         if (existing.getUserId() == null || !existing.getUserId().equals(userId)) {
             log.warn("无权限删除其他用户的评论，评论ID：{}，当前用户ID：{}", commentId, userId);
-            return SaResult.error("无权限删除该评论").setCode(403);
+            return ServiceResult.error("无权限删除该评论").setCode(403);
         }
 
         // 记录文章ID和评论状态，用于更新评论数
@@ -228,7 +229,7 @@ public class CommentServiceImpl implements CommentService {
         // 清除用户评论列表缓存
         clearCommentCache(commentId);
 
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**
@@ -357,7 +358,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public SaResult getReplyComments(Long userId, Integer limit) {
+    public ServiceResult getReplyComments(Long userId, Integer limit) {
         try {
             // 限制最大返回条数为100
             int actualLimit = Math.min(limit != null ? limit : 10, 100);
@@ -375,7 +376,7 @@ public class CommentServiceImpl implements CommentService {
 
             if (userCommentIds.isEmpty()) {
                 log.debug("用户暂无评论，无回复评论可返回，userId={}", userId);
-                return SaResult.data(List.of());
+                return ServiceResult.data(List.of());
             }
 
             // 第二步：查询所有以用户评论为父评论的回复评论（parentId in userCommentIds）
@@ -399,11 +400,11 @@ public class CommentServiceImpl implements CommentService {
                     .collect(Collectors.toList());
 
             log.info("获取用户回复评论成功，userId={}，count={}", userId, responseList.size());
-            return SaResult.data(responseList);
+            return ServiceResult.data(responseList);
 
         } catch (Exception e) {
             log.error("获取用户回复评论异常", e);
-            return SaResult.error("获取回复评论失败").setCode(500);
+            return ServiceResult.error("获取回复评论失败").setCode(500);
         }
     }
 

@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.link;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.link.PagePublicFriendLinkDTO;
@@ -70,7 +71,7 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult createFriendLink(PublicFriendLinkCreateDTO dto) {
+    public ServiceResult createFriendLink(PublicFriendLinkCreateDTO dto) {
         try {
             SysFriendLink link = new SysFriendLink();
             link.setName(dto.getName());
@@ -93,10 +94,10 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
                 }
             });
 
-            return SaResult.ok("外链提交成功，待审核后显示");
+            return ServiceResult.ok("外链提交成功，待审核后显示");
         } catch (Exception e) {
             log.error("外链提交异常，name={}", dto.getName(), e);
-            return SaResult.error("外链提交失败").setCode(500);
+            return ServiceResult.error("外链提交失败").setCode(500);
         }
     }
 
@@ -126,7 +127,7 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
 
             String siteDomain = sysConfigMapper.selectValueByKey(KEY_SITE_DOMAIN);
 
-            SaResult result = mailService.sendNewFriendLinkNotificationToAdmins(
+            ServiceResult result = mailService.sendNewFriendLinkNotificationToAdmins(
                     validEmails, siteDomain,
                     dto.getName(), dto.getUrl(),
                     dto.getSummary(), dto.getImageUrl());
@@ -142,7 +143,7 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
     }
 
     @Override
-    public SaResult getPagePublicFriendLinks(PagePublicFriendLinkDTO dto) {
+    public ServiceResult getPagePublicFriendLinks(PagePublicFriendLinkDTO dto) {
         try {
             // 1. 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_FRIEND_LINK_LIST + "public:" + dto.getCurrentPage() + "-" + dto.getPageSize();
@@ -150,7 +151,7 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
             PagePublicFriendLinkResponseDTO cached = cacheManager.getPublicFriendLinkListCache().getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取公共外链列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 3. 构建查询条件：只查询已通过审核且未删除的外链
@@ -180,10 +181,10 @@ public class PublicFriendLinkServiceImpl implements PublicFriendLinkService {
             cacheManager.getPublicFriendLinkListCache().put(cacheKey, response);
             log.debug("公共外链列表已缓存，key={}", cacheKey);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取公共外链列表异常", e);
-            return SaResult.error("获取外链列表失败").setCode(500);
+            return ServiceResult.error("获取外链列表失败").setCode(500);
         }
     }
 

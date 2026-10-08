@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.service.user.auth;
 
+import com.jiuliu.myblog_dev.dto.ServiceResult;
 
-import cn.dev33.satoken.util.SaResult;
+
 import com.jiuliu.myblog_dev.dto.user.auth.ChangePasswordDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.LoginDTO;
 import com.jiuliu.myblog_dev.dto.user.auth.RegisterDTO;
@@ -33,24 +34,24 @@ import com.jiuliu.myblog_dev.dto.user.auth.FindPasswordConfirmDTO;
 
 public interface AuthService {
 
-    SaResult getPublicKey();
+    ServiceResult getPublicKey();
 
-    SaResult login(LoginDTO dto);
+    ServiceResult login(LoginDTO dto);
 
     /**
      * 使用 OAuth 授权码换取 token
      * @param code 授权码
      * @return 包含 token 的结果
      */
-    SaResult exchangeCodeForToken(String code);
+    ServiceResult exchangeCodeForToken(String code);
 
-    SaResult getUserProfile(Long userId);
+    ServiceResult getUserProfile(Long userId);
 
-    SaResult logout();
+    ServiceResult logout();
 
-    SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId);
+    ServiceResult updatePassword(ChangePasswordDTO dto, Long currentUserId);
 
-    SaResult register(RegisterDTO dto);
+    ServiceResult register(RegisterDTO dto);
 
     /**
      * 请求发送注册验证码（当 reg.use-email 开启时使用）
@@ -58,7 +59,7 @@ public interface AuthService {
      * @param dto 注册验证码请求DTO
      * @return 结果
      */
-    SaResult requestRegisterCode(RegisterCodeRequestDTO dto);
+    ServiceResult requestRegisterCode(RegisterCodeRequestDTO dto);
 
     /**
      * 确认注册（验证邮箱验证码并完成注册）
@@ -66,15 +67,15 @@ public interface AuthService {
      * @param dto 注册确认DTO
      * @return 结果
      */
-    SaResult confirmRegister(RegisterConfirmDTO dto);
+    ServiceResult confirmRegister(RegisterConfirmDTO dto);
 
-    SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId);
+    ServiceResult updateNickname(UpdateNicknameDTO dto, Long currentUserId);
 
-    SaResult updateBio(UpdateBioDTO dto, Long currentUserId);
+    ServiceResult updateBio(UpdateBioDTO dto, Long currentUserId);
 
-    SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId);
+    ServiceResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId);
 
-    SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId);
+    ServiceResult updateEmail(UpdateEmailDTO dto, Long currentUserId);
 
     /**
      * 请求发送邮箱变更验证码（当 reg.use-email 开启时使用）
@@ -83,7 +84,7 @@ public interface AuthService {
      * @param currentUserId 当前用户ID
      * @return 结果
      */
-    SaResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId);
+    ServiceResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId);
 
     /**
      * 确认邮箱变更（验证邮箱验证码并完成邮箱更换）
@@ -92,12 +93,12 @@ public interface AuthService {
      * @param currentUserId 当前用户ID
      * @return 结果
      */
-    SaResult confirmChangeEmail(ChangeEmailConfirmDTO dto, Long currentUserId);
+    ServiceResult confirmChangeEmail(ChangeEmailConfirmDTO dto, Long currentUserId);
 
     /**
      * 获取当前用户拥有的权限编码列表（包含父权限展开后的所有子权限）
      */
-    SaResult getCurrentUserPermissions(Long currentUserId);
+    ServiceResult getCurrentUserPermissions(Long currentUserId);
 
     /**
      * 请求发送找回密码验证码（当 reg.use-email 为 true 时使用）
@@ -105,7 +106,7 @@ public interface AuthService {
      * @param dto 找回密码验证码请求DTO
      * @return 结果
      */
-    SaResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto);
+    ServiceResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto);
 
     /**
      * 确认找回密码（验证邮箱验证码并完成密码重置）
@@ -113,5 +114,5 @@ public interface AuthService {
      * @param dto 找回密码确认DTO
      * @return 结果
      */
-    SaResult confirmFindPassword(FindPasswordConfirmDTO dto);
+    ServiceResult confirmFindPassword(FindPasswordConfirmDTO dto);
 }

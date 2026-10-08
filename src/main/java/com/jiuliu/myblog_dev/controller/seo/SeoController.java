@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.controller.seo;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.seo.*;
 import com.jiuliu.myblog_dev.service.seo.SeoService;
@@ -39,11 +40,11 @@ public class SeoController {
      * 权限：seo:list
      */
     @Disabled
-    @SaCheckPermission("system:seo:list")
+    @PreAuthorize("hasAuthority('system:seo:list')")
     @PostMapping("/list")
     public Response<PageSeoResponseDTO> getPageSeos(@Valid @RequestBody PageSeoDTO pageDto) {
-        SaResult saResult = seoService.getPageSeos(pageDto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = seoService.getPageSeos(pageDto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -51,11 +52,11 @@ public class SeoController {
      * 权限：seo:list
      */
     @Disabled
-    @SaCheckPermission("system:seo:list")
+    @PreAuthorize("hasAuthority('system:seo:list')")
     @GetMapping("/{id}")
     public Response<SeoResponseDTO> getSeoById(@PathVariable Long id) {
-        SaResult saResult = seoService.getSeoById(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = seoService.getSeoById(id);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -63,11 +64,11 @@ public class SeoController {
      * 权限：seo:create
      */
     @Disabled
-    @SaCheckPermission("system:seo:create")
+    @PreAuthorize("hasAuthority('system:seo:create')")
     @PostMapping
     public Response<SeoResponseDTO> createSeo(@Valid @RequestBody SeoCreateDTO dto) {
-        SaResult saResult = seoService.createSeo(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = seoService.createSeo(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -75,12 +76,12 @@ public class SeoController {
      * 权限：seo:edit
      */
     @Disabled
-    @SaCheckPermission("system:seo:edit")
+    @PreAuthorize("hasAuthority('system:seo:edit')")
     @PutMapping("/{id}")
     public Response<SeoResponseDTO> updateSeo(@PathVariable Long id, @Valid @RequestBody SeoUpdateDTO dto) {
         dto.setId(id);
-        SaResult saResult = seoService.updateSeo(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = seoService.updateSeo(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -88,19 +89,19 @@ public class SeoController {
      * 权限：seo:delete
      */
     @Disabled
-    @SaCheckPermission("system:seo:delete")
+    @PreAuthorize("hasAuthority('system:seo:delete')")
     @DeleteMapping("/{id}")
     public Response<Object> deleteSeo(@PathVariable Long id) {
-        SaResult saResult = seoService.deleteSeo(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = seoService.deleteSeo(id);
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }

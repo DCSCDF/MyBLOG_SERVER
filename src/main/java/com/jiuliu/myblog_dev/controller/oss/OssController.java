@@ -14,9 +14,11 @@
 
 package com.jiuliu.myblog_dev.controller.oss;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.utils.security.SecurityUtils;
+
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
 import com.jiuliu.myblog_dev.dto.oss.PageUserOssResponseDTO;
@@ -46,11 +48,11 @@ public class OssController {
      * 测试 OSS 连接
      * 权限：system:config:edit
      */
-    @SaCheckPermission("system:config:edit")
+    @PreAuthorize("hasAuthority('system:config:edit')")
     @GetMapping("/test")
     public Response<Object> testConnection() {
-        SaResult saResult = ossService.testConnection();
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = ossService.testConnection();
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -61,7 +63,7 @@ public class OssController {
      * 上传前会进行格式校验和无损压缩。<br>
      * 响应中返回图片的 MD5 哈希值，前端可用于访问图片。</p>
      */
-    @SaCheckPermission("oss:create")
+    @PreAuthorize("hasAuthority('oss:create')")
     @RateLimit(count = 20, period = 1, prefix = "oss_upload")
     @PostMapping("/upload")
     public Response<OssServiceImpl.ImageUploadResponse> uploadImage(
@@ -76,8 +78,8 @@ public class OssController {
             String contentType = file.getContentType();
             Long userId = getCurrentUserId();
 
-            SaResult result = ossService.uploadImage(fileName, bytes, contentType, userId);
-            return handleSaResultWithData(result);
+            ServiceResult result = ossService.uploadImage(fileName, bytes, contentType, userId);
+            return handleServiceResultWithData(result);
         } catch (Exception e) {
             // 内部异常细节只进日志，避免泄露 OSS/SMTP 等内部信息
             log.error("图片上传异常：{}", e.getMessage(), e);
@@ -91,24 +93,24 @@ public class OssController {
 //     *
 //     * @param objectName OSS 对象名称（即文件路径，如 images/2026/03/26/xxx.jpg）
 //     */
-//    @SaCheckPermission("oss:delete")
+//    @PreAuthorize("hasAuthority('oss:delete')")
 //    @DeleteMapping("/delete")
 //    public Response<Object> deleteImage(@RequestParam("objectName") String objectName) {
 //        Long userId = getCurrentUserId();
-//        SaResult result = ossService.deleteImage(objectName, userId);
-//        return handleSaResult(result);
+//        ServiceResult result = ossService.deleteImage(objectName, userId);
+//        return handleServiceResult(result);
 //    }
 
     /**
      * 分页获取当前用户的OSS图片列表
      * 权限：oss:list
      */
-    @SaCheckPermission("oss:list")
+    @PreAuthorize("hasAuthority('oss:list')")
     @PostMapping("/list")
     public Response<PageUserOssResponseDTO> getPageUserOssImages(@Valid @RequestBody PageUserOssDTO dto) {
         Long userId = getCurrentUserId();
-        SaResult saResult = ossService.getPageUserOssImages(dto, userId);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = ossService.getPageUserOssImages(dto, userId);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -117,12 +119,12 @@ public class OssController {
      *
      * @param hash 图片哈希值（MD5）
      */
-    @SaCheckPermission("oss:delete")
+    @PreAuthorize("hasAuthority('oss:delete')")
     @DeleteMapping("/delete/{hash}")
     public Response<Object> deleteImageByHash(@PathVariable String hash) {
         Long userId = getCurrentUserId();
-        SaResult result = ossService.deleteImageByHash(hash, userId);
-        return handleSaResult(result);
+        ServiceResult result = ossService.deleteImageByHash(hash, userId);
+        return handleServiceResult(result);
     }
 
     /**
@@ -130,26 +132,26 @@ public class OssController {
      */
     private Long getCurrentUserId() {
         try {
-            return StpUtil.getLoginIdAsLong();
+            return SecurityUtils.getCurrentUserId();
         } catch (Exception e) {
             return null;
         }
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
-    private Response<OssServiceImpl.ImageUploadResponse> handleSaResultWithData(SaResult saResult) {
-        if (saResult.getCode() == 200) {
-            OssServiceImpl.ImageUploadResponse data = (OssServiceImpl.ImageUploadResponse) saResult.getData();
+    private Response<OssServiceImpl.ImageUploadResponse> handleServiceResultWithData(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
+            OssServiceImpl.ImageUploadResponse data = (OssServiceImpl.ImageUploadResponse) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }

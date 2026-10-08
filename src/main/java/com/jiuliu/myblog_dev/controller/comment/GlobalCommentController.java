@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.controller.comment;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.comment.*;
 import com.jiuliu.myblog_dev.service.comment.GlobalCommentService;
@@ -34,15 +35,15 @@ public class GlobalCommentController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -52,10 +53,10 @@ public class GlobalCommentController {
      * 权限：system:comment:list
      */
     @PostMapping("/list")
-    @SaCheckPermission("system:comment:list")
+    @PreAuthorize("hasAuthority('system:comment:list')")
     public Response<PageGlobalCommentResponseDTO> getPageGlobalComments(@Valid @RequestBody PageGlobalCommentDTO dto) {
-        SaResult saResult = globalCommentService.getPageGlobalComments(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalCommentService.getPageGlobalComments(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -64,12 +65,12 @@ public class GlobalCommentController {
      * 权限：system:comment:edit
      */
     @PutMapping("/{id}")
-    @SaCheckPermission("system:comment:edit")
+    @PreAuthorize("hasAuthority('system:comment:edit')")
     public Response<CommentResponseDTO> updateComment(@PathVariable Long id,
                                                       @Valid @RequestBody CommentUpdateDTO dto) {
         dto.setId(id);
-        SaResult saResult = globalCommentService.updateComment(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalCommentService.updateComment(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -78,10 +79,10 @@ public class GlobalCommentController {
      * 权限：system:comment:delete
      */
     @DeleteMapping("/{id}")
-    @SaCheckPermission("system:comment:delete")
+    @PreAuthorize("hasAuthority('system:comment:delete')")
     public Response<Object> deleteComment(@PathVariable Long id) {
-        SaResult saResult = globalCommentService.deleteComment(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalCommentService.deleteComment(id);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -90,10 +91,10 @@ public class GlobalCommentController {
      * 权限：system:comment:approve
      */
     @PutMapping("/{id}/approve")
-    @SaCheckPermission("system:comment:approve")
+    @PreAuthorize("hasAuthority('system:comment:approve')")
     public Response<CommentResponseDTO> approveComment(@PathVariable Long id,
                                                        @Valid @RequestBody CommentStatusUpdateDTO dto) {
-        SaResult saResult = globalCommentService.approveComment(id, dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = globalCommentService.approveComment(id, dto);
+        return handleServiceResult(serviceResult);
     }
 }

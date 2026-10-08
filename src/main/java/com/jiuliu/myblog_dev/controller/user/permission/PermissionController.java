@@ -14,9 +14,10 @@
 
 package com.jiuliu.myblog_dev.controller.user.permission;
 
+import com.jiuliu.myblog_dev.dto.ServiceResult;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionResponseDTO;
@@ -48,14 +49,14 @@ public class PermissionController {
      * @param pageDto 分页参数
      * @return 分页结果
      */
-    @SaCheckPermission("system:permission")
+    @PreAuthorize("hasAuthority('system:permission')")
     @PostMapping("/listAll")
     public Response<PagePermissionResponseDTO> getPagePermissions(@Valid @RequestBody PagePermissionDTO pageDto) {
-        SaResult saResult = permissionService.getPagePermissions(pageDto);
-        if (saResult.getCode() == 200) {
-            return ResponseUtil.success((PagePermissionResponseDTO) saResult.getData(), 200);
+        ServiceResult serviceResult = permissionService.getPagePermissions(pageDto);
+        if (serviceResult.getCode() == 200) {
+            return ResponseUtil.success((PagePermissionResponseDTO) serviceResult.getData(), 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 

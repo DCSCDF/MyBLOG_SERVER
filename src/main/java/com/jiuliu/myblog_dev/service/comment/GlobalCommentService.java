@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.comment.CommentStatusUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.CommentUpdateDTO;
 import com.jiuliu.myblog_dev.dto.comment.PageGlobalCommentDTO;
@@ -28,20 +29,20 @@ public interface GlobalCommentService {
     /**
      * 分页获取所有评论列表
      */
-    SaResult getPageGlobalComments(PageGlobalCommentDTO dto);
+    ServiceResult getPageGlobalComments(PageGlobalCommentDTO dto);
 
     /**
      * 更新任意评论
      */
-    SaResult updateComment(CommentUpdateDTO dto);
+    ServiceResult updateComment(CommentUpdateDTO dto);
 
     /**
      * 删除任意评论
      */
-    SaResult deleteComment(Long commentId);
+    ServiceResult deleteComment(Long commentId);
 
     /**
      * 审核评论（修改状态）
      */
-    SaResult approveComment(Long commentId, CommentStatusUpdateDTO dto);
+    ServiceResult approveComment(Long commentId, CommentStatusUpdateDTO dto);
 }

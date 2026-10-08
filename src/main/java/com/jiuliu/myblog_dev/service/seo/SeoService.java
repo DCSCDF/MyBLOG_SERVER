@@ -14,20 +14,21 @@
 
 package com.jiuliu.myblog_dev.service.seo;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.seo.PageSeoDTO;
 import com.jiuliu.myblog_dev.dto.seo.SeoCreateDTO;
 import com.jiuliu.myblog_dev.dto.seo.SeoUpdateDTO;
 
 public interface SeoService {
 
-    SaResult getPageSeos(PageSeoDTO pageDto);
+    ServiceResult getPageSeos(PageSeoDTO pageDto);
 
-    SaResult getSeoById(Long id);
+    ServiceResult getSeoById(Long id);
 
-    SaResult createSeo(SeoCreateDTO dto);
+    ServiceResult createSeo(SeoCreateDTO dto);
 
-    SaResult updateSeo(SeoUpdateDTO dto);
+    ServiceResult updateSeo(SeoUpdateDTO dto);
 
-    SaResult deleteSeo(Long id);
+    ServiceResult deleteSeo(Long id);
 }

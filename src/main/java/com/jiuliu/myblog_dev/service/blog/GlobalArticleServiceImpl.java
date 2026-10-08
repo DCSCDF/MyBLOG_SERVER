@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -86,7 +87,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
     }
 
     @Override
-    public SaResult getPageGlobalArticles(PageGlobalArticleDTO dto) {
+    public ServiceResult getPageGlobalArticles(PageGlobalArticleDTO dto) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_ARTICLE_LIST + dto.getCurrentPage() + "-" + dto.getPageSize() + "-" +
@@ -96,7 +97,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
             PageGlobalArticleResponseDTO cached = globalArticleListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取全局文章列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 构建查询条件
@@ -166,20 +167,20 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
             // 存入缓存
             globalArticleListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取全局文章列表异常", e);
-            return SaResult.error("获取文章列表失败").setCode(500);
+            return ServiceResult.error("获取文章列表失败").setCode(500);
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateArticleStatus(Long blogId, GlobalArticleStatusUpdateDTO dto) {
+    public ServiceResult updateArticleStatus(Long blogId, GlobalArticleStatusUpdateDTO dto) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 更新状态
@@ -203,16 +204,16 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blog.getId());
         data.put("message", "文章状态更新成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteArticle(Long blogId) {
+    public ServiceResult deleteArticle(Long blogId) {
         SysBlog blog = blogMapper.selectById(blogId);
 
         if (blog == null) {
-            return SaResult.error("文章不存在").setCode(404);
+            return ServiceResult.error("文章不存在").setCode(404);
         }
 
         // 逻辑删除
@@ -237,7 +238,7 @@ public class GlobalArticleServiceImpl implements GlobalArticleService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", blogId);
         data.put("message", "文章删除成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     /**

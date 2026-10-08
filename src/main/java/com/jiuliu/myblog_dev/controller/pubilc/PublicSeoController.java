@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.controller.pubilc;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.seo.PublicSeoResponseDTO;
 import com.jiuliu.myblog_dev.service.seo.PublicSeoService;
@@ -39,15 +40,15 @@ public class PublicSeoController {
     }
 
     /**
-     * 通用方法：处理SaResult结果
+     * 通用方法：处理ServiceResult结果
      */
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 
     /**
@@ -60,7 +61,7 @@ public class PublicSeoController {
     public Response<PublicSeoResponseDTO> getSeoByPageType(
             @RequestParam String pageType,
             @RequestParam(required = false) Long pageId) {
-        SaResult saResult = publicSeoService.getSeoByPageType(pageType, pageId);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = publicSeoService.getSeoByPageType(pageType, pageId);
+        return handleServiceResult(serviceResult);
     }
 }

@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.oss;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.oss.PageUserOssDTO;
 
 /**
@@ -25,9 +26,9 @@ public interface OssService {
     /**
      * 测试 OSS 连接
      *
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult testConnection();
+    ServiceResult testConnection();
 
     /**
      * 上传图片
@@ -40,36 +41,36 @@ public interface OssService {
      * @param fileBytes   图片字节数据
      * @param contentType MIME 类型
      * @param userId      上传用户 ID
-     * @return SaResult，包含图片哈希值和 URL
+     * @return ServiceResult，包含图片哈希值和 URL
      */
-    SaResult uploadImage(String fileName, byte[] fileBytes, String contentType, Long userId);
+    ServiceResult uploadImage(String fileName, byte[] fileBytes, String contentType, Long userId);
 
     /**
      * 删除图片（通过对象名称）
      *
      * @param objectName OSS 对象名称
      * @param userId     用户 ID（用于日志记录）
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult deleteImage(String objectName, Long userId);
+    ServiceResult deleteImage(String objectName, Long userId);
 
     /**
      * 删除图片（通过哈希值）
      *
      * @param hash   图片哈希值（MD5）
      * @param userId 当前登录用户ID（用于权限校验）
-     * @return SaResult
+     * @return ServiceResult
      */
-    SaResult deleteImageByHash(String hash, Long userId);
+    ServiceResult deleteImageByHash(String hash, Long userId);
 
     /**
      * 分页获取当前用户的OSS图片列表
      *
      * @param dto    分页查询参数
      * @param userId 当前登录用户ID
-     * @return SaResult，包含分页结果
+     * @return ServiceResult，包含分页结果
      */
-    SaResult getPageUserOssImages(PageUserOssDTO dto, Long userId);
+    ServiceResult getPageUserOssImages(PageUserOssDTO dto, Long userId);
 
     /**
      * 清除指定用户的OSS列表缓存

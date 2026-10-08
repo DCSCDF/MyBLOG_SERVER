@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.oss;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -73,7 +74,7 @@ public class GlobalOssServiceImpl implements GlobalOssService {
     }
 
     @Override
-    public SaResult getPageGlobalOssImages(PageGlobalOssDTO dto) {
+    public ServiceResult getPageGlobalOssImages(PageGlobalOssDTO dto) {
         try {
             // 构建缓存键
             String cacheKey = "global_oss_list_" + dto.getCurrentPage() + "_" + dto.getPageSize() + "_" +
@@ -83,7 +84,7 @@ public class GlobalOssServiceImpl implements GlobalOssService {
             PageGlobalOssResponseDTO cached = globalOssListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取全局OSS图片列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             // 构建查询条件
@@ -149,33 +150,33 @@ public class GlobalOssServiceImpl implements GlobalOssService {
             // 存入缓存
             globalOssListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取OSS图片列表异常", e);
-            return SaResult.error("获取图片列表失败").setCode(500);
+            return ServiceResult.error("获取图片列表失败").setCode(500);
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteImage(String hash) {
+    public ServiceResult deleteImage(String hash) {
         log.debug("开始删除图片（管理员），hash=[{}]", hash);
 
         if (hash == null || hash.isBlank()) {
             log.warn("图片删除失败：哈希值为空");
-            return SaResult.error("哈希值不能为空").setCode(400);
+            return ServiceResult.error("哈希值不能为空").setCode(400);
         }
 
         if (!ossConfig.isConfigured()) {
             log.warn("图片删除失败：OSS 配置未完成");
-            return SaResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
+            return ServiceResult.error("OSS 配置未完成，请先在系统配置中完成阿里云 OSS 相关配置").setCode(400);
         }
 
         // 1. 从数据库查询图片记录
         SysOssImage imageRecord = sysOssImageMapper.selectByHash(hash);
         if (imageRecord == null) {
             log.warn("图片记录不存在，hash=[{}]", hash);
-            return SaResult.error("图片记录不存在").setCode(404);
+            return ServiceResult.error("图片记录不存在").setCode(404);
         }
 
         String objectName = imageRecord.getObjectName();
@@ -185,14 +186,14 @@ public class GlobalOssServiceImpl implements GlobalOssService {
             sysOssImageMapper.deleteById(imageRecord.getId());
         } catch (Exception e) {
             log.error("数据库图片记录删除失败：{}", e.getMessage(), e);
-            return SaResult.error("图片删除失败，请稍后重试").setCode(500);
+            return ServiceResult.error("图片删除失败，请稍后重试").setCode(500);
         }
 
         // 3. 远程 OSS 删除移出事务（afterCommit）：DB 回滚时不会误删远程对象；提交后再删，失败仅记日志留待对账清理
         com.aliyun.oss.OSS ossClient = ossConfig.getOssClient();
         if (ossClient == null) {
             log.error("图片删除失败：无法获取 OSS 客户端，hash=[{}]", hash);
-            return SaResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
+            return ServiceResult.error("OSS 客户端初始化失败，请检查配置").setCode(500);
         }
 
         Runnable deleteRemote = () -> {
@@ -219,7 +220,7 @@ public class GlobalOssServiceImpl implements GlobalOssService {
         clearCache();
 
         log.info("管理员删除图片成功，hash=[{}]，objectName=[{}]", hash, objectName);
-        return SaResult.ok().setMsg("删除成功");
+        return ServiceResult.ok().setMsg("删除成功");
     }
 
     @Override

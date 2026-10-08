@@ -23,8 +23,9 @@
 
 package com.jiuliu.myblog_dev.controller.user.role;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.role.*;
 import com.jiuliu.myblog_dev.service.user.role.RoleService;
@@ -46,123 +47,123 @@ public class RoleController {
      * 分页获取角色列表
      * 权限：system:role:list
      */
-    @SaCheckPermission("system:role:list")
+    @PreAuthorize("hasAuthority('system:role:list')")
     @PostMapping("/list")
     public Response<PageRoleResponseDTO> getPageRoles(@Valid @RequestBody PageRoleDTO pageDto) {
-        SaResult saResult = roleService.getPageRoles(pageDto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.getPageRoles(pageDto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 根据ID获取角色详情
      * 权限：system:role:list
      */
-    @SaCheckPermission("system:role:list")
+    @PreAuthorize("hasAuthority('system:role:list')")
     @GetMapping("/{id}")
     public Response<RoleResponseDTO> getRoleById(@PathVariable Long id) {
-        SaResult saResult = roleService.getRoleById(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.getRoleById(id);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 创建角色
      * 权限：system:role:create
      */
-    @SaCheckPermission("system:role:create")
+    @PreAuthorize("hasAuthority('system:role:create')")
     @PostMapping
     public Response<RoleResponseDTO> createRole(@Valid @RequestBody RoleCreateDTO dto) {
-        SaResult saResult = roleService.createRole(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.createRole(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 修改角色（系统内置角色不可修改）
      * 权限：system:role:edit
      */
-    @SaCheckPermission("system:role:edit")
+    @PreAuthorize("hasAuthority('system:role:edit')")
     @PutMapping("/{id}")
     public Response<RoleResponseDTO> updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateDTO dto) {
         dto.setId(id);
-        SaResult saResult = roleService.updateRole(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.updateRole(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 删除角色（系统内置角色不可删除，同时级联删除所有关联）
      * 权限：system:role:delete
      */
-    @SaCheckPermission("system:role:delete")
+    @PreAuthorize("hasAuthority('system:role:delete')")
     @DeleteMapping("/{id}")
     public Response<Object> deleteRole(@PathVariable Long id) {
-        SaResult saResult = roleService.deleteRole(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.deleteRole(id);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 获取角色关联的权限列表和权限组列表
      * 权限：system:role:list
      */
-    @SaCheckPermission("system:role:list")
+    @PreAuthorize("hasAuthority('system:role:list')")
     @GetMapping("/{id}/permissions-detail")
     public Response<RolePermissionsDetailDTO> getRolePermissionsDetail(@PathVariable Long id) {
-        SaResult saResult = roleService.getRolePermissionsDetail(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.getRolePermissionsDetail(id);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 为角色添加权限（仅非系统内置角色可操作）
      * 权限：system:role:addPermission
      */
-    @SaCheckPermission("system:role:addPermission")
+    @PreAuthorize("hasAuthority('system:role:addPermission')")
     @PostMapping("/{id}/permissions")
     public Response<Object> addPermissionToRole(
             @PathVariable Long id, @Valid @RequestBody RolePermissionItemDTO dto) {
-        SaResult saResult = roleService.addPermissionToRole(id, dto.getPermissionId());
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.addPermissionToRole(id, dto.getPermissionId());
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 从角色移除权限（仅非系统内置角色可操作）
      * 权限：system:role:removePermission
      */
-    @SaCheckPermission("system:role:removePermission")
+    @PreAuthorize("hasAuthority('system:role:removePermission')")
     @DeleteMapping("/{id}/permissions/{permissionId}")
     public Response<Object> removePermissionFromRole(
             @PathVariable Long id, @PathVariable Long permissionId) {
-        SaResult saResult = roleService.removePermissionFromRole(id, permissionId);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.removePermissionFromRole(id, permissionId);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 为角色添加权限组（仅非系统内置角色可操作）
      * 权限：system:role:addPermissionGroup
      */
-    @SaCheckPermission("system:role:addPermissionGroup")
+    @PreAuthorize("hasAuthority('system:role:addPermissionGroup')")
     @PostMapping("/{id}/permission-groups")
     public Response<Object> addPermissionGroupToRole(
             @PathVariable Long id, @Valid @RequestBody RolePermissionGroupItemDTO dto) {
-        SaResult saResult = roleService.addPermissionGroupToRole(id, dto.getGroupId());
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.addPermissionGroupToRole(id, dto.getGroupId());
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 从角色移除权限组（仅非系统内置角色可操作）
      * 权限：system:role:removePermissionGroup
      */
-    @SaCheckPermission("system:role:removePermissionGroup")
+    @PreAuthorize("hasAuthority('system:role:removePermissionGroup')")
     @DeleteMapping("/{id}/permission-groups/{groupId}")
     public Response<Object> removePermissionGroupFromRole(
             @PathVariable Long id, @PathVariable Long groupId) {
-        SaResult saResult = roleService.removePermissionGroupFromRole(id, groupId);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = roleService.removePermissionGroupFromRole(id, groupId);
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }

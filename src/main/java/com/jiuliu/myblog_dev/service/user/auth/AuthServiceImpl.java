@@ -14,11 +14,12 @@
 
 package com.jiuliu.myblog_dev.service.user.auth;
 
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import cloud.tianai.captcha.application.ImageCaptchaApplication;
 import cloud.tianai.captcha.spring.plugins.secondary.SecondaryVerificationApplication;
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.stp.SaLoginModel;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.security.AuthTokenService;
+import com.jiuliu.myblog_dev.utils.security.SecurityUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.jiuliu.myblog_dev.config.business.RsaKeyConfig;
@@ -86,6 +87,7 @@ public class AuthServiceImpl implements AuthService {
     private final ImageCaptchaApplication imageCaptchaApplication;
     private final MailService mailService;
     private final PendingPasswordResetService pendingPasswordResetService;
+    private final AuthTokenService authTokenService;
 
     public AuthServiceImpl(
             SysUserMapper sysUserMapper,
@@ -103,7 +105,8 @@ public class AuthServiceImpl implements AuthService {
             OAuthCodeService oauthCodeService,
             ImageCaptchaApplication imageCaptchaApplication,
             MailService mailService,
-            PendingPasswordResetService pendingPasswordResetService) {
+            PendingPasswordResetService pendingPasswordResetService,
+            AuthTokenService authTokenService) {
         this.sysUserMapper = sysUserMapper;
         this.sysUserRoleMapper = sysUserRoleMapper;
         this.sysRoleMapper = sysRoleMapper;
@@ -120,10 +123,11 @@ public class AuthServiceImpl implements AuthService {
         this.imageCaptchaApplication = imageCaptchaApplication;
         this.mailService = mailService;
         this.pendingPasswordResetService = pendingPasswordResetService;
+        this.authTokenService = authTokenService;
     }
 
     @Override
-    public SaResult getPublicKey() {
+    public ServiceResult getPublicKey() {
         Map<String, Object> data = new HashMap<>();
         data.put("publicKey", rsaKeyConfig.getPublicKeyBase64());
 
@@ -131,13 +135,13 @@ public class AuthServiceImpl implements AuthService {
         String tempToken = tempLoginTokenService.generateTempToken();
         data.put("tempToken", tempToken);
 
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult login(LoginDTO dto) {
+    public ServiceResult login(LoginDTO dto) {
         // 验证码校验
-        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        ServiceResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
             return captchaResult;
         }
@@ -148,7 +152,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (!"unbound".equals(tokenValue)) {
             log.warn("登录失败：临时 Token 无效或已过期，token={}", tempToken);
-            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+            return ServiceResult.error("临时登录凭证无效或已过期").setCode(400);
         }
 
         String username = dto.getUsername();
@@ -156,7 +160,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (!ValidationHelper.validateUsername(username)) {
             log.warn("登录失败：用户名格式错误，username={}", username);
-            return SaResult.error("用户名格式错误").setCode(400);
+            return ServiceResult.error("用户名格式错误").setCode(400);
         }
 
         String rawPassword;
@@ -164,11 +168,11 @@ public class AuthServiceImpl implements AuthService {
             rawPassword = RsaUtils.decryptByPrivateKey(encryptedPassword, rsaKeyConfig.getPrivateKeyBase64());
         } catch (Exception e) {
             log.warn("登录失败：密码解密异常，username={}", username);
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!StringUtils.hasText(rawPassword)) {
             log.warn("登录失败：解密后密码为空，username={}", username);
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
 
         // 查询用户（过滤逻辑删除）
@@ -177,13 +181,13 @@ public class AuthServiceImpl implements AuthService {
                 .eq("is_deleted", 0));
         if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
             log.warn("登录失败：用户名或密码错误，username={}", username);
-            return SaResult.error("用户名或密码错误").setCode(400);
+            return ServiceResult.error("用户名或密码错误").setCode(400);
         }
 
         // 禁用用户禁止登录
         if (user.getStatus() == null || user.getStatus() == 0) {
             log.warn("登录失败：账号已被禁用，userId={}, username={}", user.getId(), username);
-            return SaResult.error("账号已被禁用").setCode(403);
+            return ServiceResult.error("账号已被禁用").setCode(403);
         }
 
         // 判断是否启用外部授权模式
@@ -192,15 +196,10 @@ public class AuthServiceImpl implements AuthService {
 
         Map<String, Object> data = new HashMap<>();
 
-        if (rememberMe) {
-            StpUtil.login(user.getId());
-        } else {
-            StpUtil.login(user.getId(), new SaLoginModel()
-                    .setActiveTimeout(activeTimeoutRemember));
-        }
+        // 签发登录令牌：记住我时仅受绝对超时限制，否则启用活跃超时（滑动续期）
+        String token = authTokenService.login(user.getId(), rememberMe ? -1 : activeTimeoutRemember);
         if (isOauthEnabled) {
             // 外部授权模式：生成一次性授权码，同时返回 token
-            String token = StpUtil.getTokenValue();
             String code = oauthCodeService.generateCode(user.getId(), token);
             data.put("code", code);
             data.put("expiresIn", 300); // 5分钟过期
@@ -209,44 +208,44 @@ public class AuthServiceImpl implements AuthService {
         } else {
             // 正常登录模式：直接返回 token
             log.info("用户登录成功，userId={}", user.getId());
-            data.put("token", StpUtil.getTokenValue());
+            data.put("token", token);
         }
 
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult exchangeCodeForToken(String code) {
+    public ServiceResult exchangeCodeForToken(String code) {
         if (!StringUtils.hasText(code)) {
             log.warn("授权码换取token失败：授权码为空");
-            return SaResult.error("授权码不能为空").setCode(400);
+            return ServiceResult.error("授权码不能为空").setCode(400);
         }
 
         // 消费授权码并获取之前保存的 token
         String token = oauthCodeService.consumeCodeAndGetToken(code);
         if (token == null) {
             log.warn("授权码换取token失败：授权码无效或已过期，code={}", code);
-            return SaResult.error("授权码无效或已过期").setCode(400);
+            return ServiceResult.error("授权码无效或已过期").setCode(400);
         }
 
         log.info("授权码换取token成功");
 
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult getUserProfile(Long userId) {
+    public ServiceResult getUserProfile(Long userId) {
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         // 转换为UserResponseDTO，自动隐藏密码等敏感字段
         UserResponseDTO userDTO = convertToUserResponseDTO(user);
 
-        return SaResult.data(userDTO);
+        return ServiceResult.data(userDTO);
     }
 
     /**
@@ -267,37 +266,37 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public SaResult logout() {
-        boolean wasLoggedIn = StpUtil.isLogin(); // 检查登出前的登录状态
+    public ServiceResult logout() {
+        boolean wasLoggedIn = SecurityUtils.isLogin(); // 检查登出前的登录状态
 
         try {
             if (wasLoggedIn) {
-                StpUtil.logout(); // 只有在用户已登录时才执行登出
+                authTokenService.logout(SecurityUtils.getCurrentToken()); // 只有在用户已登录时才执行登出
 
                 // 登出成功返回成功信息
-                return SaResult.data(Map.of(
+                return ServiceResult.data(Map.of(
                         "message", "登出成功",
                         "logoutTime", System.currentTimeMillis(),
                         "wasLoggedIn", true));
             } else {
                 // 用户未登录，返回错误状态
                 log.warn("登出请求来自未认证会话（可能 token 无效、过期或未提供）");
-                return SaResult.error("用户未登录或会话已过期").setCode(401); // 401表示未授权
+                return ServiceResult.error("用户未登录或会话已过期").setCode(401); // 401表示未授权
             }
         } catch (Exception e) {
             log.error("登出时底层存储异常", e);
-            return SaResult.error("登出失败").setCode(500);
+            return ServiceResult.error("登出失败").setCode(500);
         }
     }
 
     @Override
-    public SaResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {
+    public ServiceResult updatePassword(ChangePasswordDTO dto, Long currentUserId) {
         String encryptedOldPassword = dto.getOld_password();
         String encryptedNewPassword = dto.getNew_password();
 
         if (!StringUtils.hasText(encryptedOldPassword) || !StringUtils.hasText(encryptedNewPassword)) {
             log.warn("密码修改失败：原密码或新密码为空，userId={}", currentUserId);
-            return SaResult.error("原密码或新密码不能为空").setCode(400);
+            return ServiceResult.error("原密码或新密码不能为空").setCode(400);
         }
 
         String rawOldPassword, rawNewPassword;
@@ -306,32 +305,32 @@ public class AuthServiceImpl implements AuthService {
             rawNewPassword = RsaUtils.decryptByPrivateKey(encryptedNewPassword, rsaKeyConfig.getPrivateKeyBase64());
             if (!StringUtils.hasText(rawOldPassword) || !StringUtils.hasText(rawNewPassword)) {
                 log.warn("密码修改失败：解密后密码为空，userId={}", currentUserId);
-                return SaResult.error("密码格式错误").setCode(400);
+                return ServiceResult.error("密码格式错误").setCode(400);
             }
         } catch (Exception e) {
             log.warn("密码修改失败：密码解密异常，userId={}", currentUserId, e);
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
 
         if (!ValidationHelper.validatePassword(rawNewPassword)) {
             log.warn("密码修改失败：新密码格式不符合要求，userId={}", currentUserId);
-            return SaResult.error("新密码格式不符合要求").setCode(400);
+            return ServiceResult.error("新密码格式不符合要求").setCode(400);
         }
 
         if (rawOldPassword.equals(rawNewPassword)) {
             log.warn("密码修改失败：新密码与原密码相同，userId={}", currentUserId);
-            return SaResult.error("新密码不能与原密码相同").setCode(400);
+            return ServiceResult.error("新密码不能与原密码相同").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("密码修改失败：用户不存在，userId={}", currentUserId);
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         if (!passwordEncoder.matches(rawOldPassword, user.getPassword())) {
             log.warn("密码修改失败：原密码错误，userId={}", currentUserId);
-            return SaResult.error("原密码错误").setCode(400);
+            return ServiceResult.error("原密码错误").setCode(400);
         }
 
         String encodedNewPassword = passwordEncoder.encode(rawNewPassword);
@@ -345,15 +344,15 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.updateById(user);
         if (rows != 1) {
             log.error("密码修改失败：数据库更新失败，userId={}", currentUserId);
-            return SaResult.error("密码修改失败，请重试").setCode(400);
+            return ServiceResult.error("密码修改失败，请重试").setCode(400);
         }
 
-        StpUtil.logout(currentUserId);
+        authTokenService.logoutUser(currentUserId);
         log.info("密码修改成功，用户已登出，userId={}", currentUserId);
 
         Map<String, Object> data = new HashMap<>();
         data.put("message", "密码修改成功，请重新登录");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     // 默认角色编码
@@ -361,22 +360,22 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult register(RegisterDTO dto) {
+    public ServiceResult register(RegisterDTO dto) {
         // 检查是否开启了邮箱验证注册
         String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
         boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
 
         if (useEmail) {
-            return SaResult.error("该注册方式已停用，请使用邮箱验证码注册").setCode(400);
+            return ServiceResult.error("该注册方式已停用，请使用邮箱验证码注册").setCode(400);
         }
 
         return doDirectRegister(dto);
     }
 
     @Override
-    public SaResult requestRegisterCode(RegisterCodeRequestDTO dto) {
+    public ServiceResult requestRegisterCode(RegisterCodeRequestDTO dto) {
         // 1. 验证码校验
-        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        ServiceResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
             return captchaResult;
         }
@@ -385,7 +384,7 @@ public class AuthServiceImpl implements AuthService {
         String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
         if (!"unbound".equals(tokenValue)) {
             log.warn("请求注册验证码失败：临时 Token 无效或已过期");
-            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+            return ServiceResult.error("临时登录凭证无效或已过期").setCode(400);
         }
 
         String username = dto.getUsername().trim();
@@ -393,22 +392,22 @@ public class AuthServiceImpl implements AuthService {
 
         // 3. 验证用户名和邮箱格式
         if (!ValidationHelper.validateUsername(username)) {
-            return SaResult.error("用户名格式错误").setCode(400);
+            return ServiceResult.error("用户名格式错误").setCode(400);
         }
         if (!ValidationHelper.validateEmail(email)) {
-            return SaResult.error("邮箱格式不正确").setCode(400);
+            return ServiceResult.error("邮箱格式不正确").setCode(400);
         }
 
         // 4. 检查用户名、邮箱是否已存在
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("username", username)
                 .eq("is_deleted", 0)) != null) {
-            return SaResult.error("用户名已存在").setCode(400);
+            return ServiceResult.error("用户名已存在").setCode(400);
         }
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("email", email)
                 .eq("is_deleted", 0)) != null) {
-            return SaResult.error("邮箱已被注册").setCode(400);
+            return ServiceResult.error("邮箱已被注册").setCode(400);
         }
 
         // 4.5 检查是否存在尚未过期的待注册记录
@@ -416,7 +415,7 @@ public class AuthServiceImpl implements AuthService {
         if (existingPending != null && !LocalDateTime.now().isAfter(existingPending.getCodeExpireTime())) {
             long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existingPending.getCodeExpireTime())
                     .getSeconds();
-            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
+            return ServiceResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
         // 5. 生成6位验证码
@@ -428,13 +427,13 @@ public class AuthServiceImpl implements AuthService {
             rawPassword = RsaUtils.decryptByPrivateKey(dto.getPassword(), rsaKeyConfig.getPrivateKeyBase64());
         } catch (Exception e) {
             log.warn("请求注册验证码失败：密码解密异常，username={}", username);
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!StringUtils.hasText(rawPassword)) {
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!ValidationHelper.validatePassword(rawPassword)) {
-            return SaResult.error("密码格式不符合要求").setCode(400);
+            return ServiceResult.error("密码格式不符合要求").setCode(400);
         }
 
         // 6. 保存待注册用户信息到内存
@@ -445,11 +444,11 @@ public class AuthServiceImpl implements AuthService {
             log.info("保存待注册用户信息成功，username={}, email={}", username, email);
         } catch (Exception e) {
             log.error("保存待注册用户信息失败，username={}, error={}", username, e.getMessage());
-            return SaResult.error("系统异常，请重试").setCode(500);
+            return ServiceResult.error("系统异常，请重试").setCode(500);
         }
 
         // 7. 发送验证码邮件
-        SaResult mailResult = mailService.sendRegisterVerificationCode(email, code, username);
+        ServiceResult mailResult = mailService.sendRegisterVerificationCode(email, code, username);
         if (mailResult.getCode() != 200) {
             // 发送失败，删除待注册记录
             registerPendingUserService.deletePendingUser(email);
@@ -461,20 +460,20 @@ public class AuthServiceImpl implements AuthService {
         data.put("message", "验证码已发送到您的邮箱，请查收");
         data.put("email", maskEmail(email));
         data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult confirmRegister(RegisterConfirmDTO dto) {
+    public ServiceResult confirmRegister(RegisterConfirmDTO dto) {
         String email = dto.getEmail().trim();
         String code = dto.getCode().trim();
 
         if (!StringUtils.hasText(email)) {
-            return SaResult.error("邮箱不能为空").setCode(400);
+            return ServiceResult.error("邮箱不能为空").setCode(400);
         }
         if (!StringUtils.hasText(code)) {
-            return SaResult.error("验证码不能为空").setCode(400);
+            return ServiceResult.error("验证码不能为空").setCode(400);
         }
 
         // 1. 查询待注册记录
@@ -482,14 +481,14 @@ public class AuthServiceImpl implements AuthService {
 
         if (pendingUser == null) {
             log.warn("注册确认失败：未找到待注册记录，email={}", email);
-            return SaResult.error("验证码无效，请重新获取").setCode(400);
+            return ServiceResult.error("验证码无效，请重新获取").setCode(400);
         }
 
         // 2. 检查验证码是否过期
         if (LocalDateTime.now().isAfter(pendingUser.getCodeExpireTime())) {
             log.warn("注册确认失败：验证码已过期，email={}", email);
             registerPendingUserService.deletePendingUser(email);
-            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+            return ServiceResult.error("验证码已过期，请重新获取").setCode(400);
         }
 
         // 3. 验证验证码是否正确
@@ -500,9 +499,9 @@ public class AuthServiceImpl implements AuthService {
             if (attempts >= MAX_CODE_ATTEMPTS) {
                 log.warn("注册确认失败：验证码错误次数过多，已作废，email={}", email);
                 registerPendingUserService.deletePendingUser(email);
-                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+                return ServiceResult.error("验证码错误次数过多，请重新获取").setCode(400);
             }
-            return SaResult.error("验证码错误").setCode(400);
+            return ServiceResult.error("验证码错误").setCode(400);
         }
 
         // 4. 获取默认注册角色
@@ -527,7 +526,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (defaultRole == null) {
             log.error("无可用的注册角色");
-            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+            return ServiceResult.error("系统配置异常，暂无法注册").setCode(500);
         }
 
         // 4.5 再次检查用户名和邮箱唯一性（防止竞态条件）
@@ -535,13 +534,13 @@ public class AuthServiceImpl implements AuthService {
                 .eq("username", pendingUser.getUsername())
                 .eq("is_deleted", 0)) != null) {
             log.warn("注册确认失败：用户名已被占用，username={}", pendingUser.getUsername());
-            return SaResult.error("用户名已被注册").setCode(400);
+            return ServiceResult.error("用户名已被注册").setCode(400);
         }
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("email", pendingUser.getEmail())
                 .eq("is_deleted", 0)) != null) {
             log.warn("注册确认失败：邮箱已被注册，email={}", pendingUser.getEmail());
-            return SaResult.error("邮箱已被注册").setCode(400);
+            return ServiceResult.error("邮箱已被注册").setCode(400);
         }
 
         // 5. 创建正式用户
@@ -566,15 +565,15 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> data = new HashMap<>();
         data.put("message", "注册成功，请登录");
         data.put("userId", user.getId());
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     /**
      * 执行直接注册（reg.use-email = false 时）
      */
-    private SaResult doDirectRegister(RegisterDTO dto) {
+    private ServiceResult doDirectRegister(RegisterDTO dto) {
         // 1. 验证码校验
-        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
+        ServiceResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsername());
         if (captchaResult != null) {
             return captchaResult;
         }
@@ -583,17 +582,17 @@ public class AuthServiceImpl implements AuthService {
         String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
         if (!"unbound".equals(tokenValue)) {
             log.warn("注册失败：临时 Token 无效或已过期");
-            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+            return ServiceResult.error("临时登录凭证无效或已过期").setCode(400);
         }
 
         String username = dto.getUsername().trim();
         String email = dto.getEmail().trim();
 
         if (!ValidationHelper.validateUsername(username)) {
-            return SaResult.error("用户名格式错误").setCode(400);
+            return ServiceResult.error("用户名格式错误").setCode(400);
         }
         if (!ValidationHelper.validateEmail(email)) {
-            return SaResult.error("邮箱格式不正确").setCode(400);
+            return ServiceResult.error("邮箱格式不正确").setCode(400);
         }
 
         // 3. 解密密码
@@ -602,25 +601,25 @@ public class AuthServiceImpl implements AuthService {
             rawPassword = RsaUtils.decryptByPrivateKey(dto.getPassword(), rsaKeyConfig.getPrivateKeyBase64());
         } catch (Exception e) {
             log.warn("注册失败：密码解密异常，username={}", username);
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!StringUtils.hasText(rawPassword)) {
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!ValidationHelper.validatePassword(rawPassword)) {
-            return SaResult.error("密码格式不符合要求").setCode(400);
+            return ServiceResult.error("密码格式不符合要求").setCode(400);
         }
 
         // 4. 检查用户名、邮箱是否已存在
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("username", username)
                 .eq("is_deleted", 0)) != null) {
-            return SaResult.error("用户名已存在").setCode(400);
+            return ServiceResult.error("用户名已存在").setCode(400);
         }
         if (sysUserMapper.selectOne(new QueryWrapper<SysUser>()
                 .eq("email", email)
                 .eq("is_deleted", 0)) != null) {
-            return SaResult.error("邮箱已被注册").setCode(400);
+            return ServiceResult.error("邮箱已被注册").setCode(400);
         }
 
         // 5. 获取默认注册角色
@@ -655,7 +654,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (defaultRole == null) {
             log.error("无可用的注册角色，配置角色={}，默认角色USER也不可用", configRoleCode);
-            return SaResult.error("系统配置异常，暂无法注册").setCode(500);
+            return ServiceResult.error("系统配置异常，暂无法注册").setCode(500);
         }
 
         // 6. 创建用户
@@ -678,7 +677,7 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> data = new HashMap<>();
         data.put("message", "注册成功，请登录");
         data.put("userId", user.getId());
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     /**
@@ -719,47 +718,47 @@ public class AuthServiceImpl implements AuthService {
      * @param username            用户名（用于日志记录）
      * @return 如果验证失败返回错误结果，验证成功返回 null
      */
-    private SaResult validateCaptcha(String captchaVerification, String username) {
+    private ServiceResult validateCaptcha(String captchaVerification, String username) {
         if (!StringUtils.hasText(captchaVerification)) {
             log.warn("验证码校验失败：验证码为空，username={}", username);
-            return SaResult.error("验证码已失效，请重新获取").setCode(400);
+            return ServiceResult.error("验证码已失效，请重新获取").setCode(400);
         }
 
         if (!(imageCaptchaApplication instanceof SecondaryVerificationApplication secondary)) {
             log.error("验证码校验失败：未开启行为验证码二次验证功能");
-            return SaResult.error("验证码服务异常，请稍后重试").setCode(500);
+            return ServiceResult.error("验证码服务异常，请稍后重试").setCode(500);
         }
 
         try {
             boolean success = secondary.secondaryVerification(captchaVerification);
             if (!success) {
                 log.warn("验证码校验未通过，username={}", username);
-                return SaResult.error("验证码验证失败，请重新获取").setCode(400);
+                return ServiceResult.error("验证码验证失败，请重新获取").setCode(400);
             }
             return null;
         } catch (Exception e) {
             log.warn("验证码校验异常，username={}, ex={}", username, e.getMessage());
-            return SaResult.error("验证码校验异常，请重试").setCode(400);
+            return ServiceResult.error("验证码校验异常，请重试").setCode(400);
         }
     }
 
     @Override
-    public SaResult updateNickname(UpdateNicknameDTO dto, Long currentUserId) {
+    public ServiceResult updateNickname(UpdateNicknameDTO dto, Long currentUserId) {
         String nickname = dto.getNickname().trim();
         if (!StringUtils.hasText(nickname)) {
             log.warn("昵称修改失败：昵称为空，userId={}", currentUserId);
-            return SaResult.error("昵称不能为空").setCode(400);
+            return ServiceResult.error("昵称不能为空").setCode(400);
         }
 
         if (nickname.length() > 50) {
             log.warn("昵称修改失败：昵称长度超过限制，userId={}", currentUserId);
-            return SaResult.error("昵称长度不能超过50字符").setCode(400);
+            return ServiceResult.error("昵称长度不能超过50字符").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("昵称修改失败：用户不存在，userId={}", currentUserId);
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         user.setNickname(nickname);
@@ -772,32 +771,32 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.updateById(user);
         if (rows != 1) {
             log.error("昵称修改失败：数据库更新失败，userId={}", currentUserId);
-            return SaResult.error("昵称修改失败，请重试").setCode(400);
+            return ServiceResult.error("昵称修改失败，请重试").setCode(400);
         }
 
         log.info("昵称修改成功，userId={}", currentUserId);
         Map<String, Object> data = new HashMap<>();
         data.put("message", "昵称修改成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult updateBio(UpdateBioDTO dto, Long currentUserId) {
+    public ServiceResult updateBio(UpdateBioDTO dto, Long currentUserId) {
         String bio = dto.getBio().trim();
         if (!StringUtils.hasText(bio)) {
             log.warn("简介修改失败：简介为空，userId={}", currentUserId);
-            return SaResult.error("简介不能为空").setCode(400);
+            return ServiceResult.error("简介不能为空").setCode(400);
         }
 
         if (bio.length() > 500) {
             log.warn("简介修改失败：简介长度超过限制，userId={}", currentUserId);
-            return SaResult.error("简介长度不能超过500字符").setCode(400);
+            return ServiceResult.error("简介长度不能超过500字符").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("简介修改失败：用户不存在，userId={}", currentUserId);
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         user.setBio(bio);
@@ -810,21 +809,21 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.updateById(user);
         if (rows != 1) {
             log.error("简介修改失败：数据库更新失败，userId={}", currentUserId);
-            return SaResult.error("简介修改失败，请重试").setCode(400);
+            return ServiceResult.error("简介修改失败，请重试").setCode(400);
         }
 
         log.info("简介修改成功，userId={}", currentUserId);
         Map<String, Object> data = new HashMap<>();
         data.put("message", "简介修改成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId) {
+    public ServiceResult updateAvatarUrl(UpdateAvatarUrlDTO dto, Long currentUserId) {
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("头像URL修改失败：用户不存在，userId={}", currentUserId);
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         String avatarUrl = null;
@@ -833,7 +832,7 @@ public class AuthServiceImpl implements AuthService {
             if (!v.isEmpty()) {
                 if (!isValidAvatarUrl(v)) {
                     log.warn("头像URL修改失败：URL格式无效，userId={}", currentUserId);
-                    return SaResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
+                    return ServiceResult.error("头像URL格式无效，请输入有效的 http/https 链接或传空字符串清空").setCode(400);
                 }
                 avatarUrl = v;
             }
@@ -849,50 +848,50 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.update(null, updateWrapper);
         if (rows != 1) {
             log.error("头像URL修改失败：数据库更新失败，userId={}", currentUserId);
-            return SaResult.error("头像URL修改失败，请重试").setCode(400);
+            return ServiceResult.error("头像URL修改失败，请重试").setCode(400);
         }
 
         log.info("头像URL修改成功，userId={}", currentUserId);
         Map<String, Object> data = new HashMap<>();
         data.put("message", avatarUrl == null ? "头像已清空" : "头像URL修改成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult updateEmail(UpdateEmailDTO dto, Long currentUserId) {
+    public ServiceResult updateEmail(UpdateEmailDTO dto, Long currentUserId) {
         String email = dto.getEmail().trim();
 
         String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
         boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
 
         if (useEmail) {
-            return SaResult.error("请使用邮箱验证码方式更换邮箱").setCode(400);
+            return ServiceResult.error("请使用邮箱验证码方式更换邮箱").setCode(400);
         }
 
         // 检查新邮箱是否与原邮箱相同
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user != null && email.equalsIgnoreCase(user.getEmail())) {
-            return SaResult.error("新邮箱不能与原邮箱相同").setCode(400);
+            return ServiceResult.error("新邮箱不能与原邮箱相同").setCode(400);
         }
 
         return doDirectChangeEmail(email, currentUserId);
     }
 
     @Override
-    public SaResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId) {
+    public ServiceResult requestChangeEmailCode(ChangeEmailDTO dto, Long currentUserId) {
         String newEmail = dto.getEmail().trim();
 
         if (!ValidationHelper.validateEmail(newEmail)) {
-            return SaResult.error("邮箱格式不正确").setCode(400);
+            return ServiceResult.error("邮箱格式不正确").setCode(400);
         }
 
         // 检查新邮箱是否与原邮箱相同
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
         if (newEmail.equalsIgnoreCase(user.getEmail())) {
-            return SaResult.error("新邮箱不能与原邮箱相同").setCode(400);
+            return ServiceResult.error("新邮箱不能与原邮箱相同").setCode(400);
         }
 
         // 检查是否存在尚未过期的待变更记录
@@ -901,7 +900,7 @@ public class AuthServiceImpl implements AuthService {
         if (existing != null && !LocalDateTime.now().isAfter(existing.getCodeExpireTime())) {
             long remainingSeconds = java.time.Duration.between(LocalDateTime.now(), existing.getCodeExpireTime())
                     .getSeconds();
-            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
+            return ServiceResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
         // 检查新邮箱是否已被其他用户使用
@@ -910,7 +909,7 @@ public class AuthServiceImpl implements AuthService {
                 .ne("id", currentUserId)
                 .eq("is_deleted", 0));
         if (existingUser != null) {
-            return SaResult.error("邮箱已被注册").setCode(400);
+            return ServiceResult.error("邮箱已被注册").setCode(400);
         }
 
         // 生成6位验证码
@@ -922,10 +921,10 @@ public class AuthServiceImpl implements AuthService {
             log.info("保存待变更邮箱信息，userId={}, newEmail={}", currentUserId, newEmail);
         } catch (Exception e) {
             log.error("保存待变更邮箱信息失败，userId={}, error={}", currentUserId, e.getMessage());
-            return SaResult.error("系统异常，请重试").setCode(500);
+            return ServiceResult.error("系统异常，请重试").setCode(500);
         }
 
-        SaResult mailResult = mailService.sendChangeEmailVerificationCode(newEmail, code, user.getUsername());
+        ServiceResult mailResult = mailService.sendChangeEmailVerificationCode(newEmail, code, user.getUsername());
         if (mailResult.getCode() != 200) {
             changeEmailPendingService.deletePendingEmailChange(currentUserId);
             return mailResult;
@@ -936,17 +935,17 @@ public class AuthServiceImpl implements AuthService {
         data.put("message", "验证码已发送到您的新邮箱，请查收");
         data.put("email", maskEmail(newEmail));
         data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult confirmChangeEmail(ChangeEmailConfirmDTO dto, Long currentUserId) {
+    public ServiceResult confirmChangeEmail(ChangeEmailConfirmDTO dto, Long currentUserId) {
         String email = dto.getEmail().trim();
         String code = dto.getCode().trim();
 
         if (!StringUtils.hasText(code)) {
-            return SaResult.error("验证码不能为空").setCode(400);
+            return ServiceResult.error("验证码不能为空").setCode(400);
         }
 
         ChangeEmailPendingService.PendingEmailChange pending = changeEmailPendingService
@@ -954,17 +953,17 @@ public class AuthServiceImpl implements AuthService {
 
         if (pending == null) {
             log.warn("邮箱变更确认失败：未找到待变更记录，userId={}", currentUserId);
-            return SaResult.error("验证码无效，请重新获取").setCode(400);
+            return ServiceResult.error("验证码无效，请重新获取").setCode(400);
         }
 
         if (!email.equals(pending.getNewEmail())) {
-            return SaResult.error("邮箱不匹配，请使用获取验证码时填写的邮箱").setCode(400);
+            return ServiceResult.error("邮箱不匹配，请使用获取验证码时填写的邮箱").setCode(400);
         }
 
         if (LocalDateTime.now().isAfter(pending.getCodeExpireTime())) {
             log.warn("邮箱变更确认失败：验证码已过期，userId={}", currentUserId);
             changeEmailPendingService.deletePendingEmailChange(currentUserId);
-            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+            return ServiceResult.error("验证码已过期，请重新获取").setCode(400);
         }
 
         if (!code.equals(pending.getCode())) {
@@ -974,9 +973,9 @@ public class AuthServiceImpl implements AuthService {
             if (attempts >= MAX_CODE_ATTEMPTS) {
                 log.warn("邮箱变更确认失败：验证码错误次数过多，已作废，userId={}", currentUserId);
                 changeEmailPendingService.deletePendingEmailChange(currentUserId);
-                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+                return ServiceResult.error("验证码错误次数过多，请重新获取").setCode(400);
             }
-            return SaResult.error("验证码错误").setCode(400);
+            return ServiceResult.error("验证码错误").setCode(400);
         }
 
         return doDirectChangeEmail(email, currentUserId);
@@ -990,21 +989,21 @@ public class AuthServiceImpl implements AuthService {
     /**
      * 直接更换邮箱（reg.use-email = false 时）
      */
-    private SaResult doDirectChangeEmail(String email, Long currentUserId) {
+    private ServiceResult doDirectChangeEmail(String email, Long currentUserId) {
         if (!StringUtils.hasText(email)) {
             log.warn("邮箱修改失败：邮箱为空，userId={}", currentUserId);
-            return SaResult.error("邮箱不能为空").setCode(400);
+            return ServiceResult.error("邮箱不能为空").setCode(400);
         }
 
         if (!ValidationHelper.validateEmail(email)) {
             log.warn("邮箱修改失败：邮箱格式不正确，userId={}", currentUserId);
-            return SaResult.error("邮箱格式不正确").setCode(400);
+            return ServiceResult.error("邮箱格式不正确").setCode(400);
         }
 
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null) {
             log.warn("邮箱修改失败：用户不存在，userId={}", currentUserId);
-            return SaResult.error("用户不存在").setCode(400);
+            return ServiceResult.error("用户不存在").setCode(400);
         }
 
         // 唯一性校验：新邮箱不能被其他未删除用户占用（含确认路径，避免竞态撞库）
@@ -1014,7 +1013,7 @@ public class AuthServiceImpl implements AuthService {
                 .eq("is_deleted", 0));
         if (occupied != null) {
             log.warn("邮箱修改失败：邮箱已被其他用户注册，userId={}, email={}", currentUserId, email);
-            return SaResult.error("邮箱已被注册").setCode(400);
+            return ServiceResult.error("邮箱已被注册").setCode(400);
         }
 
         LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<SysUser>()
@@ -1025,26 +1024,26 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.update(null, updateWrapper);
         if (rows != 1) {
             log.error("邮箱修改失败：数据库更新失败，userId={}", currentUserId);
-            return SaResult.error("邮箱修改失败，请重试").setCode(400);
+            return ServiceResult.error("邮箱修改失败，请重试").setCode(400);
         }
 
         log.info("邮箱修改成功，userId={}", currentUserId);
         Map<String, Object> data = new HashMap<>();
         data.put("message", "邮箱修改成功");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
-    public SaResult getCurrentUserPermissions(Long currentUserId) {
+    public ServiceResult getCurrentUserPermissions(Long currentUserId) {
         // 基于角色 + 权限表，计算当前用户拥有的所有权限编码（父权限自动展开为所有子权限）
         SysUser user = sysUserMapper.selectById(currentUserId);
         if (user == null || user.getIsDeleted() != null && user.getIsDeleted() == 1) {
-            return SaResult.error("用户不存在").setCode(404);
+            return ServiceResult.error("用户不存在").setCode(404);
         }
 
         List<SysRole> roles = sysRoleMapper.selectRolesByUserId(currentUserId);
         if (roles.isEmpty()) {
-            return SaResult.data(List.of());
+            return ServiceResult.data(List.of());
         }
 
         List<SysPermission> allPermissions = sysPermissionMapper.selectList(null);
@@ -1098,20 +1097,20 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        return SaResult.data(List.copyOf(resultCodes));
+        return ServiceResult.data(List.copyOf(resultCodes));
     }
 
     @Override
-    public SaResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto) {
+    public ServiceResult requestFindPasswordCode(FindPasswordCodeRequestDTO dto) {
         // 检查 reg.use-email 配置
         String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
         boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
         if (!useEmail) {
-            return SaResult.error("该功能未启用").setCode(400);
+            return ServiceResult.error("该功能未启用").setCode(400);
         }
 
         // 1. 验证码校验
-        SaResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsernameOrEmail());
+        ServiceResult captchaResult = validateCaptcha(dto.getCaptchaVerification(), dto.getUsernameOrEmail());
         if (captchaResult != null) {
             return captchaResult;
         }
@@ -1120,12 +1119,12 @@ public class AuthServiceImpl implements AuthService {
         String tokenValue = tempLoginTokenService.consumeToken(dto.getTempToken());
         if (!"unbound".equals(tokenValue)) {
             log.warn("请求找回密码验证码失败：临时 Token 无效或已过期");
-            return SaResult.error("临时登录凭证无效或已过期").setCode(400);
+            return ServiceResult.error("临时登录凭证无效或已过期").setCode(400);
         }
 
         String usernameOrEmail = dto.getUsernameOrEmail().trim();
         if (!StringUtils.hasText(usernameOrEmail)) {
-            return SaResult.error("用户名或邮箱不能为空").setCode(400);
+            return ServiceResult.error("用户名或邮箱不能为空").setCode(400);
         }
 
         // 3. 根据用户名或邮箱查找用户
@@ -1149,7 +1148,7 @@ public class AuthServiceImpl implements AuthService {
         long remainingSeconds = pendingPasswordResetService.checkRateLimit(rateLimitKey,
                 REGISTER_CODE_EXPIRE_MINUTES);
         if (remainingSeconds > 0) {
-            return SaResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
+            return ServiceResult.error("请在 " + remainingSeconds + " 秒后再试").setCode(400);
         }
 
         // 5. 用户不存在或未绑定邮箱：响应文案统一（防账号枚举），并写入占位限流
@@ -1159,7 +1158,7 @@ public class AuthServiceImpl implements AuthService {
             Map<String, Object> data = new HashMap<>();
             data.put("message", "若该账户存在且已绑定邮箱，验证码已发送");
             data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
-            return SaResult.data(data);
+            return ServiceResult.data(data);
         }
 
         String email = user.getEmail();
@@ -1173,11 +1172,11 @@ public class AuthServiceImpl implements AuthService {
             log.info("保存待重置密码信息成功，userId={}, email={}", user.getId(), email);
         } catch (Exception e) {
             log.error("保存待重置密码信息失败，userId={}, error={}", user.getId(), e.getMessage());
-            return SaResult.error("系统异常，请重试").setCode(500);
+            return ServiceResult.error("系统异常，请重试").setCode(500);
         }
 
         // 发送验证码邮件
-        SaResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
+        ServiceResult mailResult = mailService.sendFindPasswordVerificationCode(email, code, user.getUsername());
         if (mailResult.getCode() != 200) {
             pendingPasswordResetService.deletePendingPasswordReset(email);
             return mailResult;
@@ -1192,27 +1191,27 @@ public class AuthServiceImpl implements AuthService {
         data.put("message", "验证码已发送到您的邮箱，请查收");
         data.put("email", maskEmail(email));
         data.put("expiresIn", REGISTER_CODE_EXPIRE_MINUTES * 60);
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult confirmFindPassword(FindPasswordConfirmDTO dto) {
+    public ServiceResult confirmFindPassword(FindPasswordConfirmDTO dto) {
         // 检查 reg.use-email 配置
         String useEmailConfig = sysConfigMapper.selectValueByKey(CONFIG_KEY_REG_USE_EMAIL);
         boolean useEmail = "true".equalsIgnoreCase(useEmailConfig);
         if (!useEmail) {
-            return SaResult.error("该功能未启用").setCode(400);
+            return ServiceResult.error("该功能未启用").setCode(400);
         }
 
         String usernameOrEmail = dto.getUsernameOrEmail().trim();
         String code = dto.getCode().trim();
 
         if (!StringUtils.hasText(usernameOrEmail)) {
-            return SaResult.error("用户名或邮箱不能为空").setCode(400);
+            return ServiceResult.error("用户名或邮箱不能为空").setCode(400);
         }
         if (!StringUtils.hasText(code)) {
-            return SaResult.error("验证码不能为空").setCode(400);
+            return ServiceResult.error("验证码不能为空").setCode(400);
         }
 
         // 1. 先根据输入查找用户，获取邮箱
@@ -1229,7 +1228,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (user == null || user.getEmail() == null || user.getEmail().isEmpty()) {
-            return SaResult.error("未找到对应的用户或该用户未绑定邮箱").setCode(400);
+            return ServiceResult.error("未找到对应的用户或该用户未绑定邮箱").setCode(400);
         }
         email = user.getEmail();
 
@@ -1238,20 +1237,20 @@ public class AuthServiceImpl implements AuthService {
                 .getPendingPasswordReset(email);
         if (pendingReset == null) {
             log.warn("找回密码确认失败：未找到待重置记录，email={}", email);
-            return SaResult.error("验证码无效，请重新获取").setCode(400);
+            return ServiceResult.error("验证码无效，请重新获取").setCode(400);
         }
 
         // 3. 验证用户ID匹配
         if (!pendingReset.getUserId().equals(user.getId())) {
             log.warn("找回密码确认失败：用户ID不匹配，email={}", email);
-            return SaResult.error("验证码无效，请重新获取").setCode(400);
+            return ServiceResult.error("验证码无效，请重新获取").setCode(400);
         }
 
         // 4. 检查验证码是否过期
         if (LocalDateTime.now().isAfter(pendingReset.getCodeExpireTime())) {
             log.warn("找回密码确认失败：验证码已过期，email={}", email);
             pendingPasswordResetService.deletePendingPasswordReset(email);
-            return SaResult.error("验证码已过期，请重新获取").setCode(400);
+            return ServiceResult.error("验证码已过期，请重新获取").setCode(400);
         }
 
         // 5. 验证验证码是否正确
@@ -1262,9 +1261,9 @@ public class AuthServiceImpl implements AuthService {
             if (attempts >= MAX_CODE_ATTEMPTS) {
                 log.warn("找回密码确认失败：验证码错误次数过多，已作废，email={}", email);
                 pendingPasswordResetService.deletePendingPasswordReset(email);
-                return SaResult.error("验证码错误次数过多，请重新获取").setCode(400);
+                return ServiceResult.error("验证码错误次数过多，请重新获取").setCode(400);
             }
-            return SaResult.error("验证码错误").setCode(400);
+            return ServiceResult.error("验证码错误").setCode(400);
         }
 
         // 6. 解密并校验新密码
@@ -1273,13 +1272,13 @@ public class AuthServiceImpl implements AuthService {
             rawPassword = RsaUtils.decryptByPrivateKey(dto.getNewPassword(), rsaKeyConfig.getPrivateKeyBase64());
         } catch (Exception e) {
             log.warn("找回密码确认失败：密码解密异常，userId={}", user.getId());
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!StringUtils.hasText(rawPassword)) {
-            return SaResult.error("密码格式错误").setCode(400);
+            return ServiceResult.error("密码格式错误").setCode(400);
         }
         if (!ValidationHelper.validatePassword(rawPassword)) {
-            return SaResult.error("密码格式不符合要求").setCode(400);
+            return ServiceResult.error("密码格式不符合要求").setCode(400);
         }
 
         // 7. 更新密码
@@ -1291,7 +1290,7 @@ public class AuthServiceImpl implements AuthService {
         int rows = sysUserMapper.update(null, updateWrapper);
         if (rows != 1) {
             log.error("找回密码确认失败：密码更新失败，userId={}", user.getId());
-            return SaResult.error("密码重置失败，请重试").setCode(500);
+            return ServiceResult.error("密码重置失败，请重试").setCode(500);
         }
 
         // 8. 删除待重置记录
@@ -1300,7 +1299,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("找回密码成功，userId={}", user.getId());
         Map<String, Object> data = new HashMap<>();
         data.put("message", "密码重置成功，请使用新密码登录");
-        return SaResult.data(data);
+        return ServiceResult.data(data);
     }
 
     /**

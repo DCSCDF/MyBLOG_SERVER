@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.controller.mail;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.mail.SendTestMailDTO;
 import com.jiuliu.myblog_dev.service.mail.MailService;
@@ -37,30 +38,30 @@ public class MailController {
      * 发送测试邮件
      * 权限：system:config:edit
      */
-    @SaCheckPermission("system:config:edit")
+    @PreAuthorize("hasAuthority('system:config:edit')")
     @PostMapping("/test")
     public Response<Object> sendTestMail(@Valid @RequestBody SendTestMailDTO dto) {
-        SaResult saResult = mailService.sendTestMail(dto.getTo(), dto.getSubject(), dto.getContent());
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = mailService.sendTestMail(dto.getTo(), dto.getSubject(), dto.getContent());
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 检查 SMTP 配置状态
      * 权限：system:config:edit
      */
-    @SaCheckPermission("system:config:edit")
+    @PreAuthorize("hasAuthority('system:config:edit')")
     @GetMapping("/status")
     public Response<Object> checkSmtpStatus() {
-        SaResult saResult = mailService.checkSmtpConfiguration();
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = mailService.checkSmtpConfiguration();
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }

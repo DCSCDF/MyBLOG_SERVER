@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.user.permission;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiuliu.myblog_dev.dto.user.permission.PagePermissionDTO;
@@ -44,7 +45,7 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     @Override
-    public SaResult getPagePermissions(PagePermissionDTO pageDto) {
+    public ServiceResult getPagePermissions(PagePermissionDTO pageDto) {
         try {
             LambdaQueryWrapper<SysPermission> wrapper = new LambdaQueryWrapper<SysPermission>()
                     .orderByDesc(SysPermission::getSortOrder);
@@ -70,10 +71,10 @@ public class PermissionServiceImpl implements PermissionService {
             responseDTO.setPages(pageResult.getPages());
             responseDTO.setFilterOptions(Collections.emptyMap());
 
-            return SaResult.data(responseDTO);
+            return ServiceResult.data(responseDTO);
         } catch (Exception e) {
             log.error("分页获取权限列表异常", e);
-            return SaResult.error("分页获取权限列表失败").setCode(500);
+            return ServiceResult.error("分页获取权限列表失败").setCode(500);
         }
     }
 

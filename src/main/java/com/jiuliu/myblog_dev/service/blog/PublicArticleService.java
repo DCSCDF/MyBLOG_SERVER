@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.blog;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.blog.publicity.PagePublicArticleDTO;
 
 
@@ -29,7 +30,7 @@ public interface PublicArticleService {
      * @param dto 分页查询参数
      * @return 分页结果
      */
-    SaResult getPagePublicArticles(PagePublicArticleDTO dto);
+    ServiceResult getPagePublicArticles(PagePublicArticleDTO dto);
 
     /**
      * 分页获取超级管理员的文章列表
@@ -37,7 +38,7 @@ public interface PublicArticleService {
      * @param dto 分页查询参数
      * @return 分页结果
      */
-    SaResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto);
+    ServiceResult getPagePublicArticlesByAdmin(PagePublicArticleDTO dto);
 
     /**
      * 分页获取超级管理员以外的文章列表
@@ -45,7 +46,7 @@ public interface PublicArticleService {
      * @param dto 分页查询参数
      * @return 分页结果
      */
-    SaResult getPagePublicArticlesByUser(PagePublicArticleDTO dto);
+    ServiceResult getPagePublicArticlesByUser(PagePublicArticleDTO dto);
 
     /**
      * 根据文章ID获取文章详情
@@ -54,7 +55,7 @@ public interface PublicArticleService {
      * @param articleId 文章ID
      * @return 文章详情
      */
-    SaResult getPublicArticleDetail(Long articleId);
+    ServiceResult getPublicArticleDetail(Long articleId);
 
     /**
      * 清除公共文章列表缓存

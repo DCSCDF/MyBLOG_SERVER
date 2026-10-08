@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.link;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.link.PagePublicFriendLinkDTO;
 import com.jiuliu.myblog_dev.dto.link.PublicFriendLinkCreateDTO;
 
@@ -29,7 +30,7 @@ public interface PublicFriendLinkService {
      * @param dto 外链信息
      * @return 操作结果
      */
-    SaResult createFriendLink(PublicFriendLinkCreateDTO dto);
+    ServiceResult createFriendLink(PublicFriendLinkCreateDTO dto);
 
     /**
      * 获取已通过审核的外链列表（分页）
@@ -39,7 +40,7 @@ public interface PublicFriendLinkService {
      * @param dto 分页参数
      * @return 分页结果
      */
-    SaResult getPagePublicFriendLinks(PagePublicFriendLinkDTO dto);
+    ServiceResult getPagePublicFriendLinks(PagePublicFriendLinkDTO dto);
 
     /**
      * 清除公共外链列表缓存

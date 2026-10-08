@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.link;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -51,7 +52,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     }
 
     @Override
-    public SaResult getPageFriendLinks(PageFriendLinkDTO pageDto) {
+    public ServiceResult getPageFriendLinks(PageFriendLinkDTO pageDto) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_FRIEND_LINK_LIST + pageDto.getCurrentPage() + "-" + pageDto.getPageSize() + "-" +
@@ -60,7 +61,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             PageFriendLinkResponseDTO cached = cacheManager.getFriendLinkListCache().getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取友链列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             LambdaQueryWrapper<SysFriendLink> wrapper = new LambdaQueryWrapper<SysFriendLink>()
@@ -97,10 +98,10 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
             cacheManager.getFriendLinkListCache().put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取外链列表异常", e);
-            return SaResult.error("获取外链列表失败").setCode(500);
+            return ServiceResult.error("获取外链列表失败").setCode(500);
         }
     }
 
@@ -116,7 +117,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult createFriendLink(FriendLinkCreateDTO dto) {
+    public ServiceResult createFriendLink(FriendLinkCreateDTO dto) {
         SysFriendLink link = new SysFriendLink();
         link.setName(dto.getName());
         link.setUrl(dto.getUrl());
@@ -138,16 +139,16 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             }
         });
 
-        return SaResult.data(toResponseDTO(friendLinkMapper.selectById(link.getId())));
+        return ServiceResult.data(toResponseDTO(friendLinkMapper.selectById(link.getId())));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateFriendLink(FriendLinkUpdateDTO dto) {
+    public ServiceResult updateFriendLink(FriendLinkUpdateDTO dto) {
         SysFriendLink existing = friendLinkMapper.selectById(dto.getId());
         if (existing == null || existing.getIsDeleted() != null && existing.getIsDeleted() == 1) {
             log.warn("更新外链失败：记录不存在或已删除，id={}", dto.getId());
-            return SaResult.error("外链不存在").setCode(404);
+            return ServiceResult.error("外链不存在").setCode(404);
         }
 
         LambdaUpdateWrapper<SysFriendLink> updateWrapper = new LambdaUpdateWrapper<SysFriendLink>()
@@ -172,20 +173,20 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         });
 
         SysFriendLink updated = friendLinkMapper.selectById(dto.getId());
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateFriendLinkStatus(Long id, FriendLinkStatusUpdateDTO dto) {
+    public ServiceResult updateFriendLinkStatus(Long id, FriendLinkStatusUpdateDTO dto) {
         SysFriendLink existing = friendLinkMapper.selectById(id);
         if (existing == null) {
             log.warn("变更友链审核状态失败：记录不存在，id={}", id);
-            return SaResult.error("友链不存在").setCode(404);
+            return ServiceResult.error("友链不存在").setCode(404);
         }
         if (existing.getIsDeleted() != null && existing.getIsDeleted() == 1) {
             log.warn("变更友链审核状态失败：记录已删除，id={}", id);
-            return SaResult.error("友链已删除").setCode(404);
+            return ServiceResult.error("友链已删除").setCode(404);
         }
         Integer newStatus = dto.getStatus();
         friendLinkMapper.update(null, new LambdaUpdateWrapper<SysFriendLink>()
@@ -203,20 +204,20 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         });
 
         SysFriendLink updated = friendLinkMapper.selectById(id);
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteFriendLink(Long id) {
+    public ServiceResult deleteFriendLink(Long id) {
         SysFriendLink existing = friendLinkMapper.selectById(id);
         if (existing == null) {
             log.warn("删除外链失败：记录不存在，id={}", id);
-            return SaResult.error("外链不存在").setCode(404);
+            return ServiceResult.error("外链不存在").setCode(404);
         }
         if (existing.getIsDeleted() != null && existing.getIsDeleted() == 1) {
             log.warn("删除外链失败：记录已被删除，id={}", id);
-            return SaResult.error("外链已被删除").setCode(404);
+            return ServiceResult.error("外链已被删除").setCode(404);
         }
 
         friendLinkMapper.update(null, new LambdaUpdateWrapper<SysFriendLink>()
@@ -235,7 +236,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             }
         });
 
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**

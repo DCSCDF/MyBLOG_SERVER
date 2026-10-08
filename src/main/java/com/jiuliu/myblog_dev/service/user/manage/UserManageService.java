@@ -23,22 +23,23 @@
 
 package com.jiuliu.myblog_dev.service.user.manage;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.user.manage.PageUserDTO;
 import com.jiuliu.myblog_dev.dto.user.manage.UserUpdateDTO;
 
 public interface UserManageService {
 
-    SaResult getPageUsers(PageUserDTO pageDto);
+    ServiceResult getPageUsers(PageUserDTO pageDto);
 
-    SaResult getUserById(Long id);
+    ServiceResult getUserById(Long id);
 
-    SaResult getUserRoles(Long userId);
+    ServiceResult getUserRoles(Long userId);
 
-    SaResult updateUser(Long id, UserUpdateDTO dto);
+    ServiceResult updateUser(Long id, UserUpdateDTO dto);
 
-    SaResult updateUserStatus(Long id, Integer status);
+    ServiceResult updateUserStatus(Long id, Integer status);
 
-    SaResult deleteUser(Long id);
+    ServiceResult deleteUser(Long id);
 }
 

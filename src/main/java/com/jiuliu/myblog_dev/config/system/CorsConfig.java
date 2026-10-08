@@ -31,7 +31,7 @@ public class CorsConfig implements WebMvcConfigurer {
      * 获取配置的 token 名称
      */
     @Getter
-    @Value("${sa-token.token-name}")
+    @Value("${app.security.token-name:token}")
     private String tokenName;
 
     @Override
@@ -44,7 +44,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 // Accept - 接受的内容类型 header
                 // Authorization - 标准认证 header（保持兼容性）
                 // X-Requested-With - AJAX 请求标识（可考虑后续删除）
-                // tokenName - Sa-Token 自定义认证 header（来自配置）
+                // tokenName - 自定义认证 header（来自 app.security.token-name 配置）
                 .allowedHeaders("Origin", "Content-Type", "Accept", "Authorization",
                         "X-Requested-With", tokenName)
                 .exposedHeaders(tokenName)

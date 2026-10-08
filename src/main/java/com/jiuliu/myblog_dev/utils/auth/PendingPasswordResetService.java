@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.utils.auth;
 
-import cn.dev33.satoken.dao.SaTokenDao;
+import com.jiuliu.myblog_dev.security.ExpiringValueStore;
 import lombok.Getter;
 import lombok.Setter;
 import org.slf4j.Logger;
@@ -35,10 +35,10 @@ public class PendingPasswordResetService {
     private static final String PENDING_RESET_PREFIX = "password_reset:";
     private static final String RATE_LIMIT_PREFIX = "password_reset_rate_limit:";
 
-    private final SaTokenDao saTokenDao;
+    private final ExpiringValueStore valueStore;
 
-    public PendingPasswordResetService(SaTokenDao saTokenDao) {
-        this.saTokenDao = saTokenDao;
+    public PendingPasswordResetService(ExpiringValueStore valueStore) {
+        this.valueStore = valueStore;
     }
 
     /**
@@ -82,7 +82,7 @@ public class PendingPasswordResetService {
         String key = PENDING_RESET_PREFIX + email;
         PendingPasswordReset reset = new PendingPasswordReset(userId, username, email, code,
                 LocalDateTime.now().plusMinutes(expireMinutes));
-        saTokenDao.set(key, serialize(reset), expireMinutes * 60L);
+        valueStore.set(key, serialize(reset), expireMinutes * 60L);
         log.info("保存待重置密码信息，userId={}, username={}, email={}", userId, username, email);
     }
 
@@ -94,7 +94,7 @@ public class PendingPasswordResetService {
      */
     public PendingPasswordReset getPendingPasswordReset(String email) {
         String key = PENDING_RESET_PREFIX + email;
-        String data = saTokenDao.get(key);
+        String data = valueStore.get(key);
         if (data == null) {
             return null;
         }
@@ -108,7 +108,7 @@ public class PendingPasswordResetService {
      */
     public void deletePendingPasswordReset(String email) {
         String key = PENDING_RESET_PREFIX + email;
-        saTokenDao.delete(key);
+        valueStore.delete(key);
         log.info("删除待重置密码信息，email={}", email);
     }
 
@@ -121,7 +121,7 @@ public class PendingPasswordResetService {
      */
     public long checkRateLimit(String identifier, int expireMinutes) {
         String key = RATE_LIMIT_PREFIX + identifier;
-        String data = saTokenDao.get(key);
+        String data = valueStore.get(key);
         if (data == null) {
             return 0;
         }
@@ -146,7 +146,7 @@ public class PendingPasswordResetService {
     public void setRateLimit(String identifier, int expireMinutes) {
         String key = RATE_LIMIT_PREFIX + identifier;
         LocalDateTime expireTime = LocalDateTime.now().plusMinutes(expireMinutes);
-        saTokenDao.set(key, expireTime.toString(), expireMinutes * 60L);
+        valueStore.set(key, expireTime.toString(), expireMinutes * 60L);
         log.info("设置频率限制，identifier={}, expireTime={}", identifier, expireTime);
     }
 
@@ -165,10 +165,10 @@ public class PendingPasswordResetService {
         reset.setAttemptCount(reset.getAttemptCount() + 1);
         long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), reset.getCodeExpireTime()).getSeconds();
         if (ttlSeconds <= 0) {
-            saTokenDao.delete(key);
+            valueStore.delete(key);
             return -1;
         }
-        saTokenDao.set(key, serialize(reset), ttlSeconds);
+        valueStore.set(key, serialize(reset), ttlSeconds);
         return reset.getAttemptCount();
     }
 

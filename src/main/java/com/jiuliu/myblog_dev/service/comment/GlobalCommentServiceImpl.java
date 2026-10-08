@@ -14,7 +14,8 @@
 
 package com.jiuliu.myblog_dev.service.comment;
 
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -101,7 +102,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
     }
 
     @Override
-    public SaResult getPageGlobalComments(PageGlobalCommentDTO dto) {
+    public ServiceResult getPageGlobalComments(PageGlobalCommentDTO dto) {
         try {
             // 构建缓存键
             String cacheKey = CacheUtil.CACHE_KEY_GLOBAL_COMMENT_LIST + dto.getCurrentPage() + "-" + dto.getPageSize() + "-" + dto.getStatus() + "-" + dto.getKeyword();
@@ -110,7 +111,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             PageGlobalCommentResponseDTO cached = globalCommentListCache.getIfPresent(cacheKey);
             if (cached != null) {
                 log.debug("从缓存获取全局评论列表，key={}", cacheKey);
-                return SaResult.data(cached);
+                return ServiceResult.data(cached);
             }
 
             LambdaQueryWrapper<SysComment> wrapper = new LambdaQueryWrapper<SysComment>()
@@ -149,20 +150,20 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             // 存入缓存
             globalCommentListCache.put(cacheKey, response);
 
-            return SaResult.data(response);
+            return ServiceResult.data(response);
         } catch (Exception e) {
             log.error("分页获取全局评论列表异常", e);
-            return SaResult.error("获取评论列表失败").setCode(500);
+            return ServiceResult.error("获取评论列表失败").setCode(500);
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult updateComment(CommentUpdateDTO dto) {
+    public ServiceResult updateComment(CommentUpdateDTO dto) {
         SysComment existing = commentMapper.selectById(dto.getId());
         if (existing == null) {
             log.warn("全局更新评论失败：评论不存在，id={}", dto.getId());
-            return SaResult.error("评论不存在").setCode(404);
+            return ServiceResult.error("评论不存在").setCode(404);
         }
 
         // 如果是子评论，检查父评论链是否都通过审核
@@ -170,7 +171,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             if (hasUnapprovedParentComment(existing)) {
                 // 父评论链中有未通过的评论，子评论只能是待审核状态且无法修改内容
                 log.warn("全局更新评论失败：父评论链中存在未通过的评论，commentId={}", dto.getId());
-                return SaResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
+                return ServiceResult.error("父评论尚未通过审核，无法修改此回复").setCode(400);
             }
         }
 
@@ -188,7 +189,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
             String website = dto.getWebsite().trim();
             if (!website.isEmpty() && isUrlInvalid(website)) {
                 log.warn("全局更新评论失败：网站URL格式无效，id={}, website={}", dto.getId(), website);
-                return SaResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
+                return ServiceResult.error("网站URL格式无效，请输入有效的网址").setCode(400);
             }
             updateWrapper.set(SysComment::getWebsite, website.isEmpty() ? null : website);
         }
@@ -208,16 +209,16 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         globalArticleService.clearGlobalArticleCache();
 
         SysComment updated = commentMapper.selectById(dto.getId());
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult deleteComment(Long commentId) {
+    public ServiceResult deleteComment(Long commentId) {
         SysComment existing = commentMapper.selectById(commentId);
         if (existing == null) {
             log.warn("删除评论失败：评论不存在，id={}", commentId);
-            return SaResult.error("评论不存在").setCode(404);
+            return ServiceResult.error("评论不存在").setCode(404);
         }
 
         // 记录文章ID和评论状态，用于更新评论数
@@ -254,7 +255,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         // 清除缓存
         clearGlobalCommentCache(commentId);
 
-        return SaResult.data("删除成功");
+        return ServiceResult.data("删除成功");
     }
 
     /**
@@ -288,23 +289,23 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SaResult approveComment(Long commentId, CommentStatusUpdateDTO dto) {
+    public ServiceResult approveComment(Long commentId, CommentStatusUpdateDTO dto) {
         SysComment existing = commentMapper.selectById(commentId);
         if (existing == null) {
             log.warn("审核评论失败：评论不存在，id={}", commentId);
-            return SaResult.error("评论不存在").setCode(404);
+            return ServiceResult.error("评论不存在").setCode(404);
         }
 
         Integer newStatus = dto.getStatus();
         if (newStatus == null || (newStatus != 0 && newStatus != 1 && newStatus != 2)) {
-            return SaResult.error("状态值无效，仅支持 0=待审核，1=已通过，2=垃圾评论").setCode(400);
+            return ServiceResult.error("状态值无效，仅支持 0=待审核，1=已通过，2=垃圾评论").setCode(400);
         }
 
         // 如果要设为已通过(1)或垃圾评论(2)，需要检查所有父评论是否都为通过状态
         if (newStatus == 1 || newStatus == 2) {
             if (hasUnapprovedParentComment(existing)) {
                 log.warn("审核评论失败：存在未通过的父评论链，commentId={}", commentId);
-                return SaResult.error("存在未通过的父评论，无法将状态设为已通过或垃圾评论").setCode(400);
+                return ServiceResult.error("存在未通过的父评论，无法将状态设为已通过或垃圾评论").setCode(400);
             }
         }
 
@@ -392,7 +393,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
         }
 
         SysComment updated = commentMapper.selectById(commentId);
-        return SaResult.data(toResponseDTO(updated));
+        return ServiceResult.data(toResponseDTO(updated));
     }
 
     /**
@@ -461,7 +462,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 发送邮件
         try {
-            SaResult result = mailService.sendCommentReviewNotification(toEmail, approved, siteDomain);
+            ServiceResult result = mailService.sendCommentReviewNotification(toEmail, approved, siteDomain);
             if (result.getCode() == 200) {
                 log.info("评论审核通知邮件发送成功，commentId={}, to={}, approved={}",
                         comment.getId(), toEmail, approved);
@@ -579,7 +580,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 发送邮件
         try {
-            SaResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
+            ServiceResult result = mailService.sendCommentReplyNotification(toEmail, siteDomain, replyComment.getContent());
             if (result.getCode() == 200) {
                 log.info("评论回复通知邮件发送成功，parentId={}, to={}", parentCommentId, toEmail);
                 return true;
@@ -644,7 +645,7 @@ public class GlobalCommentServiceImpl implements GlobalCommentService {
 
         // 发送邮件
         try {
-            SaResult result = mailService.sendTopLevelCommentApprovedNotification(
+            ServiceResult result = mailService.sendTopLevelCommentApprovedNotification(
                     toEmail, siteDomain, blog.getId(), blog.getTitle(),
                     comment.getId(), comment.getContent(), commenter);
             if (result.getCode() == 200) {

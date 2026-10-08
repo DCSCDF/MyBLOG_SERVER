@@ -14,8 +14,10 @@
 
 package com.jiuliu.myblog_dev.controller.user.auth;
 
-import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.utils.security.SecurityUtils;
+
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.user.auth.*;
 import com.jiuliu.myblog_dev.service.user.auth.AuthService;
@@ -39,32 +41,32 @@ public class AuthController {
     }
 
     /**
-     * 处理返回Map类型的SaResult结果
+     * 处理返回Map类型的ServiceResult结果
      *
-     * @param saResult Sa-Token返回的结果
+     * @param serviceResult 服务层返回的结果
      * @return 统一响应格式
      */
-    private Response<Map<String, Object>> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private Response<Map<String, Object>> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) saResult.getData();
+            Map<String, Object> data = (Map<String, Object>) serviceResult.getData();
             return ResponseUtil.success(data, 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
     /**
-     * 处理返回Object类型的SaResult结果
+     * 处理返回Object类型的ServiceResult结果
      *
-     * @param saResult Sa-Token返回的结果
+     * @param serviceResult 服务层返回的结果
      * @return 统一响应格式
      */
-    private Response<Object> handleSaResultObject(SaResult saResult) {
-        if (saResult.getCode() == 200) {
-            return ResponseUtil.success(saResult.getData(), 200);
+    private Response<Object> handleServiceResultObject(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
+            return ResponseUtil.success(serviceResult.getData(), 200);
         } else {
-            return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+            return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
         }
     }
 
@@ -74,13 +76,13 @@ public class AuthController {
     @GetMapping("/public-key")
     @RateLimit(count = 30, period = 1)
     public Response<Map<String, Object>> getPublicKey() {
-        return handleSaResult(authService.getPublicKey());
+        return handleServiceResult(authService.getPublicKey());
     }
 
     @PostMapping("/login")
     @RateLimit(count = 6, period = 15)
     public Response<Map<String, Object>> login(@Valid @RequestBody LoginDTO dto) {
-        return handleSaResult(authService.login(dto));
+        return handleServiceResult(authService.login(dto));
     }
 
     /**
@@ -90,34 +92,34 @@ public class AuthController {
     @PostMapping("/oauth/token")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> exchangeCodeForToken(@Valid @RequestBody OAuthCodeDTO dto) {
-        return handleSaResult(authService.exchangeCodeForToken(dto.getCode()));
+        return handleServiceResult(authService.exchangeCodeForToken(dto.getCode()));
     }
 
     @PostMapping("/profile")
     @RateLimit(count = 80, period = 4)
     public Response<Object> getUserProfile() {
         // 根据 token 返回userID 如果 token 无效会抛 NotLoginException
-        Long userId = StpUtil.getLoginIdAsLong(); // 自动由 Sa-Token 提供
-        return handleSaResultObject(authService.getUserProfile(userId));
+        Long userId = SecurityUtils.getCurrentUserId(); // 自动由 Spring Security 上下文提供
+        return handleServiceResultObject(authService.getUserProfile(userId));
     }
 
     @PostMapping("/logout")
     @RateLimit(count = 80, period = 4)
     public Response<Map<String, Object>> logout() {
-        return handleSaResult(authService.logout());
+        return handleServiceResult(authService.logout());
     }
 
     @PostMapping("/update-password")
     @RateLimit(count = 6, period = 15)
     public Response<Map<String, Object>> updatePassword(@Valid @RequestBody ChangePasswordDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.updatePassword(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.updatePassword(dto, currentUserId));
     }
 
     @PostMapping("/register")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> register(@Valid @RequestBody RegisterDTO dto) {
-        return handleSaResult(authService.register(dto));
+        return handleServiceResult(authService.register(dto));
     }
 
     /**
@@ -127,7 +129,7 @@ public class AuthController {
     @PostMapping("/register/code")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> requestRegisterCode(@Valid @RequestBody RegisterCodeRequestDTO dto) {
-        return handleSaResult(authService.requestRegisterCode(dto));
+        return handleServiceResult(authService.requestRegisterCode(dto));
     }
 
     /**
@@ -137,7 +139,7 @@ public class AuthController {
     @PostMapping("/register/confirm")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> confirmRegister(@Valid @RequestBody RegisterConfirmDTO dto) {
-        return handleSaResult(authService.confirmRegister(dto));
+        return handleServiceResult(authService.confirmRegister(dto));
     }
 
     /**
@@ -146,7 +148,7 @@ public class AuthController {
     @PostMapping("/find-password/code")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> requestFindPasswordCode(@Valid @RequestBody FindPasswordCodeRequestDTO dto) {
-        return handleSaResult(authService.requestFindPasswordCode(dto));
+        return handleServiceResult(authService.requestFindPasswordCode(dto));
     }
 
     /**
@@ -155,28 +157,28 @@ public class AuthController {
     @PostMapping("/find-password/confirm")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> confirmFindPassword(@Valid @RequestBody FindPasswordConfirmDTO dto) {
-        return handleSaResult(authService.confirmFindPassword(dto));
+        return handleServiceResult(authService.confirmFindPassword(dto));
     }
 
     @PostMapping("/update-nickname")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateNickname(@Valid @RequestBody UpdateNicknameDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.updateNickname(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.updateNickname(dto, currentUserId));
     }
 
     @PostMapping("/update-bio")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateBio(@Valid @RequestBody UpdateBioDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.updateBio(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.updateBio(dto, currentUserId));
     }
 
     @PostMapping("/update-avatar-url")
     @RateLimit(count = 10, period = 60)
     public Response<Map<String, Object>> updateAvatarUrl(@Valid @RequestBody UpdateAvatarUrlDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.updateAvatarUrl(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.updateAvatarUrl(dto, currentUserId));
     }
 
     /**
@@ -186,8 +188,8 @@ public class AuthController {
     @PostMapping("/update-email")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> updateEmail(@Valid @RequestBody UpdateEmailDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.updateEmail(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.updateEmail(dto, currentUserId));
     }
 
     /**
@@ -196,8 +198,8 @@ public class AuthController {
     @PostMapping("/change-email/code")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> requestChangeEmailCode(@Valid @RequestBody ChangeEmailDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.requestChangeEmailCode(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.requestChangeEmailCode(dto, currentUserId));
     }
 
     /**
@@ -206,8 +208,8 @@ public class AuthController {
     @PostMapping("/change-email/confirm")
     @RateLimit(count = 6, period = 60)
     public Response<Map<String, Object>> confirmChangeEmail(@Valid @RequestBody ChangeEmailConfirmDTO dto) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResult(authService.confirmChangeEmail(dto, currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResult(authService.confirmChangeEmail(dto, currentUserId));
     }
 
     /**
@@ -217,7 +219,7 @@ public class AuthController {
     @PostMapping("/permissions")
     @RateLimit(count = 80, period = 4)
     public Response<Object> getCurrentUserPermissions() {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        return handleSaResultObject(authService.getCurrentUserPermissions(currentUserId));
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return handleServiceResultObject(authService.getCurrentUserPermissions(currentUserId));
     }
 }

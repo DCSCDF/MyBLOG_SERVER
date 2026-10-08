@@ -14,7 +14,7 @@
 
 package com.jiuliu.myblog_dev.utils.auth;
 
-import cn.dev33.satoken.dao.SaTokenDao;
+import com.jiuliu.myblog_dev.security.ExpiringValueStore;
 import lombok.Getter;
 import lombok.Setter;
 import org.slf4j.Logger;
@@ -34,10 +34,10 @@ public class RegisterPendingUserService {
 
     private static final String PENDING_USER_PREFIX = "register_pending:";
 
-    private final SaTokenDao saTokenDao;
+    private final ExpiringValueStore valueStore;
 
-    public RegisterPendingUserService(SaTokenDao saTokenDao) {
-        this.saTokenDao = saTokenDao;
+    public RegisterPendingUserService(ExpiringValueStore valueStore) {
+        this.valueStore = valueStore;
     }
 
     /**
@@ -82,7 +82,7 @@ public class RegisterPendingUserService {
         String key = PENDING_USER_PREFIX + email;
         PendingUser user = new PendingUser(username, email, encodedPassword, code,
                 LocalDateTime.now().plusMinutes(expireMinutes));
-        saTokenDao.set(key, serialize(user), expireMinutes * 60L);
+        valueStore.set(key, serialize(user), expireMinutes * 60L);
         log.info("保存待注册用户信息，email={}, username={}", email, username);
     }
 
@@ -94,7 +94,7 @@ public class RegisterPendingUserService {
      */
     public PendingUser getPendingUser(String email) {
         String key = PENDING_USER_PREFIX + email;
-        String data = saTokenDao.get(key);
+        String data = valueStore.get(key);
         if (data == null) {
             return null;
         }
@@ -108,7 +108,7 @@ public class RegisterPendingUserService {
      */
     public void deletePendingUser(String email) {
         String key = PENDING_USER_PREFIX + email;
-        saTokenDao.delete(key);
+        valueStore.delete(key);
         log.info("删除待注册用户信息，email={}", email);
     }
 
@@ -127,10 +127,10 @@ public class RegisterPendingUserService {
         user.setAttemptCount(user.getAttemptCount() + 1);
         long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), user.getCodeExpireTime()).getSeconds();
         if (ttlSeconds <= 0) {
-            saTokenDao.delete(key);
+            valueStore.delete(key);
             return -1;
         }
-        saTokenDao.set(key, serialize(user), ttlSeconds);
+        valueStore.set(key, serialize(user), ttlSeconds);
         return user.getAttemptCount();
     }
 

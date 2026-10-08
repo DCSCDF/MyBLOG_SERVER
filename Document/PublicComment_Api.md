@@ -341,7 +341,7 @@ curl -X POST http://localhost:8080/api/public/comment \
 
 ### 用户识别逻辑
 
-1. 首先检查用户是否已登录（通过 Sa-Token 的 `StpUtil.isLogin()`）
+1. 首先检查用户是否已登录（通过 Spring Security 的 `SecurityUtils.isLogin()`）
 2. **已登录用户**:
    - 使用用户表的 `nickname` 作为评论者名称
    - 使用用户表的 `email` 作为邮箱

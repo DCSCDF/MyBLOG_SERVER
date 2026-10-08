@@ -14,8 +14,9 @@
 
 package com.jiuliu.myblog_dev.controller.blog.categories;
 
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.util.SaResult;
+import com.jiuliu.myblog_dev.dto.ServiceResult;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.jiuliu.myblog_dev.dto.Response;
 import com.jiuliu.myblog_dev.dto.blog.category.*;
 import com.jiuliu.myblog_dev.service.blog.category.CategoryService;
@@ -39,11 +40,11 @@ public class CategoryController {
      * 分页获取分类列表
      * 权限：category:list
      */
-    @SaCheckPermission("category:list")
+    @PreAuthorize("hasAuthority('category:list')")
     @PostMapping("/list")
     public Response<PageCategoryResponseDTO> getPageCategories(@Valid @RequestBody PageCategoryDTO pageDto) {
-        SaResult saResult = categoryService.getPageCategories(pageDto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = categoryService.getPageCategories(pageDto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
@@ -51,57 +52,57 @@ public class CategoryController {
      * 用于文章创建/编辑时的分类选择
      * 权限：category:list
      */
-    @SaCheckPermission("category:list")
+    @PreAuthorize("hasAuthority('category:list')")
     @GetMapping("/available")
     public Response<List<CategoryResponseDTO>> getAvailableCategories() {
-        SaResult saResult = categoryService.getAvailableCategories();
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = categoryService.getAvailableCategories();
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 创建分类
      * 权限：category:create
      */
-    @SaCheckPermission("category:create")
+    @PreAuthorize("hasAuthority('category:create')")
     @PostMapping
     public Response<CategoryResponseDTO> createCategory(@Valid @RequestBody CategoryCreateDTO dto) {
-        SaResult saResult = categoryService.createCategory(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = categoryService.createCategory(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 更新分类（名称、描述、排序顺序、是否隐藏）
      * 权限：category:edit
      */
-    @SaCheckPermission("category:edit")
+    @PreAuthorize("hasAuthority('category:edit')")
     @PutMapping("/{id}")
     public Response<CategoryResponseDTO> updateCategory(@PathVariable Long id,
                                                         @Valid @RequestBody CategoryUpdateDTO dto) {
         dto.setId(id);
-        SaResult saResult = categoryService.updateCategory(dto);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = categoryService.updateCategory(dto);
+        return handleServiceResult(serviceResult);
     }
 
     /**
      * 删除分类
      * 权限：category:delete
      */
-    @SaCheckPermission("category:delete")
+    @PreAuthorize("hasAuthority('category:delete')")
     @DeleteMapping("/{id}")
     public Response<Object> deleteCategory(@PathVariable Long id) {
-        SaResult saResult = categoryService.deleteCategory(id);
-        return handleSaResult(saResult);
+        ServiceResult serviceResult = categoryService.deleteCategory(id);
+        return handleServiceResult(serviceResult);
     }
 
-    private <T> Response<T> handleSaResult(SaResult saResult) {
-        if (saResult.getCode() == 200) {
+    private <T> Response<T> handleServiceResult(ServiceResult serviceResult) {
+        if (serviceResult.getCode() == 200) {
 
             @SuppressWarnings("unchecked")
-            T data = (T) saResult.getData();
+            T data = (T) serviceResult.getData();
             return ResponseUtil.success(data, 200);
 
         }
-        return ResponseUtil.fail(saResult.getMsg(), saResult.getCode());
+        return ResponseUtil.fail(serviceResult.getMsg(), serviceResult.getCode());
     }
 }
 
